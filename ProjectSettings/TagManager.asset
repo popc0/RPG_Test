@@ -38,18 +38,9 @@ TagManager:
   - 
   - 
   m_SortingLayers:
-  - name: Default
-    uniqueID: 0
-    locked: 0
   - name: Ground
     uniqueID: 853380413
     locked: 0
-  - name: Objects
-    uniqueID: 1012619671
-    locked: 0
-  - name: Walls
-    uniqueID: 3715232833
-    locked: 0
-  - name: Overlay
-    uniqueID: 2580238947
+  - name: Default
+    uniqueID: 0
     locked: 0
