@@ -3,17 +3,18 @@ using UnityEngine;
 [RequireComponent(typeof(SpriteRenderer))]
 public class YSortOrder : MonoBehaviour
 {
-    [SerializeField] private int sortingOffset = 0;
+    [SerializeField] private int offset = 0;
+    [SerializeField] private int multiplier = 100;
 
     private SpriteRenderer sr;
 
-    void Awake()
+    private void Awake()
     {
         sr = GetComponent<SpriteRenderer>();
     }
 
-    void LateUpdate()
+    private void LateUpdate()
     {
-        sr.sortingOrder = -(int)(transform.position.y * 100) + sortingOffset;
+        sr.sortingOrder = -Mathf.RoundToInt(transform.position.y * multiplier) + offset;
     }
 }
