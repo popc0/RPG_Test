@@ -16,65 +16,65 @@ public class TilemapLayerSplitter : MonoBehaviour
     [Header("Tilemap Prefab 或模板（可選）")]
     public GameObject tilemapTemplate;
 
-    [ContextMenu("分層所有 Tile")]
+    [ContextMenu("分層所有 Tile（依 Y 分橫列）")]
     public void SplitTilemapByY()
     {
-        if (sourceTilemap == null || sourceGrid == null)
+        if (sourceTilemap == null || sourceGrid == null || targetParent == null)
         {
-            Debug.LogError("請指定來源 Tilemap 和 Grid！");
+            Debug.LogError("請指定來源 Tilemap、Grid 和目標父物件！");
             return;
         }
 
         BoundsInt bounds = sourceTilemap.cellBounds;
-        TileBase[] allTiles = sourceTilemap.GetTilesBlock(bounds);
 
-        for (int x = bounds.xMin; x < bounds.xMax; x++)
+        for (int y = bounds.yMin; y < bounds.yMax; y++)
         {
-            for (int y = bounds.yMin; y < bounds.yMax; y++)
+            string tilemapName = $"Tilemap_Object_Y{y}";
+            Transform existing = targetParent.Find(tilemapName);
+            if (existing != null)
+            {
+                DestroyImmediate(existing.gameObject);
+            }
+
+            GameObject newTM;
+            if (tilemapTemplate != null)
+            {
+                newTM = (GameObject)PrefabUtility.InstantiatePrefab(tilemapTemplate);
+            }
+            else
+            {
+                newTM = new GameObject(tilemapName);
+                newTM.AddComponent<Tilemap>();
+                newTM.AddComponent<TilemapRenderer>();
+            }
+
+            newTM.name = tilemapName;
+            newTM.transform.SetParent(targetParent);
+            newTM.transform.localPosition = Vector3.zero;
+
+            Tilemap targetTilemap = newTM.GetComponent<Tilemap>();
+            TilemapRenderer rend = newTM.GetComponent<TilemapRenderer>();
+            rend.sortingLayerName = sourceTilemap.GetComponent<TilemapRenderer>().sortingLayerName;
+            rend.sortingOrder = -y * 100;
+
+            // 自動加入 TilemapCollider2D
+            if (newTM.GetComponent<TilemapCollider2D>() == null)
+            {
+                newTM.AddComponent<TilemapCollider2D>();
+            }
+
+            for (int x = bounds.xMin; x < bounds.xMax; x++)
             {
                 Vector3Int pos = new Vector3Int(x, y, 0);
                 TileBase tile = sourceTilemap.GetTile(pos);
-                if (tile == null) continue;
-
-                // 尋找或建立對應 Y 值的 Tilemap
-                string tilemapName = $"Tilemap_Object_Y{y}";
-                Transform found = targetParent.Find(tilemapName);
-                Tilemap targetTilemap = null;
-
-                if (found == null)
+                if (tile != null)
                 {
-                    GameObject newTM;
-                    if (tilemapTemplate != null)
-                    {
-                        newTM = (GameObject)PrefabUtility.InstantiatePrefab(tilemapTemplate);
-                    }
-                    else
-                    {
-                        newTM = new GameObject(tilemapName);
-                        newTM.AddComponent<Tilemap>();
-                        newTM.AddComponent<TilemapRenderer>();
-                    }
-
-                    newTM.name = tilemapName;
-                    newTM.transform.SetParent(targetParent);
-                    newTM.transform.localPosition = Vector3.zero;
-
-                    TilemapRenderer rend = newTM.GetComponent<TilemapRenderer>();
-                    rend.sortingLayerName = "Default";
-                    rend.sortingOrder = -y * 100; // 依 Y 值設排序
-
-                    targetTilemap = newTM.GetComponent<Tilemap>();
+                    targetTilemap.SetTile(pos, tile);
                 }
-                else
-                {
-                    targetTilemap = found.GetComponent<Tilemap>();
-                }
-
-                targetTilemap.SetTile(pos, tile);
             }
         }
 
-        Debug.Log("Tilemap 分層完成！");
+        Debug.Log("依橫列分層完成（覆寫舊層，含碰撞）！");
     }
 }
 #endif
