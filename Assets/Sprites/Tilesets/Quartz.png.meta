@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 8523a2ad95af4504c9244ef5b518b6ea
+guid: 2be930cbece9e3442b8871e9a096c4aa
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -48,7 +48,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 256
+  spritePixelsToUnits: 1024
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -94,19 +94,6 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 3
-    buildTarget: WebGL
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 3
     buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
@@ -123,81 +110,85 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Wall_01_0
+      name: Quartz_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 256
-        width: 256
-        height: 256
+        y: 1024
+        width: 1024
+        height: 1024
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
-      physicsShape:
-      - - {x: -128, y: -128}
-        - {x: -128, y: -38}
-        - {x: -5, y: -30}
-        - {x: 128, y: -10}
-        - {x: 128, y: -128}
+      physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 3f1c8988943cc3143b4f67380598cc03
-      internalID: -1932760351
+      spriteID: 86c850df356b0924a845cb458edf9756
+      internalID: 116589113
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Wall_01_1
+      name: Quartz_1
       rect:
         serializedVersion: 2
-        x: 256
-        y: 256
-        width: 256
-        height: 256
+        x: 1024
+        y: 1024
+        width: 1024
+        height: 1024
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
-      physicsShape:
-      - - {x: -91, y: -114}
-        - {x: -128, y: 68}
-        - {x: 105, y: 88}
-        - {x: 80, y: -110}
-      - - {x: 89, y: 27}
-        - {x: 89, y: 93}
-        - {x: 89, y: 93}
-        - {x: 89, y: 27}
+      physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 9a18a4b6c4bcd83488919a79be1130cf
-      internalID: -1919539134
+      spriteID: 5b9deb70fb55cca4484fd892f28b1b22
+      internalID: 60930725
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Wall_01_2
+      name: Quartz_2
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 256
-        height: 256
+        width: 1024
+        height: 1024
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
-      physicsShape:
-      - - {x: -123, y: -21}
-        - {x: -119, y: 113}
-        - {x: 91, y: 113}
-        - {x: 88, y: -105}
+      physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 3c270019b1a8e084cac910fe1101c548
-      internalID: -988255887
+      spriteID: 9d13490ee2811934fb75bcb7e0b6f85e
+      internalID: -1080958114
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Quartz_3
+      rect:
+        serializedVersion: 2
+        x: 1024
+        y: 0
+        width: 1024
+        height: 1024
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 98aad696fd77dc54b974aed6d2287267
+      internalID: 622595400
       vertices: []
       indices: 
       edges: []
@@ -213,9 +204,10 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     nameFileIdTable:
-      Wall_01_0: -1932760351
-      Wall_01_1: -1919539134
-      Wall_01_2: -988255887
+      Quartz_0: 116589113
+      Quartz_1: 60930725
+      Quartz_2: -1080958114
+      Quartz_3: 622595400
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

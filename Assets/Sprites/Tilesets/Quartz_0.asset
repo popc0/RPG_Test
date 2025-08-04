@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 13312, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name: Wall_01_2
+  m_Name: Quartz_0
   m_EditorClassIdentifier: 
-  m_Sprite: {fileID: -988255887, guid: 8523a2ad95af4504c9244ef5b518b6ea, type: 3}
+  m_Sprite: {fileID: 116589113, guid: 2be930cbece9e3442b8871e9a096c4aa, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Transform:
     e00: 1
