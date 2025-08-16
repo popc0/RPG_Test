@@ -21,4 +21,4 @@ MonoBehaviour:
   ParameterCurves: []
   ParameterFadeInTimes: []
   ParameterFadeOutTimes: []
-  MotionLength: 1
+  MotionLength: 0.8
