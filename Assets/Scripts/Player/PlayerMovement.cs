@@ -2,89 +2,140 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
+    [Header("移動")]
     public float moveSpeed = 5f;
+
+    [Header("模型參考")]
+    [SerializeField] private GameObject modelLR;      // 左右/向下用的 Live2D（翻轉共用）
+    [SerializeField] private Transform  flipTargetLR; // 建議指到 modelLR 的可見根
+    [SerializeField] private GameObject modelUp;      // 專門往上用的 Live2D（不翻轉）
+
+    [Header("動畫狀態名稱（兩個模型的 Animator 都要有相同命名）")]
+    [SerializeField] private string walkRight = "walk_right";
+    [SerializeField] private string walkDown  = "walk_down";
+    [SerializeField] private string walkUp    = "walk_up";
+    [SerializeField] private string idleRight = "idle_right";
+    [SerializeField] private string idleDown  = "idle_down";
+    [SerializeField] private string idleUp    = "idle_up";
+
     private Rigidbody2D rb;
-    private Animator animator;
+    private Animator animLR;
+    private Animator animUp;
 
     private Vector2 moveInput;
     private string lastIdleState = "idle_down";
-
-    [Header("翻轉目標（建議設定為角色外觀，例如 Q0 prefab）")]
-    [SerializeField] private Transform flipTarget;
+    private Animator currentAnim = null; // 目前正在使用的 Animator（會在模型切換時更新）
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-        animator = GetComponentInChildren<Animator>();
 
-        // 如果沒指定 flipTarget，預設使用 Animator 物件
-        if (flipTarget == null && animator != null)
-            flipTarget = animator.transform;
+        if (modelLR != null) animLR = modelLR.GetComponentInChildren<Animator>(true);
+        if (modelUp != null) animUp = modelUp.GetComponentInChildren<Animator>(true);
+
+        // 預設顯示 LR，隱藏 Up
+        SetActiveModel(useUp: false);
+
+        // flipTargetLR 未指定時，嘗試用 LR 的 Animator Transform
+        if (flipTargetLR == null && animLR != null)
+            flipTargetLR = animLR.transform;
     }
 
     void Update()
     {
         moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-
-        // 正規化避免斜方向過快
-        if (moveInput.magnitude > 1)
-            moveInput.Normalize();
-
+        if (moveInput.sqrMagnitude > 1f) moveInput.Normalize();
         HandleAnimation();
     }
 
     void FixedUpdate()
     {
-        rb.MovePosition(rb.position + moveInput * moveSpeed * Time.fixedDeltaTime);
+        if (rb != null)
+            rb.MovePosition(rb.position + moveInput * moveSpeed * Time.fixedDeltaTime);
     }
 
     void HandleAnimation()
     {
         if (moveInput == Vector2.zero)
         {
-            animator.Play(lastIdleState);
+            // 停下時播最後一次移動方向對應的待機，使用當前啟用的 Animator
+            if (currentAnim != null)
+                currentAnim.Play(lastIdleState);
             return;
         }
 
+        // 左右優先
         if (Mathf.Abs(moveInput.x) > Mathf.Abs(moveInput.y))
         {
-            // 左右優先
-            if (moveInput.x > 0)
+            // 使用 LR 模型
+            SetActiveModel(useUp: false);
+
+            if (moveInput.x > 0f)
             {
-                animator.Play("walk_right");
-                lastIdleState = "idle_right";
-                ApplyFlip(false);
+                ApplyFlipLR(false);
+                currentAnim.Play(walkRight);
+                lastIdleState = idleRight;
             }
             else
             {
-                animator.Play("walk_right"); // 共用右邊動畫
-                lastIdleState = "idle_right"; // idle_left → idle_right
-                ApplyFlip(true); // 水平翻轉
+                ApplyFlipLR(true);          // 左向用右向動畫翻轉
+                currentAnim.Play(walkRight);
+                lastIdleState = idleRight;  // 待機也用右向（翻轉）
             }
         }
         else
         {
-            // 上下
-            if (moveInput.y > 0)
+            if (moveInput.y > 0f)
             {
-                animator.Play("walk_up");
-                lastIdleState = "idle_up";
+                // 使用 Up 模型（不水平翻轉）
+                SetActiveModel(useUp: true);
+                currentAnim.Play(walkUp);
+                lastIdleState = idleUp;
             }
             else
             {
-                animator.Play("walk_down");
-                lastIdleState = "idle_down";
+                // 使用 LR 模型
+                SetActiveModel(useUp: false);
+                ApplyFlipLR(false); // 向下時不需要翻轉
+                currentAnim.Play(walkDown);
+                lastIdleState = idleDown;
             }
         }
     }
 
-    // true = 左翻，false = 正常
-    void ApplyFlip(bool flip)
+    // 切換啟用哪個模型，同時更新 currentAnim
+    void SetActiveModel(bool useUp)
     {
-        if (flipTarget == null) return;
+        if (modelLR != null) modelLR.SetActive(!useUp);
+        if (modelUp != null) modelUp.SetActive(useUp);
 
-        Vector3 scale = flipTarget.localScale;
-        scale.x = flip ? -Mathf.Abs(scale.x) : Mathf.Abs(scale.x);
-        flipTarget.localScale = scale;
+        if (useUp)
+        {
+            currentAnim = animUp;
+            // 確保 LR 翻轉對象不被誤用
+            if (flipTargetLR != null)
+            {
+                var s = flipTargetLR.localScale;
+                s.x = Mathf.Abs(s.x);
+                flipTargetLR.localScale = s;
+            }
+        }
+        else
+        {
+            currentAnim = animLR;
+        }
+    }
+
+    // 專門改 LR 模型的水平翻轉（Up 模型不翻）
+    void ApplyFlipLR(bool flip)
+    {
+        if (flipTargetLR == null) return;
+        var s = flipTargetLR.localScale;
+        float targetX = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
+        if (!Mathf.Approximately(s.x, targetX))
+        {
+            s.x = targetX;
+            flipTargetLR.localScale = s;
+        }
     }
 }
