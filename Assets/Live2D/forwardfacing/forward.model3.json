@@ -1,21 +1,21 @@
 {
 	"Version": 3,
 	"FileReferences": {
-		"Moc": "forward - 複製.moc3",
+		"Moc": "forward.moc3",
 		"Textures": [
-			"forward - 複製.2048/texture_00.png"
+			"forward.2048/texture_00.png"
 		],
-		"DisplayInfo": "forward - 複製.cdi3.json"
+		"DisplayInfo": "forward.cdi3.json"
 	},
 	"Groups": [
 		{
 			"Target": "Parameter",
-			"Name": "EyeBlink",
+			"Name": "LipSync",
 			"Ids": []
 		},
 		{
 			"Target": "Parameter",
-			"Name": "LipSync",
+			"Name": "EyeBlink",
 			"Ids": []
 		}
 	]

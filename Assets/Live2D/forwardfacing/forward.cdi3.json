@@ -112,6 +112,16 @@
 			"Name": "身体旋转　Z"
 		},
 		{
+			"Id": "Param3",
+			"GroupId": "",
+			"Name": "参数26"
+		},
+		{
+			"Id": "Param4",
+			"GroupId": "",
+			"Name": "参数27"
+		},
+		{
 			"Id": "ParamBreath",
 			"GroupId": "",
 			"Name": "呼吸"
@@ -158,6 +168,10 @@
 		[
 			"ParamBrowRAngle",
 			"Param2"
+		],
+		[
+			"Param3",
+			"Param4"
 		]
 	]
 }
