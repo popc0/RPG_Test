@@ -20,6 +20,9 @@ public class TeleporterInteractable : InteractableBase
     public string targetSceneName;  // 必須加入 Build Settings
     public string targetSpawnId;    // 目標場景裡 SpawnPoint 的 ID
 
+    [Header("UI 提示")]
+    public string destinationName;  // 顯示用目的地名稱
+
     void Reset()
     {
         var col = GetComponent<Collider2D>();
@@ -59,5 +62,43 @@ public class TeleporterInteractable : InteractableBase
             TeleportRequest.spawnId = targetSpawnId;
             SceneManager.LoadScene(targetSceneName);
         }
+
+        if (InteractPromptUI.Instance != null)
+            InteractPromptUI.Instance.Hide();
+    }
+
+    // 玩家進入範圍時顯示提示
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (!enabled || !interactable) return;
+        if (!other.CompareTag("Player")) return;
+
+        string nameToShow = GetDisplayName();
+        string tip = string.IsNullOrEmpty(nameToShow)
+            ? "按 E 傳送"
+            : $"前往 {nameToShow}，按 E 傳送";
+
+        if (InteractPromptUI.Instance != null)
+            InteractPromptUI.Instance.Show(tip);
+    }
+
+    // 玩家離開範圍時隱藏提示
+    void OnTriggerExit2D(Collider2D other)
+    {
+        if (!other.CompareTag("Player")) return;
+        if (InteractPromptUI.Instance != null)
+            InteractPromptUI.Instance.Hide();
+    }
+
+    string GetDisplayName()
+    {
+        if (!string.IsNullOrEmpty(destinationName)) return destinationName;
+
+        if (mode == TeleportMode.SameScene)
+            return targetTransform != null ? targetTransform.name : "";
+
+        if (!string.IsNullOrEmpty(targetSpawnId)) return targetSpawnId;
+        if (!string.IsNullOrEmpty(targetSceneName)) return targetSceneName;
+        return "";
     }
 }
