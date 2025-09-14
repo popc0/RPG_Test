@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8453999137718503878}
   - component: {fileID: 8053942336326612816}
   - component: {fileID: 9120842818301296021}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Teleporter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -136,3 +136,8 @@ MonoBehaviour:
   prompt: "\u6309 E \u50B3\u9001"
   interactable: 1
   data: {fileID: 11400000, guid: f1ab0a1a48c5c5c439304a13fd06e5e6, type: 2}
+  mode: 0
+  targetTransform: {fileID: 0}
+  offset: {x: 0, y: 0}
+  targetSceneName: 
+  targetSpawnId: 

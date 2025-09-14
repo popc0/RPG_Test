@@ -1,14 +1,24 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public enum TeleportMode { SameScene, OtherScene }
 
 [RequireComponent(typeof(Collider2D))]
 public class TeleporterInteractable : InteractableBase
 {
-    [Header("資料（提示文字等）")]
-    public TeleporterData data;
+    [Header("顯示文字（可接 ScriptableObject 也可直接填）")]
+    public TeleporterData data;           // 可為空；只拿 promptText 用
 
-    [Header("同場景目標")]
-    public Transform targetTransform;   // 場景內的空物件或地標
-    public Vector2 offset;            // 微調位置，可為 (0,0)
+    [Header("模式")]
+    public TeleportMode mode = TeleportMode.SameScene;
+
+    [Header("同場景")]
+    public Transform targetTransform;
+    public Vector2 offset;
+
+    [Header("跨場景")]
+    public string targetSceneName;  // 必須加入 Build Settings
+    public string targetSpawnId;    // 目標場景裡 SpawnPoint 的 ID
 
     void Reset()
     {
@@ -25,17 +35,29 @@ public class TeleporterInteractable : InteractableBase
 
     public override bool CanInteract()
     {
-        return interactable && targetTransform != null;
+        if (!interactable) return false;
+        if (mode == TeleportMode.SameScene) return targetTransform != null;
+        return !string.IsNullOrEmpty(targetSceneName) && !string.IsNullOrEmpty(targetSpawnId);
     }
 
     public override void Interact(GameObject interactor)
     {
-        if (targetTransform == null) return;
+        if (!CanInteract()) return;
 
-        Vector2 dst = (Vector2)targetTransform.position + offset;
-        interactor.transform.position = dst;
-
-        var rb = interactor.GetComponent<Rigidbody2D>();
-        if (rb) rb.velocity = Vector2.zero;
+        if (mode == TeleportMode.SameScene)
+        {
+            Vector2 dst = (Vector2)targetTransform.position + offset;
+            interactor.transform.position = dst;
+            var rb = interactor.GetComponent<Rigidbody2D>();
+            if (rb) rb.velocity = Vector2.zero;
+        }
+        else
+        {
+            // 記錄需求，切場景
+            TeleportRequest.hasPending = true;
+            TeleportRequest.sceneName = targetSceneName;
+            TeleportRequest.spawnId = targetSpawnId;
+            SceneManager.LoadScene(targetSceneName);
+        }
     }
 }
