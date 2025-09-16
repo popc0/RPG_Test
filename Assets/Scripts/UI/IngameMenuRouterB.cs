@@ -47,8 +47,17 @@ public class IngameMenuRouterB : MonoBehaviour
     // 主頁
     public void OnClick_Continue() { menuSlide?.Close(); }
     public void OnClick_Options() { OpenOptions(); }
+
     public void OnClick_BackToMain()
     {
+        // 1) 存檔（位置 + 場景 + 音量）
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.SaveNow();
+
+        // 2) 隱藏 HUD（避免和主選單 UI 同時顯示/搶焦點）
+        HUDVisibilityController.HideHUD();
+
+        // 3) 切主選單
         Time.timeScale = 1f;
         SceneManager.LoadScene(mainMenuSceneName);
     }
@@ -70,7 +79,8 @@ public class IngameMenuRouterB : MonoBehaviour
     }
     void SetFocus(Selectable s)
     {
-        if (s == null) return;
+        if (s == null || EventSystem.current == null) return;
+        if (!s.gameObject.activeInHierarchy) return;
         EventSystem.current.SetSelectedGameObject(null);
         EventSystem.current.SetSelectedGameObject(s.gameObject);
     }
