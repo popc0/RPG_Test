@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
@@ -11,8 +12,8 @@ public class IngameMenuSlide : MonoBehaviour
     public CanvasGroup canvasGroup;
 
     [Header("Positions (Anchored)")]
-    public Vector2 shownAnchoredPos = Vector2.zero;
-    public Vector2 hiddenAnchoredPos = new Vector2(0, -800);
+    public Vector2 shownAnchoredPos = Vector2.zero;      // 顯示時位置
+    public Vector2 hiddenAnchoredPos = new Vector2(0, -800); // 隱藏時位置
 
     [Header("Animation")]
     public float duration = 0.25f;
@@ -21,8 +22,12 @@ public class IngameMenuSlide : MonoBehaviour
     [Header("Focus（可選）")]
     public Selectable focusOnOpen;
 
-    [Header("Pause")]
+    [Header("Pause（通常只有 Ingame 的根面板才會勾）")]
     public bool pauseOnOpen = true;
+
+    [Header("Events")]
+    public UnityEvent Opened;  // 動畫完成且為開啟狀態時觸發
+    public UnityEvent Closed;  // 動畫完成且為關閉狀態時觸發
 
     public bool IsOpen { get; private set; }
     Coroutine animCo;
@@ -45,11 +50,13 @@ public class IngameMenuSlide : MonoBehaviour
     }
 
     public void Toggle() { if (IsOpen) Close(); else Open(); }
+
     public void Open()
     {
         if (animCo != null) StopCoroutine(animCo);
         animCo = StartCoroutine(Animate(true));
     }
+
     public void Close()
     {
         if (animCo != null) StopCoroutine(animCo);
@@ -62,7 +69,12 @@ public class IngameMenuSlide : MonoBehaviour
         IsOpen = open;
 
         if (pauseOnOpen) Time.timeScale = open ? 0f : 1f;
-        SetInteractable(true);
+
+        if (canvasGroup)
+        {
+            canvasGroup.interactable = open;
+            canvasGroup.blocksRaycasts = open;
+        }
 
         float start = Time.unscaledTime;
         float end = start + Mathf.Max(0.0001f, duration);
@@ -88,21 +100,26 @@ public class IngameMenuSlide : MonoBehaviour
         panel.anchoredPosition = to;
         if (canvasGroup) canvasGroup.alpha = a1;
 
-        if (!open) SetInteractable(false);
-        else if (focusOnOpen)
+        if (!open)
         {
-            EventSystem.current.SetSelectedGameObject(null);
-            EventSystem.current.SetSelectedGameObject(focusOnOpen.gameObject);
+            if (canvasGroup)
+            {
+                canvasGroup.interactable = false;
+                canvasGroup.blocksRaycasts = false;
+            }
+            Closed?.Invoke();
+        }
+        else
+        {
+            if (focusOnOpen && EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+                EventSystem.current.SetSelectedGameObject(focusOnOpen.gameObject);
+            }
+            Opened?.Invoke();
         }
 
         animCo = null;
-    }
-
-    void SetInteractable(bool on)
-    {
-        if (!canvasGroup) return;
-        canvasGroup.interactable = on && IsOpen;
-        canvasGroup.blocksRaycasts = on && IsOpen;
     }
 
     [ContextMenu("Snap Open")]
@@ -111,14 +128,25 @@ public class IngameMenuSlide : MonoBehaviour
         IsOpen = true;
         if (pauseOnOpen) Time.timeScale = 0f;
         if (panel) panel.anchoredPosition = shownAnchoredPos;
-        if (canvasGroup) { canvasGroup.alpha = 1f; canvasGroup.interactable = true; canvasGroup.blocksRaycasts = true; }
+        if (canvasGroup)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
     }
+
     [ContextMenu("Snap Closed")]
     public void SnapClosed()
     {
         IsOpen = false;
         if (pauseOnOpen) Time.timeScale = 1f;
         if (panel) panel.anchoredPosition = hiddenAnchoredPos;
-        if (canvasGroup) { canvasGroup.alpha = 0f; canvasGroup.interactable = false; canvasGroup.blocksRaycasts = false; }
+        if (canvasGroup)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+        }
     }
 }
