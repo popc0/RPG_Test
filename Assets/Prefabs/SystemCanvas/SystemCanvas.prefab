@@ -1013,12 +1013,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   menuSlide: {fileID: 4895269636308221943}
+  optionsWrapperSlide: {fileID: 0}
   optionsSlide: {fileID: 1693361070547864044}
   pageMain: {fileID: 8984626537013388294}
   pageOptions: {fileID: 156049306630893418}
   focusMain: {fileID: 3013608709577988684}
   focusOptions: {fileID: 3007837235751766307}
-  mainPageGroup: {fileID: 5058006300720496109}
   escKey: 27
   mainMenuSceneName: MainMenuScene
 --- !u!1 &3828506774609525309
@@ -1243,6 +1243,7 @@ GameObject:
   - component: {fileID: 716429957284119510}
   - component: {fileID: 179588487724208685}
   - component: {fileID: 3699014649995411318}
+  - component: {fileID: 922809171050105322}
   m_Layer: 5
   m_Name: SystemCanvas
   m_TagString: Untagged
@@ -1347,6 +1348,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4a2f316b80152745b39080953f26046, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  eventSystem: {fileID: 0}
+--- !u!114 &922809171050105322
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4474139592527913791}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c502d045658b8e4cab451443e9c0230, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hudPrefab: {fileID: 7109212257390740009, guid: 57abf5da92e33d74f9f5452bd3a7663d, type: 3}
+  hideInMainMenu: 1
+  mainMenuSceneName: MainMenuScene
 --- !u!1 &4694958692143221658
 GameObject:
   m_ObjectHideFlags: 0

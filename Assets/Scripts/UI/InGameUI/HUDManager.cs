@@ -1,94 +1,87 @@
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 using UnityEngine.SceneManagement;
-using UnityEngine.EventSystems;
 
 public class HUDManager : MonoBehaviour
 {
-    public static HUDManager Instance { get; private set; }
+    [Header("玩家數值來源")]
+    public PlayerStats playerStats;
 
-    [Header("HUD 設定")]
-    [Tooltip("指到你的 HUD Prefab（例如 Canvas_HUD）")]
-    public GameObject hudPrefab;
+    [Header("半圓影像")]
+    public Image halfHP;   // 左半圓（紅）
+    public Image halfMP;   // 右半圓（藍）
+    public Image portrait;
 
-    [Tooltip("進入主選單場景時是否自動隱藏 HUD")]
+    [Header("數值文字")]
+    public TextMeshProUGUI textHP;
+    public TextMeshProUGUI textMP;
+
+    [Header("按鈕")]
+    public Button btnBag;
+    public Button btnMap;
+
+    [Header("主選單可見性")]
     public bool hideInMainMenu = true;
-
-    [Tooltip("主選單場景名稱（需與 Build Settings 一致）")]
     public string mainMenuSceneName = "MainMenu";
-
-    private GameObject hudInstance;             // 產生後的 HUD
-    private CanvasGroup hudCanvasGroupCache;    // 若 HUD 上有 CanvasGroup
 
     void Awake()
     {
-        // 單例
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
+        if (btnBag) btnBag.onClick.AddListener(() => Debug.Log("Open Bag (TODO)"));
+        if (btnMap) btnMap.onClick.AddListener(() => Debug.Log("Open Map (TODO)"));
 
-        // 場上若已有一份 HUD（例如你先手動放了），就沿用；否則用 Prefab 產生
-        if (hudInstance == null)
+        // 初始化半圓：HP +90° 順時針、MP -90° 逆時針
+        SetupHalfRadial360(halfHP, Image.Origin360.Left, true, +90f);  // HP
+        SetupHalfRadial360(halfMP, Image.Origin360.Right, false, -90f);  // MP
+
+        RefreshAll();
+
+        if (hideInMainMenu)
         {
-            var existing = FindExistingHUDRoot();
-            if (existing != null)
+            var now = SceneManager.GetActiveScene().name;
+            SetVisible(now != mainMenuSceneName);
+            SceneManager.activeSceneChanged += (_, next) =>
             {
-                hudInstance = existing;
-            }
-            else if (hudPrefab != null)
-            {
-                hudInstance = Instantiate(hudPrefab);
-                hudInstance.name = hudPrefab.name; // 乾淨命名
-            }
+                SetVisible(next.name != mainMenuSceneName);
+            };
         }
+    }
 
-        if (hudInstance != null)
+    void OnEnable()
+    {
+        if (playerStats != null)
         {
-            DontDestroyOnLoad(hudInstance);
-            hudCanvasGroupCache = hudInstance.GetComponent<CanvasGroup>();
-            StripExtraEventSystem(hudInstance);
+            playerStats.OnStatsChanged -= RefreshAll;
+            playerStats.OnStatsChanged += RefreshAll;
         }
-
-        // 監聽場景切換（主選單自動隱藏）
-        SceneManager.activeSceneChanged += OnActiveSceneChanged;
-
-        // 進第一個場景時同步一次可見狀態
-        var now = SceneManager.GetActiveScene().name;
-        if (hideInMainMenu && now == mainMenuSceneName) SetVisible(false);
-        else SetVisible(true);
+        RefreshAll();
     }
 
-    void OnDestroy()
+    void OnDisable()
     {
-        if (Instance == this)
-            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+        if (playerStats != null)
+            playerStats.OnStatsChanged -= RefreshAll;
     }
 
-    void OnActiveSceneChanged(Scene oldScene, Scene newScene)
+    public void RefreshAll()
     {
-        if (!hideInMainMenu) return;
+        if (playerStats == null) return;
 
-        if (newScene.name == mainMenuSceneName) SetVisible(false);
-        else SetVisible(true);
+        float hp = Mathf.Max(0f, playerStats.CurrentHP);
+        float mp = Mathf.Max(0f, playerStats.CurrentMP);
+        float maxHp = Mathf.Max(1f, playerStats.MaxHP);
+        float maxMp = Mathf.Max(1f, playerStats.MaxMP);
+
+        if (halfHP) halfHP.fillAmount = (hp / maxHp) * 0.5f;
+        if (halfMP) halfMP.fillAmount = (mp / maxMp) * 0.5f;
+
+        if (textHP) textHP.text = $"{(int)hp}/{(int)maxHp}";
+        if (textMP) textMP.text = $"{(int)mp}/{(int)maxMp}";
     }
 
-    // —— 公開靜態 API ——
-    public static void ShowHUD()
-    {
-        if (Instance == null) return;
-        Instance.SetVisible(true);
-    }
-
-    public static void HideHUD()
-    {
-        if (Instance == null) return;
-        Instance.SetVisible(false);
-    }
-
-    // —— 內部可見性控制 —— 
     void SetVisible(bool on)
     {
-        // 若場上有 HUDVisibilityController，優先使用（更細膩）
-        var hvc = HUDVisibilityController.Instance ?? FindObjectOfType<HUDVisibilityController>();
+        var hvc = FindObjectOfType<HUDVisibilityController>();
         if (hvc != null)
         {
             if (on) HUDVisibilityController.ShowHUD();
@@ -96,46 +89,33 @@ public class HUDManager : MonoBehaviour
             return;
         }
 
-        // 沒有 HVC 就以 CanvasGroup/SetActive 控制
-        if (hudCanvasGroupCache != null)
+        var cg = GetComponent<CanvasGroup>();
+        if (cg != null)
         {
-            hudCanvasGroupCache.alpha = on ? 1f : 0f;
-            hudCanvasGroupCache.interactable = on;
-            hudCanvasGroupCache.blocksRaycasts = on;
+            cg.alpha = on ? 1f : 0f;
+            cg.interactable = on;
+            cg.blocksRaycasts = on;
         }
-        else if (hudInstance != null)
+        else
         {
-            hudInstance.SetActive(on);
+            gameObject.SetActive(on);
         }
     }
 
-    // 盡量沿用現場已經存在的 HUD（避免重複）
-    GameObject FindExistingHUDRoot()
+    // 新增旋轉角度參數
+    void SetupHalfRadial360(Image img, Image.Origin360 origin, bool clockwise, float rotateZ)
     {
-        // 你可以依照命名習慣調整這裡的尋找邏輯
-        var hvc = FindObjectOfType<HUDVisibilityController>();
-        if (hvc != null) return hvc.gameObject;
+        if (img == null) return;
 
-        // 次選：找一個看起來像 HUD 的 Canvas（避免抓到主選單）
-        foreach (var canvas in FindObjectsOfType<Canvas>())
-        {
-            if (!canvas.isRootCanvas) continue;
-            var name = canvas.name.ToLower();
-            if (name.Contains("hud") || name.Contains("ingame") || name.Contains("in-game"))
-                return canvas.gameObject;
-        }
-        return null;
-    }
+        img.type = Image.Type.Filled;
+        img.fillMethod = Image.FillMethod.Radial360;
+        img.fillOrigin = (int)origin;
+        img.fillClockwise = clockwise;
+        img.fillAmount = 0.5f;
 
-    // 清掉 HUD Prefab 內誤帶的 EventSystem（全域只允許一份）
-    void StripExtraEventSystem(GameObject root)
-    {
-        var es = root.GetComponentInChildren<EventSystem>(true);
-        if (es != null)
-        {
-            // 只有當這份不是全域 EventSystem 時才刪
-            if (EventSystem.current != es)
-                Destroy(es.gameObject);
-        }
+        var rt = img.rectTransform;
+        var euler = rt.localEulerAngles;
+        euler.z = rotateZ;
+        rt.localEulerAngles = euler;
     }
 }
