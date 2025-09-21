@@ -31,8 +31,8 @@ public class HUDManager : MonoBehaviour
         if (btnMap) btnMap.onClick.AddListener(() => Debug.Log("Open Map (TODO)"));
 
         // 初始化半圓：HP +90° 順時針、MP -90° 逆時針
-        SetupHalfRadial360(halfHP, Image.Origin360.Left, true, +90f);  // HP
-        SetupHalfRadial360(halfMP, Image.Origin360.Right, false, -90f);  // MP
+        SetupHalfRadial360(halfHP, Image.Origin360.Left, true, +90f);
+        SetupHalfRadial360(halfMP, Image.Origin360.Right, false, -90f);
 
         RefreshAll();
 
@@ -40,11 +40,19 @@ public class HUDManager : MonoBehaviour
         {
             var now = SceneManager.GetActiveScene().name;
             SetVisible(now != mainMenuSceneName);
-            SceneManager.activeSceneChanged += (_, next) =>
-            {
-                SetVisible(next.name != mainMenuSceneName);
-            };
+            SceneManager.activeSceneChanged += OnSceneChangedVisible;
         }
+
+        // 場景切換時自動重新綁定 PlayerStats
+        SceneManager.activeSceneChanged += OnSceneChangedRebind;
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.activeSceneChanged -= OnSceneChangedVisible;
+        SceneManager.activeSceneChanged -= OnSceneChangedRebind;
+        if (playerStats != null)
+            playerStats.OnStatsChanged -= RefreshAll;
     }
 
     void OnEnable()
@@ -102,7 +110,7 @@ public class HUDManager : MonoBehaviour
         }
     }
 
-    // 新增旋轉角度參數
+    // 設定半圓（Radial360 + 旋轉角度）
     void SetupHalfRadial360(Image img, Image.Origin360 origin, bool clockwise, float rotateZ)
     {
         if (img == null) return;
@@ -117,5 +125,43 @@ public class HUDManager : MonoBehaviour
         var euler = rt.localEulerAngles;
         euler.z = rotateZ;
         rt.localEulerAngles = euler;
+    }
+
+    // —— 場景切換：可見性 —— 
+    void OnSceneChangedVisible(Scene oldScene, Scene newScene)
+    {
+        if (!hideInMainMenu) return;
+        SetVisible(newScene.name != mainMenuSceneName);
+    }
+
+    // —— 場景切換：重新綁定 PlayerStats —— 
+    void OnSceneChangedRebind(Scene oldScene, Scene newScene)
+    {
+        RebindPlayerStats();
+    }
+
+    void RebindPlayerStats()
+    {
+        if (playerStats != null)
+            playerStats.OnStatsChanged -= RefreshAll;
+
+        var p = GameObject.FindGameObjectWithTag("Player");
+        var stats = (p != null) ? p.GetComponent<PlayerStats>() : FindObjectOfType<PlayerStats>();
+        playerStats = stats;
+
+        if (playerStats != null)
+        {
+            playerStats.OnStatsChanged -= RefreshAll;
+            playerStats.OnStatsChanged += RefreshAll;
+            RefreshAll();
+        }
+        else
+        {
+            // 沒抓到就清空顯示（避免殘值）
+            if (halfHP) halfHP.fillAmount = 0f;
+            if (halfMP) halfMP.fillAmount = 0f;
+            if (textHP) textHP.text = "--/--";
+            if (textMP) textMP.text = "--/--";
+        }
     }
 }

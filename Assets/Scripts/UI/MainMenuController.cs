@@ -9,6 +9,12 @@ public class MainMenuController : MonoBehaviour
     [Header("進入的第一個遊戲場景")]
     public string firstSceneName = "Scene1";
 
+    [Header("第一個落點 SpawnId（要和場景內 SpawnPoint.spawnId 對上）")]
+    public string firstSpawnId = "Start";
+
+    [Header("玩家預置（主選單先生成，讓 HUD 能綁定）")]
+    public GameObject playerPrefab;
+
     [Header("（可選）繼續遊戲按鈕")]
     public Button continueButton;
 
@@ -33,7 +39,7 @@ public class MainMenuController : MonoBehaviour
         if (continueButton != null)
             continueButton.interactable = SaveSystem.Exists();
 
-        // 初始化：確保 Page_Options 處於關閉狀態（主選單需要兩段皆關）
+        // 初始化：確保 Page_Options 關閉（主選單需要兩段皆關）
         if (pageOptionsRoot != null) pageOptionsRoot.SetActive(true); // Slide 需要啟用才有動畫
         if (pageOptionsSlide != null) pageOptionsSlide.Close();
         if (pageOptionsWrapperSlide != null) pageOptionsWrapperSlide.Close();
@@ -53,15 +59,38 @@ public class MainMenuController : MonoBehaviour
 
     public void OnClickStart()
     {
+        // 1) 主選單就先確保場上有 Player，讓 Canvas_HUD 能立即綁定
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null && playerPrefab != null)
+        {
+            player = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+            // PlayerLifetime 會自動 DontDestroyOnLoad & 去重（請掛在 Player.prefab 上）
+        }
+
+        // 2) 指定起始場景與落點（交給你現有的機制）
+        TeleportRequest.hasPending = true;
+        TeleportRequest.sceneName = firstSceneName;
+        TeleportRequest.spawnId = firstSpawnId; // SpawnSystem 會對應場景內的 SpawnPoint.spawnId
+
+        // 3) 切場景，SpawnSystem 在新場景的 Start() 會把 Player 放到目標點
+        Time.timeScale = 1f;
         SceneManager.LoadScene(firstSceneName);
     }
 
     public void OnClickContinue()
     {
+        // ★ 修復點：「繼續」也先確保有 Player，避免 SaveManager.PlacePlayerAt 找不到玩家
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null && playerPrefab != null)
+        {
+            player = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+            // PlayerLifetime 建議掛在 Prefab 上：保留最新或保留第一顆，依你策略
+        }
+
         if (SaveSystem.Exists() && SaveManager.Instance != null)
         {
             Time.timeScale = 1f;
-            SaveManager.Instance.LoadNow();
+            SaveManager.Instance.LoadNow(); // SaveManager 會自行切到存檔場景並定位/還原 HP/MP
         }
         else
         {
@@ -138,7 +167,7 @@ public class MainMenuController : MonoBehaviour
     public void OnClickQuit()
     {
         if (SaveManager.Instance != null)
-            SaveManager.Instance.SaveNow();
+            SaveManager.Instance.SaveNow(); // 主選單下 SaveManager 會自動略過不存。
 
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;

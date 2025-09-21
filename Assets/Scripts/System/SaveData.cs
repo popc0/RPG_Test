@@ -8,6 +8,11 @@ public class SaveData
     public float playerY;
     public long savedAtUnix;   // 時間戳
     public float masterVolume; // 新增：主音量(0~1)
+    // 新增：戰鬥數值
+    public float playerHP;
+    public float playerMP;
+    public float playerMaxHP;
+    public float playerMaxMP;
 
     public SaveData() { }
 

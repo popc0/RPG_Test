@@ -572,13 +572,13 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3756837355381724435}
-  m_LocalRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
+  m_LocalRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 5879764272592210215}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -90}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
@@ -619,7 +619,7 @@ MonoBehaviour:
   m_FillMethod: 4
   m_FillAmount: 0.5
   m_FillClockwise: 1
-  m_FillOrigin: 3
+  m_FillOrigin: 1
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
 --- !u!1 &4725050781977482199
@@ -744,6 +744,7 @@ GameObject:
   - component: {fileID: 6129390847405923459}
   - component: {fileID: 6296555134158236785}
   - component: {fileID: 4952800288354086934}
+  - component: {fileID: 3317952306257949826}
   m_Layer: 5
   m_Name: Canvas_HUD
   m_TagString: Untagged
@@ -817,7 +818,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
+  m_PresetInfoIsWorld: 1
 --- !u!114 &7219484904784636551
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -883,6 +884,18 @@ MonoBehaviour:
   btnMap: {fileID: 1877454127056907642}
   hideInMainMenu: 1
   mainMenuSceneName: MainMenuScece
+--- !u!114 &3317952306257949826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7109212257390740009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b733df7396a9aa74ca92f76b040ee36f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &7129045340752332031
 GameObject:
   m_ObjectHideFlags: 0

@@ -9,12 +9,15 @@ public class SaveManager : MonoBehaviour
     public string playerTag = "Player";
 
     [Header("主選單場景名（僅供他處參考，不在此自動存檔）")]
-    public string mainMenuSceneName = "MainMenu";
+    public string mainMenuSceneName = "MainMenuScene";
 
-    // 讀檔後等待進場定位用
+    // 讀檔後等待進場定位 / 還原數值用
     private bool hasPendingSpawn;
     private string pendingScene;
     private Vector2 pendingPos;
+
+    // 讀檔後暫存的數值（跨場景時在 OnSceneLoaded 才能套）
+    private SaveData _loadedData;
 
     void Awake()
     {
@@ -66,7 +69,18 @@ public class SaveManager : MonoBehaviour
 
         var p = player.transform.position;
         float vol = Mathf.Clamp01(AudioListener.volume);
+
+        // 取玩家數值
+        var stats = player.GetComponent<PlayerStats>();
         var data = new SaveData(SceneManager.GetActiveScene().name, p.x, p.y, vol);
+        if (stats != null)
+        {
+            data.playerHP = stats.CurrentHP;
+            data.playerMP = stats.CurrentMP;
+            data.playerMaxHP = stats.MaxHP;
+            data.playerMaxMP = stats.MaxMP;
+        }
+
         SaveSystem.Save(data);
     }
 
@@ -84,13 +98,20 @@ public class SaveManager : MonoBehaviour
         var current = SceneManager.GetActiveScene().name;
         pendingPos = new Vector2(data.playerX, data.playerY);
 
+        // 暫存數值（同場景會立刻用，跨場景到 OnSceneLoaded 用）
+        _loadedData = data;
+
         if (current == data.sceneName)
         {
+            // 同場景：直接定位 + 套數值
             PlacePlayerAt(pendingPos);
+            ApplyLoadedStatsIfPossible();
             hasPendingSpawn = false;
+            _loadedData = null;
         }
         else
         {
+            // 跨場景：等載入完成再定位 + 套數值
             hasPendingSpawn = true;
             pendingScene = data.sceneName;
             Time.timeScale = 1f; // 切場景前確保不是暫停
@@ -112,6 +133,32 @@ public class SaveManager : MonoBehaviour
             PlacePlayerAt(pendingPos);
             hasPendingSpawn = false;
             pendingScene = null;
+        }
+
+        // 若剛載入過存檔，這裡把數值套回 Player
+        if (_loadedData != null)
+        {
+            ApplyLoadedStatsIfPossible();
+            _loadedData = null;
+        }
+    }
+
+    void ApplyLoadedStatsIfPossible()
+    {
+        var player = GameObject.FindGameObjectWithTag(playerTag);
+        if (player == null) return;
+
+        var stats = player.GetComponent<PlayerStats>();
+        if (stats != null)
+        {
+            // 還原 Max 再寫 Current
+            if (_loadedData.playerMaxHP > 0f) stats.MaxHP = _loadedData.playerMaxHP;
+            if (_loadedData.playerMaxMP > 0f) stats.MaxMP = _loadedData.playerMaxMP;
+
+            stats.SetStats(
+                Mathf.Clamp(_loadedData.playerHP, 0f, stats.MaxHP),
+                Mathf.Clamp(_loadedData.playerMP, 0f, stats.MaxMP)
+            );
         }
     }
 
