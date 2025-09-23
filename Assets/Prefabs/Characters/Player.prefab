@@ -121,6 +121,7 @@ Transform:
   - {fileID: 2719644798322539194}
   - {fileID: 3715997417515412392}
   - {fileID: 7439135284209773808}
+  - {fileID: 8885275400265113349}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &1456441804475018032
@@ -182,8 +183,8 @@ CapsuleCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0.18700002, y: -2.2921646}
-  m_Size: {x: 2.808246, y: 1.2731487}
+  m_Offset: {x: 0.35612988, y: -2.2921646}
+  m_Size: {x: 2.7414744, y: 1.2731487}
   m_Direction: 1
 --- !u!114 &7890147501078692717
 MonoBehaviour:
@@ -350,8 +351,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fc7a3cb597efc214485cc97a15dfc8fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mode: 1
+  targetRenderers: []
+  sortingLayerName: 
+  manualOrder: 0
+  feet: {fileID: 8885275400265113349}
+  yToOrderMultiplier: 100
   offset: 0
-  multiplier: 100
+  invert: 1
 --- !u!1 &2433672989429476946
 GameObject:
   m_ObjectHideFlags: 0
@@ -594,6 +601,37 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &3987068395069001283
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8885275400265113349}
+  m_Layer: 0
+  m_Name: feet
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8885275400265113349
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3987068395069001283}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: -2.36, z: 0}
+  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5812291194592223921}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4722719230685190567
 GameObject:
   m_ObjectHideFlags: 0
@@ -788,8 +826,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fc7a3cb597efc214485cc97a15dfc8fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mode: 1
+  targetRenderers: []
+  sortingLayerName: 
+  manualOrder: 0
+  feet: {fileID: 0}
+  yToOrderMultiplier: 100
   offset: 100
-  multiplier: 100
+  invert: 1
 --- !u!1001 &5664826303691072102
 PrefabInstance:
   m_ObjectHideFlags: 0
