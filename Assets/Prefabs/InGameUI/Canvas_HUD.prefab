@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2472015783519459535}
   - component: {fileID: 5153252952290027231}
   - component: {fileID: 1877454127056907642}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Btn_Map
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -133,7 +133,7 @@ GameObject:
   - component: {fileID: 5447052434754055046}
   - component: {fileID: 4017420543693971571}
   - component: {fileID: 8202194913640981622}
-  m_Layer: 5
+  m_Layer: 13
   m_Name: Btn_Bag
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -251,7 +251,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5879764272592210215}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: TopLeftCluster
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -290,7 +290,7 @@ GameObject:
   - component: {fileID: 1921586805269887923}
   - component: {fileID: 1163442768221646098}
   - component: {fileID: 6374744550974206266}
-  m_Layer: 5
+  m_Layer: 13
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -424,7 +424,7 @@ GameObject:
   - component: {fileID: 5021993865407970209}
   - component: {fileID: 3215145119157318891}
   - component: {fileID: 4642303130662794630}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -558,7 +558,7 @@ GameObject:
   - component: {fileID: 7861914518053490640}
   - component: {fileID: 3759570237107272749}
   - component: {fileID: 2182846143341688086}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Half_HP
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -631,7 +631,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7261414615983338963}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: TopRightCluster
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -665,7 +665,7 @@ GameObject:
   - component: {fileID: 5077600024392151925}
   - component: {fileID: 1778836516363225199}
   - component: {fileID: 8343875015071535113}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: CircleFrame
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -745,7 +745,7 @@ GameObject:
   - component: {fileID: 6296555134158236785}
   - component: {fileID: 4952800288354086934}
   - component: {fileID: 3317952306257949826}
-  m_Layer: 5
+  m_Layer: 13
   m_Name: Canvas_HUD
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -818,7 +818,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!114 &7219484904784636551
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -907,7 +907,7 @@ GameObject:
   - component: {fileID: 105768958247010643}
   - component: {fileID: 4125879428479106833}
   - component: {fileID: 5151064613585537372}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Text_MP
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1041,7 +1041,7 @@ GameObject:
   - component: {fileID: 3126068005552530408}
   - component: {fileID: 6946443499494984203}
   - component: {fileID: 3230020996406150122}
-  m_Layer: 5
+  m_Layer: 13
   m_Name: Half_MP
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1116,7 +1116,7 @@ GameObject:
   - component: {fileID: 7247024034053264297}
   - component: {fileID: 2537549184956965043}
   - component: {fileID: 8780987115991169547}
-  m_Layer: 5
+  m_Layer: 13
   m_Name: Text_HP
   m_TagString: Untagged
   m_Icon: {fileID: 0}

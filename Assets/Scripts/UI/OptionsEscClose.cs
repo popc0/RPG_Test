@@ -5,7 +5,7 @@ public class OptionsEscClose : MonoBehaviour
 {
     [Header("場景判斷")]
     [Tooltip("主選單場景名稱（用來判斷目前是否在主選單）")]
-    public string mainMenuSceneName = "MainMenu";
+    public string mainMenuSceneName = "MainMenuScene";
 
     [Header("熱鍵")]
     public KeyCode escKey = KeyCode.Escape;

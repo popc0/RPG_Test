@@ -2,13 +2,27 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
-[DefaultExecutionOrder(-10000)] // 極早執行，先於 EventSystem.OnEnable()
+[DefaultExecutionOrder(-10000)]
 public class SystemCanvas : MonoBehaviour
 {
     public static SystemCanvas Instance;
 
-    [Tooltip("可留空，會自動尋找子階層的 EventSystem")]
+    [Header("EventSystem")]
     [SerializeField] private EventSystem eventSystem;
+
+    [Header("System 子 Canvas 排序設定")]
+    [Tooltip("只設定排序，不會動到可見性/CanvasGroup/SetActive。")]
+    [SerializeField] private bool forceChildCanvasSorting = true;
+
+    [Tooltip("System 專用 Sorting Layer（留空不改）。")]
+    [SerializeField] private string systemSortingLayerName = "SystemUI";
+
+    [Tooltip("將子 Canvas 的排序至少拉到這個下限；高於下限的保留原值。")]
+    [SerializeField] private int minSortingOrder = 600;
+
+    [Header("例外設定")]
+    [Tooltip("略過掛在 HUDManager 之下的 Canvas，讓 HUDManager 自行管理顯示/隱藏與任何排序調整。")]
+    [SerializeField] private bool excludeHUDCanvases = true;
 
     private void Awake()
     {
@@ -17,12 +31,8 @@ public class SystemCanvas : MonoBehaviour
 
         if (Instance != null && Instance != this)
         {
-            // 你要「保留最新」，所以先把舊的 EventSystem 關掉，避免同幀雙啟用
-            EnsureSingleEventSystem(preferThis: this);
-
-            // 幹掉舊的 SystemCanvas
-            Destroy(Instance.gameObject);
-
+            EnsureSingleEventSystem(this);
+            Destroy(Instance.gameObject); // 保留最新
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
@@ -30,20 +40,19 @@ public class SystemCanvas : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
-            // 只有自己時也保險清一次
-            EnsureSingleEventSystem(preferThis: this);
+            EnsureSingleEventSystem(this);
         }
 
-        // 進入新場景時再保險清理一次（處理場景載入同名預置的情況）
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         SceneManager.activeSceneChanged += OnActiveSceneChanged;
+
+        ApplySortingToChildCanvases();
     }
 
     private void OnEnable()
     {
-        // 若因為啟用順序導致其它 EventSystem 被激活，這裡再保險清一次
-        EnsureSingleEventSystem(preferThis: this);
+        EnsureSingleEventSystem(this);
+        ApplySortingToChildCanvases();
     }
 
     private void OnDestroy()
@@ -57,29 +66,66 @@ public class SystemCanvas : MonoBehaviour
 
     private void OnActiveSceneChanged(Scene oldScene, Scene newScene)
     {
-        // 場景切換後再次確保只有一個 EventSystem 啟用
         if (Instance != null)
-            EnsureSingleEventSystem(preferThis: Instance);
+        {
+            EnsureSingleEventSystem(Instance);
+            Instance.ApplySortingToChildCanvases();
+        }
+    }
+
+    private void OnTransformChildrenChanged()
+    {
+        ApplySortingToChildCanvases();
+    }
+
+    // —— 只調整排序，不影響可見性 —— //
+    private void ApplySortingToChildCanvases()
+    {
+        if (!forceChildCanvasSorting) return;
+
+        var canvases = GetComponentsInChildren<Canvas>(true);
+        foreach (var c in canvases)
+        {
+            if (c == null) continue;
+
+            // 【關鍵】略過 HUD：由 HUDManager 完全掌控（可見性、排序都不干涉）
+            if (excludeHUDCanvases && c.GetComponentInParent<HUDManager>(true) != null)
+                continue;
+
+            c.overrideSorting = true;
+
+            if (!string.IsNullOrEmpty(systemSortingLayerName))
+                c.sortingLayerName = systemSortingLayerName;
+
+            if (c.sortingOrder < minSortingOrder)
+                c.sortingOrder = minSortingOrder;
+        }
     }
 
     private static void EnsureSingleEventSystem(SystemCanvas preferThis)
     {
         var allES = Object.FindObjectsOfType<EventSystem>(true);
 
-        // 若 preferThis 沒有 eventSystem，嘗試抓一次
         if (preferThis.eventSystem == null)
             preferThis.eventSystem = preferThis.GetComponentInChildren<EventSystem>(true);
 
-        var keep = (preferThis.eventSystem != null) ? preferThis.eventSystem.gameObject : preferThis.gameObject;
+        var keep = (preferThis.eventSystem != null)
+            ? preferThis.eventSystem.gameObject
+            : preferThis.gameObject;
 
         foreach (var es in allES)
         {
             var go = es.gameObject;
             bool isKeep = go == keep;
 
-            // 只有「保留的那個」保持啟用；其它立即關閉，避免同幀雙啟用報錯
             es.enabled = isKeep;
             if (!isKeep && go.activeSelf) go.SetActive(false);
         }
+    }
+
+    [ContextMenu("Refresh Child Canvas Sorting")]
+    public void RefreshSortingNow()
+    {
+        ApplySortingToChildCanvases();
     }
 }
