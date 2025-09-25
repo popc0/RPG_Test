@@ -19,14 +19,16 @@ MonoBehaviour:
     nextNodeId: l2
     displayName: 001
     content: "\u4F60\u597D???"
-    speakerIds: []
+    speakerIds:
+    - idle_down
     choices: []
     autoDelay: 2
   - nodeId: l2
     nextNodeId: 
     displayName: 002
     content: "\u665A\u9910\u5403\u751A\u9EBC"
-    speakerIds: []
+    speakerIds:
+    - idle_down
     choices:
     - text: "\u5496\u54E9"
       gotoNodeId: l3
@@ -37,13 +39,15 @@ MonoBehaviour:
     nextNodeId: 
     displayName: 003
     content: "\u6211\u4E0D\u8981\u963F"
-    speakerIds: []
+    speakerIds:
+    - idle_down
     choices: []
     autoDelay: 2
   - nodeId: l4
     nextNodeId: 
     displayName: 004
     content: "\u597D\u6B50"
-    speakerIds: []
+    speakerIds:
+    - idle_down
     choices: []
     autoDelay: 2

@@ -16,10 +16,10 @@ TagManager:
   - Interactable
   - Tilemap
   - Player
-  - 
-  - 
-  - SystemUI
-  - 
+  - UI_HUD
+  - UI_Dim
+  - UI_System
+  - World
   - 
   - 
   - 

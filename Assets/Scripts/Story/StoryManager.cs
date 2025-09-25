@@ -2,31 +2,49 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
+using UnityEngine.Rendering; // for SortingGroup
 
-/// <summary>
-/// 劇情 UI 控制器：顯示姓名、台詞、下一句、跳過、自動、選項。
-/// 掛在 Canvas_Story 上；使用 CanvasGroup 控制顯示/互動。
-/// </summary>
 public class StoryManager : MonoBehaviour
 {
     [Header("UI 連線（Panel_Dialogue 底下）")]
-    public CanvasGroup panel;              // Panel_Dialogue 的 CanvasGroup
+    public CanvasGroup panel;
     public TextMeshProUGUI nameText;
     public TextMeshProUGUI contentText;
     public Button btnNext;
     public Button btnSkip;
     public Toggle toggleAuto;
-    public Transform choicesPanel;         // 垂直群組的父物件
-    public Button choiceButtonPrefab;      // 簡單的 Button + TMP
+    public Transform choicesPanel;
+    public Button choiceButtonPrefab;
 
     [Header("打字機")]
-    public float defaultCharsPerSec = 30f; // 當資料沒填或 <=0 時使用
+    public float defaultCharsPerSec = 30f;
     public KeyCode keyNext = KeyCode.Space;
 
     [Header("（選用）從 Inspector 觸發的預設資料")]
     public DialogueData initialData;
     public string initialStartNodeId = "start";
+
+    [Header("聚焦設定")]
+    public Selectable initialFocus;
+
+    [Header("說話者置頂（可選）")]
+    public bool raiseSpeaker = true;
+    [Tooltip("置頂時使用的排序值（需高於場上其他物件）")]
+    public int speakerTopOrder = 5000;
+
+    [System.Serializable]
+    public class ActorBinding
+    {
+        public string displayName;                  // 與 Line.displayName 對應
+        public SortingGroup sortingGroup;          // 優先使用 SortingGroup
+        public SpriteRenderer spriteRenderer;      // 沒有 SG 時用單一 SR
+        [HideInInspector] public int originalOrder;
+        [HideInInspector] public bool hasOriginal;
+    }
+    [Tooltip("把場上會說話的角色對應到顯示名與其 Renderer/SortingGroup")]
+    public List<ActorBinding> actorBindings = new List<ActorBinding>();
 
     // 狀態
     public bool IsPlaying { get; private set; }
@@ -39,6 +57,7 @@ public class StoryManager : MonoBehaviour
     private Dictionary<string, DialogueData.Line> map = new Dictionary<string, DialogueData.Line>();
     private Coroutine typingCo;
     private float charsPerSec;
+    private ActorBinding raisedNow; // 目前被置頂的演員
 
     void Awake()
     {
@@ -61,17 +80,11 @@ public class StoryManager : MonoBehaviour
         if (!IsPlaying) return;
 
         if (Input.GetKeyDown(keyNext) && btnNext != null && btnNext.gameObject.activeInHierarchy)
-        {
             OnClickNext();
-        }
     }
 
-    // === 對外 API ===
+    // ====== API ======
 
-    /// <summary>
-    /// 方便在 Button.OnClick 直接綁定（不傳參數）。
-    /// 先在 Inspector 指好 initialData / initialStartNodeId。
-    /// </summary>
     public void StartStoryFromInspector()
     {
         if (initialData == null)
@@ -82,9 +95,6 @@ public class StoryManager : MonoBehaviour
         StartStory(initialData, initialStartNodeId);
     }
 
-    /// <summary>
-    /// 開始播放一段劇情；startNodeId 預設 "start"
-    /// </summary>
     public void StartStory(DialogueData dialogue, string startNodeId = "start")
     {
         if (dialogue == null || dialogue.lines == null || dialogue.lines.Count == 0)
@@ -101,16 +111,12 @@ public class StoryManager : MonoBehaviour
             if (!map.ContainsKey(l.nodeId)) map.Add(l.nodeId, l);
         }
 
-        // 顯示 UI
         SetPanelVisible(true);
 
         IsPlaying = true;
         IsAuto = toggleAuto != null && toggleAuto.isOn;
-
-        // 決定打字速度
         charsPerSec = (data.typewriterCharsPerSec > 0f) ? data.typewriterCharsPerSec : defaultCharsPerSec;
 
-        // 找起點
         if (!map.TryGetValue(startNodeId, out current))
         {
             Debug.LogWarning($"[Story] 找不到起始節點: {startNodeId}");
@@ -118,11 +124,12 @@ public class StoryManager : MonoBehaviour
             return;
         }
 
-        // 播第一句
         PlayCurrent();
+
+        var target = initialFocus != null ? initialFocus : (btnNext != null ? btnNext as Selectable : null);
+        DeferFocus(target);
     }
 
-    /// <summary> 結束劇情並關閉 UI。 </summary>
     public void EndStory()
     {
         IsPlaying = false;
@@ -130,22 +137,26 @@ public class StoryManager : MonoBehaviour
 
         if (typingCo != null) StopCoroutine(typingCo);
         ClearChoices();
+        ClearSelected();
+
+        // 還原置頂
+        RestoreRaised();
 
         SetPanelVisible(false);
     }
 
-    // === 主流程 ===
+    // ====== 流程 ======
 
     private void PlayCurrent()
     {
-        // 顯示姓名與清空文字
         if (nameText != null) nameText.text = current.displayName ?? "";
         if (contentText != null) contentText.text = "";
 
-        // 清空舊選項
+        // 說話者置頂
+        if (raiseSpeaker) RaiseSpeaker(current.displayName);
+
         ClearChoices();
 
-        // 打字或直接顯示
         if (typingCo != null) StopCoroutine(typingCo);
         typingCo = StartCoroutine(Typewriter(current));
     }
@@ -173,7 +184,6 @@ public class StoryManager : MonoBehaviour
             IsTyping = false;
         }
 
-        // 打完字：有選項就生成，否則顯示下一句按鈕 / 自動播放
         if (line.choices != null && line.choices.Count > 0)
         {
             ShowChoices(line.choices);
@@ -182,6 +192,7 @@ public class StoryManager : MonoBehaviour
         else
         {
             if (btnNext != null) btnNext.gameObject.SetActive(true);
+            Focus(btnNext);
 
             if (IsAuto)
             {
@@ -192,12 +203,12 @@ public class StoryManager : MonoBehaviour
         }
     }
 
-    // === 選項 ===
-
     private void ShowChoices(List<DialogueData.Choice> choices)
     {
         ClearChoices();
         if (choicesPanel == null || choiceButtonPrefab == null) return;
+
+        Button first = null;
 
         foreach (var c in choices)
         {
@@ -207,22 +218,21 @@ public class StoryManager : MonoBehaviour
 
             string target = c.gotoNodeId;
             btn.onClick.AddListener(() => OnClickChoice(target));
-
             btn.gameObject.SetActive(true);
+
+            if (first == null) first = btn;
         }
+
+        if (first != null) DeferFocus(first);
     }
 
     private void ClearChoices()
     {
         if (choicesPanel == null) return;
-
         for (int i = choicesPanel.childCount - 1; i >= 0; i--)
-        {
             Destroy(choicesPanel.GetChild(i).gameObject);
-        }
     }
 
-    // === 選項點擊 ===
     private void OnClickChoice(string targetNodeId)
     {
         if (!IsPlaying) return;
@@ -241,15 +251,13 @@ public class StoryManager : MonoBehaviour
         }
 
         PlayCurrent();
+        if (btnNext != null) DeferFocus(btnNext);
     }
-
-    // === 操作 ===
 
     public void OnClickNext()
     {
         if (!IsPlaying) return;
 
-        // 若還在打字 → 先補滿
         if (IsTyping)
         {
             IsTyping = false;
@@ -261,10 +269,13 @@ public class StoryManager : MonoBehaviour
                 ShowChoices(current.choices);
                 if (btnNext != null) btnNext.gameObject.SetActive(false);
             }
+            else
+            {
+                Focus(btnNext);
+            }
             return;
         }
 
-        // 跳下一句或結束
         string nextId = (current != null) ? current.nextNodeId : "";
         if (string.IsNullOrEmpty(nextId))
         {
@@ -280,33 +291,23 @@ public class StoryManager : MonoBehaviour
         }
 
         PlayCurrent();
+        if (btnNext != null) DeferFocus(btnNext);
     }
 
-    public void OnClickSkip()
-    {
-        EndStory();
-    }
-
-    public void OnToggleAuto(bool on)
-    {
-        IsAuto = on;
-    }
-
-    // === 顯示/互動控制 ===
+    public void OnClickSkip() => EndStory();
+    public void OnToggleAuto(bool on) => IsAuto = on;
 
     private void SetPanelVisible(bool on)
     {
         if (panel == null) return;
-
         panel.alpha = on ? 1f : 0f;
         panel.interactable = on;
         panel.blocksRaycasts = on;
 
-        if (btnNext != null) btnNext.gameObject.SetActive(false); // 進場先關，等打完再決定
+        if (btnNext != null) btnNext.gameObject.SetActive(false);
         ClearChoices();
     }
 
-    // 方便從外部直接跳某節點（可選）
     public void JumpTo(string nodeId)
     {
         if (!IsPlaying || data == null) return;
@@ -314,13 +315,95 @@ public class StoryManager : MonoBehaviour
         {
             current = line;
             PlayCurrent();
+            if (btnNext != null) DeferFocus(btnNext);
         }
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
         if (typingCo != null) StopCoroutine(typingCo);
         IsPlaying = false;
         IsTyping = false;
+
+        RestoreRaised();
+        ClearSelected();
+    }
+
+    // ====== 聚焦工具 ======
+
+    void Focus(Selectable s)
+    {
+        if (s == null) return;
+        var es = EventSystem.current;
+        if (es == null) return;
+
+        es.SetSelectedGameObject(null);
+        es.SetSelectedGameObject(s.gameObject);
+    }
+
+    void DeferFocus(Selectable s)
+    {
+        if (!gameObject.activeInHierarchy) return;
+        StartCoroutine(DeferFocusCo(s));
+    }
+    IEnumerator DeferFocusCo(Selectable s) { yield return null; Focus(s); }
+    void ClearSelected() { var es = EventSystem.current; if (es != null) es.SetSelectedGameObject(null); }
+
+    // ====== 說話者置頂 ======
+
+    void RaiseSpeaker(string displayName)
+    {
+        if (string.IsNullOrEmpty(displayName)) { RestoreRaised(); return; }
+
+        // 找對應演員
+        ActorBinding target = null;
+        for (int i = 0; i < actorBindings.Count; i++)
+        {
+            if (actorBindings[i] != null && actorBindings[i].displayName == displayName)
+            {
+                target = actorBindings[i];
+                break;
+            }
+        }
+
+        if (target == null) { RestoreRaised(); return; }
+        if (raisedNow == target) return;
+
+        // 先還原舊的
+        RestoreRaised();
+
+        // 記錄並置頂
+        if (target.sortingGroup != null)
+        {
+            if (!target.hasOriginal)
+            {
+                target.originalOrder = target.sortingGroup.sortingOrder;
+                target.hasOriginal = true;
+            }
+            target.sortingGroup.sortingOrder = speakerTopOrder;
+            raisedNow = target;
+        }
+        else if (target.spriteRenderer != null)
+        {
+            if (!target.hasOriginal)
+            {
+                target.originalOrder = target.spriteRenderer.sortingOrder;
+                target.hasOriginal = true;
+            }
+            target.spriteRenderer.sortingOrder = speakerTopOrder;
+            raisedNow = target;
+        }
+    }
+
+    void RestoreRaised()
+    {
+        if (raisedNow == null) return;
+
+        if (raisedNow.sortingGroup != null && raisedNow.hasOriginal)
+            raisedNow.sortingGroup.sortingOrder = raisedNow.originalOrder;
+        else if (raisedNow.spriteRenderer != null && raisedNow.hasOriginal)
+            raisedNow.spriteRenderer.sortingOrder = raisedNow.originalOrder;
+
+        raisedNow = null;
     }
 }

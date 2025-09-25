@@ -2066,7 +2066,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 410500806570407049}
         m_TargetAssemblyTypeName: IngameMenuRouterB, Assembly-CSharp
-        m_MethodName: OnClick_BackToMain
+        m_MethodName: OnClick_BackToMainMenu
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
