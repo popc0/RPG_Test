@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -37,9 +38,9 @@ public class StoryManager : MonoBehaviour
     [System.Serializable]
     public class ActorBinding
     {
-        public string displayName;                  // 與 Line.displayName 對應
-        public SortingGroup sortingGroup;          // 優先使用 SortingGroup
-        public SpriteRenderer spriteRenderer;      // 沒有 SG 時用單一 SR
+        public string displayName;
+        public SortingGroup sortingGroup;
+        public SpriteRenderer spriteRenderer;
         [HideInInspector] public int originalOrder;
         [HideInInspector] public bool hasOriginal;
     }
@@ -51,13 +52,17 @@ public class StoryManager : MonoBehaviour
     public bool IsTyping { get; private set; }
     public bool IsAuto { get; private set; }
 
+    // 事件（供外部監聽，例如 StoryPresenter）
+    public event Action<DialogueData.Line> OnLineStart;
+    public event Action OnStoryEnd;
+
     // 內部資料
     private DialogueData data;
     private DialogueData.Line current;
     private Dictionary<string, DialogueData.Line> map = new Dictionary<string, DialogueData.Line>();
     private Coroutine typingCo;
     private float charsPerSec;
-    private ActorBinding raisedNow; // 目前被置頂的演員
+    private ActorBinding raisedNow;
 
     void Awake()
     {
@@ -138,11 +143,12 @@ public class StoryManager : MonoBehaviour
         if (typingCo != null) StopCoroutine(typingCo);
         ClearChoices();
         ClearSelected();
-
-        // 還原置頂
         RestoreRaised();
 
         SetPanelVisible(false);
+
+        // === 新增事件 ===
+        OnStoryEnd?.Invoke();
     }
 
     // ====== 流程 ======
@@ -152,9 +158,10 @@ public class StoryManager : MonoBehaviour
         if (nameText != null) nameText.text = current.displayName ?? "";
         if (contentText != null) contentText.text = "";
 
-        // 說話者置頂
-        if (raiseSpeaker) RaiseSpeaker(current.displayName);
+        // === 新增事件：句子開始 ===
+        OnLineStart?.Invoke(current);
 
+        if (raiseSpeaker) RaiseSpeaker(current.displayName);
         ClearChoices();
 
         if (typingCo != null) StopCoroutine(typingCo);
@@ -209,7 +216,6 @@ public class StoryManager : MonoBehaviour
         if (choicesPanel == null || choiceButtonPrefab == null) return;
 
         Button first = null;
-
         foreach (var c in choices)
         {
             var btn = Instantiate(choiceButtonPrefab, choicesPanel);
@@ -219,7 +225,6 @@ public class StoryManager : MonoBehaviour
             string target = c.gotoNodeId;
             btn.onClick.AddListener(() => OnClickChoice(target));
             btn.gameObject.SetActive(true);
-
             if (first == null) first = btn;
         }
 
@@ -324,19 +329,16 @@ public class StoryManager : MonoBehaviour
         if (typingCo != null) StopCoroutine(typingCo);
         IsPlaying = false;
         IsTyping = false;
-
         RestoreRaised();
         ClearSelected();
     }
 
     // ====== 聚焦工具 ======
-
     void Focus(Selectable s)
     {
         if (s == null) return;
         var es = EventSystem.current;
         if (es == null) return;
-
         es.SetSelectedGameObject(null);
         es.SetSelectedGameObject(s.gameObject);
     }
@@ -350,12 +352,10 @@ public class StoryManager : MonoBehaviour
     void ClearSelected() { var es = EventSystem.current; if (es != null) es.SetSelectedGameObject(null); }
 
     // ====== 說話者置頂 ======
-
     void RaiseSpeaker(string displayName)
     {
         if (string.IsNullOrEmpty(displayName)) { RestoreRaised(); return; }
 
-        // 找對應演員
         ActorBinding target = null;
         for (int i = 0; i < actorBindings.Count; i++)
         {
@@ -369,10 +369,8 @@ public class StoryManager : MonoBehaviour
         if (target == null) { RestoreRaised(); return; }
         if (raisedNow == target) return;
 
-        // 先還原舊的
         RestoreRaised();
 
-        // 記錄並置頂
         if (target.sortingGroup != null)
         {
             if (!target.hasOriginal)
