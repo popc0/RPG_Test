@@ -1,15 +1,15 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
-using UnityEngine.Rendering; // for SortingGroup
+using UnityEngine.Rendering;
 
 public class StoryManager : MonoBehaviour
 {
-    [Header("UI ³s½u¡]Panel_Dialogue ©³¤U¡^")]
+    [Header("UI å…ƒä»¶")]
     public CanvasGroup panel;
     public TextMeshProUGUI nameText;
     public TextMeshProUGUI contentText;
@@ -19,20 +19,18 @@ public class StoryManager : MonoBehaviour
     public Transform choicesPanel;
     public Button choiceButtonPrefab;
 
-    [Header("¥´¦r¾÷")]
+    [Header("æ‰“å­—æ©Ÿè¨­å®š")]
     public float defaultCharsPerSec = 30f;
-    public KeyCode keyNext = KeyCode.Space;
 
-    [Header("¡]¿ï¥Î¡^±q Inspector Ä²µoªº¹w³]¸ê®Æ")]
+    [Header("è¼¸å…¥æ§åˆ¶")]
+    public KeyCode keyNext = KeyCode.Space;   // ç©ºç™½éµæ§åˆ¶
+
+    [Header("é è¨­å°è©±è³‡æ–™ï¼ˆå¯ç©ºï¼‰")]
     public DialogueData initialData;
     public string initialStartNodeId = "start";
 
-    [Header("»EµJ³]©w")]
-    public Selectable initialFocus;
-
-    [Header("»¡¸ÜªÌ¸m³»¡]¥i¿ï¡^")]
+    [Header("èªªè©±è€…æ’åºè¨­å®š")]
     public bool raiseSpeaker = true;
-    [Tooltip("¸m³»®É¨Ï¥Îªº±Æ§Ç­È¡]»İ°ª©ó³õ¤W¨ä¥Lª«¥ó¡^")]
     public int speakerTopOrder = 5000;
 
     [System.Serializable]
@@ -44,19 +42,19 @@ public class StoryManager : MonoBehaviour
         [HideInInspector] public int originalOrder;
         [HideInInspector] public bool hasOriginal;
     }
-    [Tooltip("§â³õ¤W·|»¡¸Üªº¨¤¦â¹ïÀ³¨ìÅã¥Ü¦W»P¨ä Renderer/SortingGroup")]
     public List<ActorBinding> actorBindings = new List<ActorBinding>();
 
-    // ª¬ºA
+    // ç‹€æ…‹
     public bool IsPlaying { get; private set; }
     public bool IsTyping { get; private set; }
     public bool IsAuto { get; private set; }
 
-    // ¨Æ¥ó¡]¨Ñ¥~³¡ºÊÅ¥¡A¨Ò¦p StoryPresenter¡^
+    // äº‹ä»¶
+    public event Action OnStoryStart;
     public event Action<DialogueData.Line> OnLineStart;
     public event Action OnStoryEnd;
 
-    // ¤º³¡¸ê®Æ
+    // å…§éƒ¨è³‡æ–™
     private DialogueData data;
     private DialogueData.Line current;
     private Dictionary<string, DialogueData.Line> map = new Dictionary<string, DialogueData.Line>();
@@ -84,27 +82,19 @@ public class StoryManager : MonoBehaviour
     {
         if (!IsPlaying) return;
 
-        if (Input.GetKeyDown(keyNext) && btnNext != null && btnNext.gameObject.activeInHierarchy)
-            OnClickNext();
+        // æŒ‰ç©ºç™½éµ â†’ è£œå®Œæˆ–ä¸‹ä¸€å¥
+        if (Input.GetKeyDown(keyNext))
+            OnPressNextKey();
     }
 
-    // ====== API ======
-
-    public void StartStoryFromInspector()
-    {
-        if (initialData == null)
-        {
-            Debug.LogWarning("[Story] initialData ¥¼«ü©w¡C");
-            return;
-        }
-        StartStory(initialData, initialStartNodeId);
-    }
-
+    // -------------------------------------------------------------
+    // å°è©±å•Ÿå‹• / çµæŸ
+    // -------------------------------------------------------------
     public void StartStory(DialogueData dialogue, string startNodeId = "start")
     {
         if (dialogue == null || dialogue.lines == null || dialogue.lines.Count == 0)
         {
-            Debug.LogWarning("[Story] DialogueData ¬°ªÅ¡C");
+            Debug.LogWarning("[Story] DialogueData ç‚ºç©ºã€‚");
             return;
         }
 
@@ -112,8 +102,8 @@ public class StoryManager : MonoBehaviour
         map.Clear();
         foreach (var l in data.lines)
         {
-            if (string.IsNullOrEmpty(l.nodeId)) continue;
-            if (!map.ContainsKey(l.nodeId)) map.Add(l.nodeId, l);
+            if (!string.IsNullOrEmpty(l.nodeId) && !map.ContainsKey(l.nodeId))
+                map.Add(l.nodeId, l);
         }
 
         SetPanelVisible(true);
@@ -124,41 +114,34 @@ public class StoryManager : MonoBehaviour
 
         if (!map.TryGetValue(startNodeId, out current))
         {
-            Debug.LogWarning($"[Story] §ä¤£¨ì°_©l¸`ÂI: {startNodeId}");
+            Debug.LogWarning($"[Story] æ‰¾ä¸åˆ°ç¯€é»: {startNodeId}");
             EndStory();
             return;
         }
 
+        OnStoryStart?.Invoke();
         PlayCurrent();
-
-        var target = initialFocus != null ? initialFocus : (btnNext != null ? btnNext as Selectable : null);
-        DeferFocus(target);
     }
 
     public void EndStory()
     {
         IsPlaying = false;
         IsTyping = false;
-
         if (typingCo != null) StopCoroutine(typingCo);
         ClearChoices();
-        ClearSelected();
         RestoreRaised();
-
         SetPanelVisible(false);
-
-        // === ·s¼W¨Æ¥ó ===
         OnStoryEnd?.Invoke();
     }
 
-    // ====== ¬yµ{ ======
-
+    // -------------------------------------------------------------
+    // ä¸»æµç¨‹
+    // -------------------------------------------------------------
     private void PlayCurrent()
     {
         if (nameText != null) nameText.text = current.displayName ?? "";
         if (contentText != null) contentText.text = "";
 
-        // === ·s¼W¨Æ¥ó¡G¥y¤l¶}©l ===
         OnLineStart?.Invoke(current);
 
         if (raiseSpeaker) RaiseSpeaker(current.displayName);
@@ -173,7 +156,8 @@ public class StoryManager : MonoBehaviour
         IsTyping = true;
 
         string text = line.content ?? "";
-        float cps = (data != null && data.typewriterCharsPerSec > 0f) ? data.typewriterCharsPerSec : defaultCharsPerSec;
+        float cps = (data != null && data.typewriterCharsPerSec > 0f)
+            ? data.typewriterCharsPerSec : defaultCharsPerSec;
 
         if (cps <= 0f)
         {
@@ -183,14 +167,24 @@ public class StoryManager : MonoBehaviour
         else
         {
             float tPerChar = 1f / cps;
-            for (int i = 0; i < text.Length; i++)
+            float timer = 0f;
+            int index = 0;
+            while (index < text.Length)
             {
-                if (contentText != null) contentText.text = text.Substring(0, i + 1);
-                yield return new WaitForSeconds(tPerChar);
+                timer += Time.unscaledDeltaTime;
+                while (timer >= tPerChar && index < text.Length)
+                {
+                    timer -= tPerChar;
+                    index++;
+                    if (contentText != null)
+                        contentText.text = text.Substring(0, index);
+                }
+                yield return null;
             }
             IsTyping = false;
         }
 
+        // æ‰“å®Œå­—ï¼šé¡¯ç¤ºé¸é …æˆ–ä¸‹ä¸€æ­¥
         if (line.choices != null && line.choices.Count > 0)
         {
             ShowChoices(line.choices);
@@ -199,36 +193,92 @@ public class StoryManager : MonoBehaviour
         else
         {
             if (btnNext != null) btnNext.gameObject.SetActive(true);
-            Focus(btnNext);
 
             if (IsAuto)
             {
                 float wait = Mathf.Max(0f, line.autoDelay);
-                yield return new WaitForSeconds(wait);
+                float t = 0f;
+                while (t < wait)
+                {
+                    t += Time.unscaledDeltaTime;
+                    yield return null;
+                }
                 OnClickNext();
             }
         }
     }
 
+    // -------------------------------------------------------------
+    // ç©ºç™½éµè¼¸å…¥
+    // -------------------------------------------------------------
+    void OnPressNextKey()
+    {
+        // æœ‰é¸é …æ™‚ä¸è™•ç†ç©ºç™½éµ
+        bool showingChoices = (choicesPanel != null && choicesPanel.childCount > 0);
+        if (showingChoices) return;
+
+        OnClickNext();
+    }
+
+    public void OnClickNext()
+    {
+        if (!IsPlaying) return;
+
+        // æ‰“å­—ä¸­ï¼šè£œå®Œ
+        if (IsTyping)
+        {
+            IsTyping = false;
+            if (typingCo != null) StopCoroutine(typingCo);
+            if (contentText != null && current != null)
+                contentText.text = current.content;
+
+            if (current.choices != null && current.choices.Count > 0)
+            {
+                ShowChoices(current.choices);
+                if (btnNext != null) btnNext.gameObject.SetActive(false);
+            }
+            else
+            {
+                if (btnNext != null) btnNext.gameObject.SetActive(true);
+            }
+            return; // åœä¸‹ï¼Œä¸é€²ä¸‹ä¸€å¥
+        }
+
+        // æ‰“å­—å®Œç•¢ï¼šé€²ä¸‹ä¸€å¥
+        string nextId = (current != null) ? current.nextNodeId : "";
+        if (string.IsNullOrEmpty(nextId))
+        {
+            EndStory();
+            return;
+        }
+
+        if (!map.TryGetValue(nextId, out current))
+        {
+            Debug.LogWarning($"[Story] æ‰¾ä¸åˆ°ç¯€é»: {nextId}");
+            EndStory();
+            return;
+        }
+
+        PlayCurrent();
+    }
+
+    // -------------------------------------------------------------
+    // é¸é …
+    // -------------------------------------------------------------
     private void ShowChoices(List<DialogueData.Choice> choices)
     {
         ClearChoices();
         if (choicesPanel == null || choiceButtonPrefab == null) return;
 
-        Button first = null;
         foreach (var c in choices)
         {
             var btn = Instantiate(choiceButtonPrefab, choicesPanel);
             var label = btn.GetComponentInChildren<TextMeshProUGUI>();
             if (label != null) label.text = c.text;
-
             string target = c.gotoNodeId;
             btn.onClick.AddListener(() => OnClickChoice(target));
             btn.gameObject.SetActive(true);
-            if (first == null) first = btn;
         }
-
-        if (first != null) DeferFocus(first);
     }
 
     private void ClearChoices()
@@ -241,64 +291,23 @@ public class StoryManager : MonoBehaviour
     private void OnClickChoice(string targetNodeId)
     {
         if (!IsPlaying) return;
-
         if (string.IsNullOrEmpty(targetNodeId))
         {
             EndStory();
             return;
         }
-
         if (!map.TryGetValue(targetNodeId, out current))
         {
-            Debug.LogWarning($"[Story] ¿ï¶µ¸õÂà¥¢±Ñ¡A§ä¤£¨ì¸`ÂI: {targetNodeId}");
+            Debug.LogWarning($"[Story] æ‰¾ä¸åˆ°ç¯€é»: {targetNodeId}");
             EndStory();
             return;
         }
-
         PlayCurrent();
-        if (btnNext != null) DeferFocus(btnNext);
     }
 
-    public void OnClickNext()
-    {
-        if (!IsPlaying) return;
-
-        if (IsTyping)
-        {
-            IsTyping = false;
-            if (typingCo != null) StopCoroutine(typingCo);
-            if (contentText != null && current != null) contentText.text = current.content;
-
-            if (current.choices != null && current.choices.Count > 0)
-            {
-                ShowChoices(current.choices);
-                if (btnNext != null) btnNext.gameObject.SetActive(false);
-            }
-            else
-            {
-                Focus(btnNext);
-            }
-            return;
-        }
-
-        string nextId = (current != null) ? current.nextNodeId : "";
-        if (string.IsNullOrEmpty(nextId))
-        {
-            EndStory();
-            return;
-        }
-
-        if (!map.TryGetValue(nextId, out current))
-        {
-            Debug.LogWarning($"[Story] §ä¤£¨ì¸`ÂI: {nextId}");
-            EndStory();
-            return;
-        }
-
-        PlayCurrent();
-        if (btnNext != null) DeferFocus(btnNext);
-    }
-
+    // -------------------------------------------------------------
+    // å…¶ä»–
+    // -------------------------------------------------------------
     public void OnClickSkip() => EndStory();
     public void OnToggleAuto(bool on) => IsAuto = on;
 
@@ -313,62 +322,20 @@ public class StoryManager : MonoBehaviour
         ClearChoices();
     }
 
-    public void JumpTo(string nodeId)
-    {
-        if (!IsPlaying || data == null) return;
-        if (map.TryGetValue(nodeId, out var line))
-        {
-            current = line;
-            PlayCurrent();
-            if (btnNext != null) DeferFocus(btnNext);
-        }
-    }
-
-    void OnDisable()
-    {
-        if (typingCo != null) StopCoroutine(typingCo);
-        IsPlaying = false;
-        IsTyping = false;
-        RestoreRaised();
-        ClearSelected();
-    }
-
-    // ====== »EµJ¤u¨ã ======
-    void Focus(Selectable s)
-    {
-        if (s == null) return;
-        var es = EventSystem.current;
-        if (es == null) return;
-        es.SetSelectedGameObject(null);
-        es.SetSelectedGameObject(s.gameObject);
-    }
-
-    void DeferFocus(Selectable s)
-    {
-        if (!gameObject.activeInHierarchy) return;
-        StartCoroutine(DeferFocusCo(s));
-    }
-    IEnumerator DeferFocusCo(Selectable s) { yield return null; Focus(s); }
-    void ClearSelected() { var es = EventSystem.current; if (es != null) es.SetSelectedGameObject(null); }
-
-    // ====== »¡¸ÜªÌ¸m³» ======
     void RaiseSpeaker(string displayName)
     {
         if (string.IsNullOrEmpty(displayName)) { RestoreRaised(); return; }
-
         ActorBinding target = null;
-        for (int i = 0; i < actorBindings.Count; i++)
+        foreach (var ab in actorBindings)
         {
-            if (actorBindings[i] != null && actorBindings[i].displayName == displayName)
+            if (ab.displayName == displayName)
             {
-                target = actorBindings[i];
+                target = ab;
                 break;
             }
         }
-
         if (target == null) { RestoreRaised(); return; }
         if (raisedNow == target) return;
-
         RestoreRaised();
 
         if (target.sortingGroup != null)

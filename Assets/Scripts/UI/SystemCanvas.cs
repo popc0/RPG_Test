@@ -11,51 +11,42 @@ public class SystemCanvas : MonoBehaviour
     [SerializeField] private EventSystem eventSystem;
 
     [Header("System 子 Canvas 排序設定")]
-    [Tooltip("只設定排序，不會動到可見性/CanvasGroup/SetActive。")]
     [SerializeField] private bool forceChildCanvasSorting = true;
-
-    [Tooltip("System 專用 Sorting Layer（留空不改）。")]
     [SerializeField] private string systemSortingLayerName = "SystemUI";
-
-    [Tooltip("將子 Canvas 的排序至少拉到這個下限；高於下限的保留原值。")]
     [SerializeField] private int minSortingOrder = 600;
 
     [Header("例外設定")]
-    [Tooltip("略過掛在 HUDManager 之下的 Canvas，讓 HUDManager 自行管理顯示/隱藏與任何排序調整。")]
     [SerializeField] private bool excludeHUDCanvases = true;
 
-    private void Awake()
+    void Awake()
     {
         if (eventSystem == null)
             eventSystem = GetComponentInChildren<EventSystem>(true);
 
         if (Instance != null && Instance != this)
         {
-            EnsureSingleEventSystem(this);
-            Destroy(Instance.gameObject); // 保留最新
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // 舊的已常駐, 不動舊的, 新的自己刪除
+            Destroy(gameObject);
+            return;
         }
-        else
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            EnsureSingleEventSystem(this);
-        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
 
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         SceneManager.activeSceneChanged += OnActiveSceneChanged;
 
+        EnsureSingleEventSystem(this);
         ApplySortingToChildCanvases();
     }
 
-    private void OnEnable()
+    void OnEnable()
     {
         EnsureSingleEventSystem(this);
         ApplySortingToChildCanvases();
     }
 
-    private void OnDestroy()
+    void OnDestroy()
     {
         if (Instance == this)
         {
@@ -64,7 +55,7 @@ public class SystemCanvas : MonoBehaviour
         }
     }
 
-    private void OnActiveSceneChanged(Scene oldScene, Scene newScene)
+    void OnActiveSceneChanged(Scene oldScene, Scene newScene)
     {
         if (Instance != null)
         {
@@ -73,13 +64,12 @@ public class SystemCanvas : MonoBehaviour
         }
     }
 
-    private void OnTransformChildrenChanged()
+    void OnTransformChildrenChanged()
     {
         ApplySortingToChildCanvases();
     }
 
-    // —— 只調整排序，不影響可見性 —— //
-    private void ApplySortingToChildCanvases()
+    void ApplySortingToChildCanvases()
     {
         if (!forceChildCanvasSorting) return;
 
@@ -88,7 +78,6 @@ public class SystemCanvas : MonoBehaviour
         {
             if (c == null) continue;
 
-            // 【關鍵】略過 HUD：由 HUDManager 完全掌控（可見性、排序都不干涉）
             if (excludeHUDCanvases && c.GetComponentInParent<HUDManager>(true) != null)
                 continue;
 
@@ -102,7 +91,7 @@ public class SystemCanvas : MonoBehaviour
         }
     }
 
-    private static void EnsureSingleEventSystem(SystemCanvas preferThis)
+    static void EnsureSingleEventSystem(SystemCanvas preferThis)
     {
         var allES = Object.FindObjectsOfType<EventSystem>(true);
 

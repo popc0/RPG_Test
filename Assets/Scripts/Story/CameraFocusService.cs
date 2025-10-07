@@ -1,41 +1,46 @@
 ﻿using System.Collections;
 using UnityEngine;
 
+[DefaultExecutionOrder(-9000)]
 public class CameraFocusService : MonoBehaviour
 {
     [Header("引用")]
-    public Component virtualCamera;   // 若有 Cinemachine，就拖這個
-    public Transform mainCamera;      // 若沒有，就留空讓系統自動找
+    public Component virtualCamera;   // 若專案有 Cinemachine，拖一支 VCam 進來（可留空）
+    public Transform mainCamera;      // 沒有 VCam 時使用；留空會自動抓 Camera.main
 
     [Header("參數")]
     public float moveDuration = 0.45f;
 
     object vcamFollowProp;
+    Coroutine refreshCo;
 
     void Awake()
     {
-        DontDestroyOnLoad(gameObject);  // ✅ 保留跨場景
-
+        // ❌ 不要 DontDestroyOnLoad；跟著 SystemCanvas 一起跨場景
         if (virtualCamera != null)
         {
             var prop = virtualCamera.GetType().GetProperty("Follow");
-            vcamFollowProp = prop;
+            vcamFollowProp = prop; // 反射以避免硬依賴 Cinemachine
         }
-
-        RefreshCamera(); // 初始抓一次
+        RefreshCamera(); // 初次抓主鏡頭
     }
 
     void OnEnable()
     {
-        // 啟用時重新抓相機並持續監控
         RefreshCamera();
-        StartCoroutine(AutoRefreshCamera());
+        if (refreshCo == null) refreshCo = StartCoroutine(AutoRefreshCamera());
+    }
+
+    void OnDisable()
+    {
+        if (refreshCo != null) { StopCoroutine(refreshCo); refreshCo = null; }
     }
 
     IEnumerator AutoRefreshCamera()
     {
         while (true)
         {
+            // 每秒檢查一次，場景切換時自動更新
             if (Camera.main != null && (mainCamera == null || mainCamera != Camera.main.transform))
                 RefreshCamera();
             yield return new WaitForSeconds(1f);
@@ -80,7 +85,7 @@ public class CameraFocusService : MonoBehaviour
     {
         if (t == null) return false;
         cam = cam != null ? cam : Camera.main;
-        if (cam == null) return true; // 沒相機就當作可見
+        if (cam == null) return true; // 沒相機就當作可見（避免卡住流程）
         Vector3 v = cam.WorldToViewportPoint(t.position);
         return v.z > 0 && v.x > 0 && v.x < 1 && v.y > 0 && v.y < 1;
     }

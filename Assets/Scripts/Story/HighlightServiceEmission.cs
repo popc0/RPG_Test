@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(-9000)] // 在 SystemCanvas 之後但仍很早
 public class HighlightServiceEmission : MonoBehaviour
 {
     public static HighlightServiceEmission Instance { get; private set; }
@@ -12,9 +13,8 @@ public class HighlightServiceEmission : MonoBehaviour
     public float fadeDuration = 0.25f;
 
     readonly Dictionary<Renderer, Coroutine> running = new();
-    MaterialPropertyBlock mpb;  // ✅ 改成延後初始化
+    MaterialPropertyBlock mpb;  // ✅ Awake 初始化
 
-    // Shader 屬性名
     static readonly int ID_Emiss = Shader.PropertyToID("_EmissionColor");
     static readonly int ID_Base = Shader.PropertyToID("_BaseColor");
     static readonly int ID_Color = Shader.PropertyToID("_Color");
@@ -27,8 +27,8 @@ public class HighlightServiceEmission : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);   // ✅ 保留跨場景
-        mpb = new MaterialPropertyBlock(); // ✅ 在 Awake 初始化
+        // ❌ 不要 DontDestroyOnLoad；由 SystemCanvas（父物件）負責跨場景
+        mpb = new MaterialPropertyBlock(); // ✅ 正確的初始化時機
     }
 
     public void ClearAll()
@@ -61,14 +61,13 @@ public class HighlightServiceEmission : MonoBehaviour
         r.GetPropertyBlock(mpb);
 
         bool hasEmiss = r.sharedMaterial != null && r.sharedMaterial.HasProperty(ID_Emiss);
-        Color baseOrig = Color.white;
 
+        // 取原始底色（退路：沒有 Emission 時用加亮）
+        Color baseOrig = Color.white;
         if (r.sharedMaterial != null)
         {
-            if (r.sharedMaterial.HasProperty(ID_Base))
-                baseOrig = r.sharedMaterial.GetColor(ID_Base);
-            else if (r.sharedMaterial.HasProperty(ID_Color))
-                baseOrig = r.sharedMaterial.GetColor(ID_Color);
+            if (r.sharedMaterial.HasProperty(ID_Base)) baseOrig = r.sharedMaterial.GetColor(ID_Base);
+            else if (r.sharedMaterial.HasProperty(ID_Color)) baseOrig = r.sharedMaterial.GetColor(ID_Color);
         }
 
         Color fromE = hasEmiss ? mpb.GetColor(ID_Emiss) : Color.black;
@@ -85,16 +84,14 @@ public class HighlightServiceEmission : MonoBehaviour
 
             if (hasEmiss)
             {
-                Color v = Color.Lerp(fromE, toE, k);
-                mpb.SetColor(ID_Emiss, v);
+                mpb.SetColor(ID_Emiss, Color.Lerp(fromE, toE, k));
             }
             else
             {
-                Color v = Color.Lerp(fromC, toC, k);
+                var v = Color.Lerp(fromC, toC, k);
                 if (r.sharedMaterial.HasProperty(ID_Base)) mpb.SetColor(ID_Base, v);
                 else mpb.SetColor(ID_Color, v);
             }
-
             r.SetPropertyBlock(mpb);
             yield return null;
         }

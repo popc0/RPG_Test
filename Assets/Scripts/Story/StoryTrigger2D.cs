@@ -1,79 +1,101 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// 劇情互動點（單一腳本版）
-/// - 進出範圍顯示提示（與 Teleporter 互動風格一致）
-/// - 玩家互動器呼叫 Interact() 後啟動對話
-/// - 對話期間可暫停指定行為（如 PlayerMovement / Interactor / Input）
-/// - 可選：進入範圍自動觸發
-/// </summary>
 [RequireComponent(typeof(Collider2D))]
 public class StoryTrigger2D : InteractableBase
 {
-    [Header("Dialogue")]
+    [Header("劇情資料")]
     public DialogueData dialogue;
     public string startNodeId = "start";
 
-    [Header("觸發行為")]
-    [Tooltip("玩家進入範圍就自動開始，不用按鍵/互動器")]
+    [Header("觸發設定")]
     public bool autoStartWhenEnter = false;
-
-    [Header("一次性")]
     public bool oneShot = false;
     private bool used = false;
 
-    [Header("玩家（可留空用 tag=Player 取得）")]
-    public GameObject player;
-
-    private bool playerInside = false;
     private StoryManager story;
-
-    // 只暫停這些腳本（依型別名稱）
-    static readonly string[] k_ScriptsToPause = {
-        "PlayerMovement",
-        "PlayerInteractor",
-        "KeyboardInputSource"
-    };
-    private readonly List<MonoBehaviour> pausedScripts = new();
-
-    void Reset()
-    {
-        var col = GetComponent<Collider2D>();
-        if (col) col.isTrigger = true;
-
-        if (string.IsNullOrEmpty(prompt))
-            prompt = "按 E 對話";
-    }
+    private PlayerPauseAgent pauseAgent;
+    private GameObject player;
+    private bool playerInside = false;
 
     void Awake()
     {
         story = FindObjectOfType<StoryManager>(true);
     }
 
+    void Start()
+    {
+        // 確保 UI 初始化完畢後再檢查玩家是否在範圍中
+        StartCoroutine(WaitForUIAndCheckInside());
+    }
+
+    IEnumerator WaitForUIAndCheckInside()
+    {
+        // 等待 InteractPromptUI 實例出現（最多 3 秒防止無限等待）
+        float timer = 0f;
+        while (InteractPromptUI.Instance == null && timer < 3f)
+        {
+            timer += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        // 嘗試取得玩家
+        if (player == null)
+            player = GameObject.FindGameObjectWithTag("Player");
+
+        if (player == null)
+            yield break;
+
+        // 玩家一開始就在觸發區時，手動模擬 OnTriggerEnter2D
+        var col = GetComponent<Collider2D>();
+        if (col != null && player.TryGetComponent(out Collider2D playerCol))
+        {
+            if (col.bounds.Intersects(playerCol.bounds))
+            {
+                OnTriggerEnter2D(playerCol);
+            }
+        }
+    }
+
+    void Reset()
+    {
+        var col = GetComponent<Collider2D>();
+        if (col) col.isTrigger = true;
+        if (string.IsNullOrEmpty(prompt)) prompt = "按 E 對話";
+    }
+
     public override bool CanInteract()
     {
         if (!interactable) return false;
         if (used && oneShot) return false;
-        return (dialogue != null && story != null);
+        return dialogue != null && story != null;
     }
 
     public override void Interact(GameObject interactor)
     {
         if (!CanInteract()) return;
 
-        if (InteractPromptUI.Instance != null)
-            InteractPromptUI.Instance.Hide();
+        HidePrompt();
 
-        // 暫停玩家必要腳本
-        var p = player != null ? player : GameObject.FindGameObjectWithTag("Player");
-        PausePlayerScripts(p, true);
+        // 自動找目前場上的玩家（跨場景安全）
+        if (player == null)
+        {
+            var found = GameObject.FindGameObjectWithTag("Player");
+            if (found != null) player = found;
+        }
+
+        if (player != null)
+            pauseAgent = player.GetComponent<PlayerPauseAgent>();
+
+        if (pauseAgent != null)
+            pauseAgent.Pause();
 
         story.StartStory(dialogue, startNodeId);
-        StartCoroutine(WaitStoryEndAndResume());
 
-        if (oneShot) used = true;
+        StartCoroutine(WaitStoryEnd());
+
+        if (oneShot)
+            used = true;
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -85,12 +107,11 @@ public class StoryTrigger2D : InteractableBase
 
         if (autoStartWhenEnter)
         {
-            Interact(player != null ? player : other.gameObject);
+            Interact(other.gameObject);
             return;
         }
 
-        if (InteractPromptUI.Instance != null)
-            InteractPromptUI.Instance.Show(prompt);
+        ShowPrompt(prompt);
     }
 
     void OnTriggerExit2D(Collider2D other)
@@ -99,61 +120,42 @@ public class StoryTrigger2D : InteractableBase
 
         playerInside = false;
 
-        if (InteractPromptUI.Instance != null)
-            InteractPromptUI.Instance.Hide();
+        HidePrompt();
     }
 
-    IEnumerator WaitStoryEndAndResume()
+    IEnumerator WaitStoryEnd()
     {
         while (story != null && story.IsPlaying)
             yield return null;
 
-        var p = player != null ? player : GameObject.FindGameObjectWithTag("Player");
-        PausePlayerScripts(p, false);
+        if (pauseAgent != null)
+            pauseAgent.Resume();
 
-        if (playerInside && !autoStartWhenEnter && InteractPromptUI.Instance != null)
-            InteractPromptUI.Instance.Show(prompt);
-    }
-
-    void PausePlayerScripts(GameObject target, bool pause)
-    {
-        if (target == null) return;
-
-        if (pause)
-        {
-            pausedScripts.Clear();
-            foreach (var mb in target.GetComponents<MonoBehaviour>())
-            {
-                if (mb == null || !mb.enabled) continue;
-
-                var typeName = mb.GetType().Name;
-                for (int i = 0; i < k_ScriptsToPause.Length; i++)
-                {
-                    if (typeName == k_ScriptsToPause[i])
-                    {
-                        mb.enabled = false;
-                        pausedScripts.Add(mb);
-                        break;
-                    }
-                }
-            }
-        }
-        else
-        {
-            foreach (var mb in pausedScripts)
-            {
-                if (mb != null) mb.enabled = true;
-            }
-            pausedScripts.Clear();
-        }
+        if (playerInside && !autoStartWhenEnter)
+            ShowPrompt(prompt);
     }
 
     bool IsPlayer(Collider2D col)
     {
+        if (col == null) return false;
         if (player == null)
             player = GameObject.FindGameObjectWithTag("Player");
+        return col.gameObject == player;
+    }
 
-        return (col.attachedRigidbody != null && col.attachedRigidbody.gameObject == player)
-               || col.gameObject == player;
+    // -----------------------
+    // 安全呼叫 UI 顯示/隱藏
+    // -----------------------
+
+    void ShowPrompt(string msg)
+    {
+        if (InteractPromptUI.Instance != null)
+            InteractPromptUI.Instance.Show(msg);
+    }
+
+    void HidePrompt()
+    {
+        if (InteractPromptUI.Instance != null)
+            InteractPromptUI.Instance.Hide();
     }
 }

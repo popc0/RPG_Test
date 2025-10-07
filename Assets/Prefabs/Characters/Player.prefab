@@ -96,6 +96,7 @@ GameObject:
   - component: {fileID: 227241142908584686}
   - component: {fileID: 5246432677593132545}
   - component: {fileID: 633833544583670658}
+  - component: {fileID: 9213125033226778837}
   m_Layer: 10
   m_Name: Player
   m_TagString: Player
@@ -194,7 +195,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1233599281039529457}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0b09144a06a0ebc4fa210fa0deb493af, type: 3}
   m_Name: 
@@ -287,7 +288,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1233599281039529457}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ed6557e41bd1d9f468c65c19e1a98325, type: 3}
   m_Name: 
@@ -460,6 +461,23 @@ MonoBehaviour:
   - {fileID: 3156090417397665641}
   - {fileID: 1129834447520130212}
   - {fileID: 2180752847000218868}
+--- !u!114 &9213125033226778837
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1233599281039529457}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5612da1a2b79e6409066295d12b8dd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  manualTargets: []
+  autoIncludeTypeNames:
+  - PlayerMovement
+  - PlayerInteractor
+  - KeyboardInputSource
 --- !u!1 &2433672989429476946
 GameObject:
   m_ObjectHideFlags: 0

@@ -254,7 +254,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: "\u8DF3\u904E"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b24d2e467da82614db8a52b8f58beb34, type: 2}
   m_sharedMaterial: {fileID: -5123135909151465504, guid: b24d2e467da82614db8a52b8f58beb34, type: 2}
@@ -535,7 +535,7 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2649957808360390890}
   m_Enabled: 1
-  m_Alpha: 0
+  m_Alpha: 1
   m_Interactable: 0
   m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
@@ -688,6 +688,7 @@ GameObject:
   - component: {fileID: 390850129823219970}
   - component: {fileID: 896122322676711679}
   - component: {fileID: 8968027310207949158}
+  - component: {fileID: 2602380750759894862}
   m_Layer: 13
   m_Name: Canvas_Story
   m_TagString: Untagged
@@ -800,15 +801,26 @@ MonoBehaviour:
   choiceButtonPrefab: {fileID: 8912641759396978653, guid: 113e3e7eb029b214ea9d904bb8cab6ba, type: 3}
   defaultCharsPerSec: 30
   keyNext: 32
+  keyUp: 119
+  keyDown: 115
+  keyLeft: 97
+  keyRight: 100
+  keySubmitEnter: 13
+  keySubmitZ: 122
+  keepFocus: 1
   initialData: {fileID: 11400000, guid: 3579ee45d3ee4ff4ca9f99424c99db08, type: 2}
   initialStartNodeId: start
-  initialFocus: {fileID: 0}
   raiseSpeaker: 1
   speakerTopOrder: 5000
   actorBindings:
-  - displayName: idle_down
+  - displayName: test
     sortingGroup: {fileID: 4308897368208078103, guid: d01c83fef886f2f44a94e12a30003078, type: 3}
     spriteRenderer: {fileID: 5468301915228400294, guid: d01c83fef886f2f44a94e12a30003078, type: 3}
+    originalOrder: 0
+    hasOriginal: 0
+  - displayName: Player
+    sortingGroup: {fileID: 5886168303385798025, guid: 385fdddf102203f4fb73cec54fa9ab34, type: 3}
+    spriteRenderer: {fileID: 6921559338277733654, guid: 385fdddf102203f4fb73cec54fa9ab34, type: 3}
     originalOrder: 0
     hasOriginal: 0
 --- !u!114 &896122322676711679
@@ -840,6 +852,20 @@ MonoBehaviour:
   virtualCamera: {fileID: 0}
   mainCamera: {fileID: 0}
   moveDuration: 0.45
+--- !u!114 &2602380750759894862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2939082546951521669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fec00c187b0d2314daa000759ed9cc0a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  overlay: {fileID: 5465732631473387239}
+  fadeDuration: 0.25
 --- !u!1 &3124457119272859624
 GameObject:
   m_ObjectHideFlags: 0
@@ -899,7 +925,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 0.47058824}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -1398,7 +1424,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_Font: {fileID: 12800000, guid: ffeec5c121fb2c941a30de6edf6cb355, type: 3}
     m_FontSize: 14
     m_FontStyle: 0
     m_BestFit: 0
@@ -1410,7 +1436,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Toggle
+  m_Text: "\u81EA\u52D5"
 --- !u!1 &7265964447371436917
 GameObject:
   m_ObjectHideFlags: 0
@@ -1562,7 +1588,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: "\u4E0B\u4E00\u6B65"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b24d2e467da82614db8a52b8f58beb34, type: 2}
   m_sharedMaterial: {fileID: -5123135909151465504, guid: b24d2e467da82614db8a52b8f58beb34, type: 2}
@@ -1677,7 +1703,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   story: {fileID: 390850129823219970}
   highlighter: {fileID: 896122322676711679}
-  screenDim: {fileID: 0}
+  screenDim: {fileID: 2602380750759894862}
   cameraFocus: {fileID: 8968027310207949158}
   dimOnNarration: 1
   focusSpeakerIfOffscreen: 1
@@ -1696,6 +1722,10 @@ PrefabInstance:
     - target: {fileID: 7109212257390740009, guid: 57abf5da92e33d74f9f5452bd3a7663d, type: 3}
       propertyPath: m_Name
       value: Canvas_HUD
+      objectReference: {fileID: 0}
+    - target: {fileID: 7109212257390740009, guid: 57abf5da92e33d74f9f5452bd3a7663d, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8467807517401667135, guid: 57abf5da92e33d74f9f5452bd3a7663d, type: 3}
       propertyPath: m_Pivot.x
@@ -1803,6 +1833,18 @@ PrefabInstance:
       propertyPath: m_AnchorMax.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 716429957284119510, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
+      propertyPath: m_MatchWidthOrHeight
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 716429957284119510, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
+      propertyPath: m_ReferenceResolution.x
+      value: 1920
+      objectReference: {fileID: 0}
+    - target: {fileID: 716429957284119510, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
+      propertyPath: m_ReferenceResolution.y
+      value: 1080
+      objectReference: {fileID: 0}
     - target: {fileID: 1029448689833731153, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
       propertyPath: mainMenuSceneName
       value: MainMenuScene
@@ -1810,6 +1852,10 @@ PrefabInstance:
     - target: {fileID: 4474139592527913791, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
       propertyPath: m_Name
       value: SystemCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474139592527913791, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7450596883502489487, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
       propertyPath: m_Pivot.x
@@ -2000,10 +2046,6 @@ PrefabInstance:
     - target: {fileID: 5135073632832594059, guid: cca1ececaacf3a24f89ffd6161a35b03, type: 3}
       propertyPath: m_IsActive
       value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7151729009257553215, guid: cca1ececaacf3a24f89ffd6161a35b03, type: 3}
-      propertyPath: m_RenderMode
-      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
