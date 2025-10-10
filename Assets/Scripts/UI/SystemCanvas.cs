@@ -25,7 +25,6 @@ public class SystemCanvas : MonoBehaviour
 
         if (Instance != null && Instance != this)
         {
-            // 舊的已常駐, 不動舊的, 新的自己刪除
             Destroy(gameObject);
             return;
         }

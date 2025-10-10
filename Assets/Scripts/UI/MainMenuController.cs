@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.EventSystems;
@@ -15,82 +14,73 @@ public class MainMenuController : MonoBehaviour
     [Header("玩家預置（主選單先生成，讓 HUD 能綁定）")]
     public GameObject playerPrefab;
 
-    [Header("（可選）繼續遊戲按鈕")]
-    public Button continueButton;
-
-    [Header("主畫面預設焦點")]
+    [Header("主畫面預設聚焦")]
     public Selectable defaultMainButton;
 
     [Header("其他選項（兩段式：先上，再左）")]
-    [Tooltip("水平滑動的 Page_Options 本體")]
-    public IngameMenuSlide pageOptionsSlide;           // Page_Options（Hidden=(800,0), Shown=(0,0)）
-    [Tooltip("只在主選單使用：垂直滑動的 Wrapper（Page_Options 的父）")]
-    public IngameMenuSlide pageOptionsWrapperSlide;    // Wrapper（Hidden=(0,-800), Shown=(0,0)）
-    [Tooltip("Page_Options 的根物件（用於 SetActive 控制）")]
-    public GameObject pageOptionsRoot;                 // Page_Options 的 GameObject
+    public IngameMenuSlide pageOptionsSlide;         // 水平滑動的 Page_Options 本體
+    public IngameMenuSlide pageOptionsWrapperSlide;  // 垂直滑動的 Wrapper（Page_Options 的父）
+    public GameObject pageOptionsRoot;               // Page_Options 的根物件
+    public GameObject pageMain;                      // 主畫面 Panel_Main
 
-    [Header("按鍵")]
-    public KeyCode escKey = KeyCode.Escape; // 關 Options 用（主選單）
+    [Header("五個按鈕直接拖進來即可")]
+    public Button startButton;
+    public Button continueButton;
+    public Button optionsButton;
+    public Button quitButton;
+    public Button deleteSaveButton;
+
+    void Awake()
+    {
+        if (startButton) { startButton.onClick.RemoveAllListeners(); startButton.onClick.AddListener(OnClickStart); }
+        if (continueButton) { continueButton.onClick.RemoveAllListeners(); continueButton.onClick.AddListener(OnClickContinue); }
+        if (optionsButton) { optionsButton.onClick.RemoveAllListeners(); optionsButton.onClick.AddListener(OnClickOtherOptions); }
+        if (quitButton) { quitButton.onClick.RemoveAllListeners(); quitButton.onClick.AddListener(OnClickQuit); }
+        if (deleteSaveButton) { deleteSaveButton.onClick.RemoveAllListeners(); deleteSaveButton.onClick.AddListener(OnClickDeleteSave); }
+    }
 
     void Start()
     {
+        // 進入主選單時：切一次 MainMenu 狀態
+        UIStateManager.Instance?.SwitchUI(UIState.MainMenu);
+
         Time.timeScale = 1f;
 
         if (continueButton != null)
             continueButton.interactable = SaveSystem.Exists();
 
-        // 初始化：確保 Page_Options 關閉（主選單需要兩段皆關）
-        if (pageOptionsRoot != null) pageOptionsRoot.SetActive(true); // Slide 需要啟用才有動畫
+        // 初始化：確保 Page_Options 關閉
+        if (pageOptionsRoot != null) pageOptionsRoot.SetActive(true);
         if (pageOptionsSlide != null) pageOptionsSlide.Close();
         if (pageOptionsWrapperSlide != null) pageOptionsWrapperSlide.Close();
 
-        SafeSetFocus(defaultMainButton);
+        FocusNowAndNext(defaultMainButton);
     }
-
-    void Update()
-    {
-        if (Input.GetKeyDown(escKey) && IsOptionsOpen())
-        {
-            OnClickOptionsBack();
-        }
-    }
-
-    // ====== 主功能 ======
 
     public void OnClickStart()
     {
-        // 1) 主選單就先確保場上有 Player，讓 Canvas_HUD 能立即綁定
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player == null && playerPrefab != null)
-        {
             player = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-            // PlayerLifetime 會自動 DontDestroyOnLoad & 去重（請掛在 Player.prefab 上）
-        }
 
-        // 2) 指定起始場景與落點（交給你現有的機制）
         TeleportRequest.hasPending = true;
         TeleportRequest.sceneName = firstSceneName;
-        TeleportRequest.spawnId = firstSpawnId; // SpawnSystem 會對應場景內的 SpawnPoint.spawnId
+        TeleportRequest.spawnId = firstSpawnId;
 
-        // 3) 切場景，SpawnSystem 在新場景的 Start() 會把 Player 放到目標點
         Time.timeScale = 1f;
         SceneManager.LoadScene(firstSceneName);
     }
 
     public void OnClickContinue()
     {
-        // ★ 修復點：「繼續」也先確保有 Player，避免 SaveManager.PlacePlayerAt 找不到玩家
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player == null && playerPrefab != null)
-        {
             player = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-            // PlayerLifetime 建議掛在 Prefab 上：保留最新或保留第一顆，依你策略
-        }
 
         if (SaveSystem.Exists() && SaveManager.Instance != null)
         {
             Time.timeScale = 1f;
-            SaveManager.Instance.LoadNow(); // SaveManager 會自行切到存檔場景並定位/還原 HP/MP
+            SaveManager.Instance.LoadNow();
         }
         else
         {
@@ -98,29 +88,35 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    // 「其他選項」：先上，再左（僅主選單用）
     public void OnClickOtherOptions()
     {
-        if (pageOptionsRoot != null) pageOptionsRoot.SetActive(true);
+        // 關掉主頁面
+        if (pageMain != null)
+            pageMain.SetActive(false);
 
+        // 開啟 Options Root
+        if (pageOptionsRoot != null)
+            pageOptionsRoot.SetActive(true);
+
+        // 打開 Wrapper + Slide
         if (pageOptionsWrapperSlide != null)
         {
-            // 先上
             pageOptionsWrapperSlide.Opened.RemoveListener(OpenOptionsHorizontal);
             pageOptionsWrapperSlide.Opened.AddListener(OpenOptionsHorizontal);
             pageOptionsWrapperSlide.Open();
         }
         else
         {
-            // 沒有 Wrapper 就直接左
             OpenOptionsHorizontal();
         }
+
+        // 切 UI 狀態
+        UIStateManager.Instance?.SwitchUI(UIState.Options);
     }
 
-    // Page_Options 內的返回：先左，再下（若有 Wrapper）
     public void OnClickOptionsBack()
     {
-        // 先關左
+        // 關閉水平滑動
         if (pageOptionsSlide != null)
         {
             pageOptionsSlide.Closed.RemoveListener(CloseWrapperAfterPage);
@@ -131,48 +127,71 @@ public class MainMenuController : MonoBehaviour
         {
             CloseWrapperAfterPage();
         }
-    }
 
-    // ====== 內部串接 ======
-
-    void OpenOptionsHorizontal()
-    {
-        if (pageOptionsSlide != null) pageOptionsSlide.Open();
-    }
-
-    void CloseWrapperAfterPage()
-    {
-        if (pageOptionsWrapperSlide != null)
-            pageOptionsWrapperSlide.Close();
-
-        // 回主畫面聚焦
-        SafeSetFocus(defaultMainButton);
-    }
-
-    bool IsOptionsOpen()
-    {
-        if (pageOptionsSlide != null && pageOptionsSlide.IsOpen) return true;
-        if (pageOptionsWrapperSlide != null && pageOptionsWrapperSlide.IsOpen) return true;
-        return false;
-    }
-
-    void SafeSetFocus(Selectable s)
-    {
-        if (s == null || EventSystem.current == null) return;
-        if (!s.gameObject.activeInHierarchy) return;
-        EventSystem.current.SetSelectedGameObject(null);
-        EventSystem.current.SetSelectedGameObject(s.gameObject);
+        // 切回主選單狀態
+        UIStateManager.Instance?.SwitchUI(UIState.MainMenu);
+        FocusNowAndNext(defaultMainButton);
     }
 
     public void OnClickQuit()
     {
         if (SaveManager.Instance != null)
-            SaveManager.Instance.SaveNow(); // 主選單下 SaveManager 會自動略過不存。
+            SaveManager.Instance.SaveNow();
 
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
         Application.Quit();
 #endif
+    }
+
+    public void OnClickDeleteSave()
+    {
+        if (SaveSystem.Exists())
+        {
+            SaveSystem.Delete();
+            if (continueButton) continueButton.interactable = false;
+        }
+    }
+
+    void OpenOptionsHorizontal()
+    {
+        if (pageOptionsSlide != null)
+            pageOptionsSlide.Open();
+    }
+
+    void CloseWrapperAfterPage()
+    {
+        // 關閉 Wrapper
+        if (pageOptionsWrapperSlide != null)
+            pageOptionsWrapperSlide.Close();
+
+        // 重新打開主畫面
+        if (pageMain != null)
+            pageMain.SetActive(true);
+
+        FocusNowAndNext(defaultMainButton);
+    }
+
+    // —— 聚焦工具（先即時、下一幀再補一次）——
+    private Coroutine _focusCo;
+    private void FocusNowAndNext(Selectable s)
+    {
+        if (s == null || EventSystem.current == null) return;
+        if (!s.gameObject.activeInHierarchy) return;
+
+        EventSystem.current.SetSelectedGameObject(null);
+        EventSystem.current.SetSelectedGameObject(s.gameObject);
+
+        if (_focusCo != null) StopCoroutine(_focusCo);
+        _focusCo = StartCoroutine(CoFocusNextFrame(s));
+    }
+    private System.Collections.IEnumerator CoFocusNextFrame(Selectable s)
+    {
+        yield return null;
+        if (EventSystem.current == null || s == null) yield break;
+        if (!s.gameObject.activeInHierarchy) yield break;
+        EventSystem.current.SetSelectedGameObject(null);
+        EventSystem.current.SetSelectedGameObject(s.gameObject);
     }
 }
