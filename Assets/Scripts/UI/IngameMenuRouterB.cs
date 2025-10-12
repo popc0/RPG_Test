@@ -39,11 +39,17 @@ public class IngameMenuRouterB : MonoBehaviour
     private bool pendingGoToMainMenuAfterClose = false;
     private string currentSceneName;
 
-    void OnEnable() { SceneManager.sceneLoaded += OnSceneLoaded; }
+    void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        TryRebind(); // ← 進場景時先嘗試重抓一次
+    }
     void OnDisable() { SceneManager.sceneLoaded -= OnSceneLoaded; }
 
     void Start()
     {
+        TryRebind(); // 保險再抓一次
+
         if (pageMain) pageMain.SetActive(true);
         if (pageOptions) pageOptions.SetActive(true);
 
@@ -64,7 +70,6 @@ public class IngameMenuRouterB : MonoBehaviour
     {
         // 主選單場景不處理 R（避免誤開 Ingame 面板）
         if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
-
         if (!Input.GetKeyDown(toggleKey)) return;
 
         // 若 Options 開著，先關（先左→再下）
@@ -85,7 +90,7 @@ public class IngameMenuRouterB : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         currentSceneName = scene.name;
-        // 不再切任何全域 UI 狀態；只做必要初始化
+        TryRebind(); // ← 跨場景回來後，重新抓一次 PageOptionsWrapper / Page_Options
         FocusNowAndNext(focusMain);
     }
 
@@ -102,6 +107,7 @@ public class IngameMenuRouterB : MonoBehaviour
 
     public void OnClick_Options()
     {
+        TryRebind(); // ← 打開前保險
         if (optionsWrapperSlide == null || optionsSlide == null) return;
 
         optionsWrapperSlide.Opened.RemoveListener(OpenOptionsHorizontal);
@@ -126,6 +132,7 @@ public class IngameMenuRouterB : MonoBehaviour
 
     public void OnClick_OptionsBack()
     {
+        TryRebind();
         if (optionsSlide == null || optionsWrapperSlide == null) return;
 
         optionsSlide.Closed.RemoveListener(CloseWrapperAfterOptions);
@@ -194,14 +201,17 @@ public class IngameMenuRouterB : MonoBehaviour
         if (optionsWrapperSlide != null) optionsWrapperSlide.SnapClosed();
     }
 
-    // —— 聚焦工具（先即時、下一幀再補一次，避免被動畫/滑鼠覆蓋）——
+    // —— 聚焦工具（先即時、下一幀再補一次）——
     private Coroutine _coFocus;
     private void FocusNowAndNext(Selectable s)
     {
-        if (s == null || EventSystem.current == null) return;
-        if (!s.gameObject.activeInHierarchy) return;
+        if (EventSystem.current == null) return;
 
+        // 允許傳 null：代表刻意清空選取
         EventSystem.current.SetSelectedGameObject(null);
+        if (s == null) return;
+
+        if (!s.gameObject.activeInHierarchy) return;
         EventSystem.current.SetSelectedGameObject(s.gameObject);
 
         if (_coFocus != null) StopCoroutine(_coFocus);
@@ -223,11 +233,35 @@ public class IngameMenuRouterB : MonoBehaviour
         Bind(btnMain_BackToMainMenu, OnClick_BackToMainMenu);
         Bind(btnOptions_Back, OnClick_OptionsBack);
     }
-
     void Bind(Button b, UnityAction action)
     {
         if (b == null || action == null) return;
         b.onClick.RemoveAllListeners();
         b.onClick.AddListener(action);
+    }
+
+    // —— 重新抓引用（當 Inspector 沒綁、或跨場景導致引用失效時）——
+    private void TryRebind()
+    {
+        if (optionsWrapperSlide == null)
+        {
+            var go = GameObject.Find("PageOptionsWrapper");
+            if (go != null) optionsWrapperSlide = go.GetComponent<IngameMenuSlide>();
+        }
+        if (optionsSlide == null)
+        {
+            var go = GameObject.Find("Page_Options");
+            if (go != null) optionsSlide = go.GetComponent<IngameMenuSlide>();
+        }
+        if (pageOptions == null)
+        {
+            var go = GameObject.Find("Page_Options");
+            if (go != null) pageOptions = go;
+        }
+        if (pageMain == null)
+        {
+            var go = GameObject.Find("Page_Main");
+            if (go != null) pageMain = go;
+        }
     }
 }

@@ -32,6 +32,9 @@ public class MainMenuController : MonoBehaviour
 
     void Awake()
     {
+        // 回主選單場景時，可能是「重載主場景」或「從遊戲場景回來」：於是先 Rebind。
+        TryRebindOptionsRefs();
+
         if (startButton) { startButton.onClick.RemoveAllListeners(); startButton.onClick.AddListener(OnClickStart); }
         if (continueButton) { continueButton.onClick.RemoveAllListeners(); continueButton.onClick.AddListener(OnClickContinue); }
         if (optionsButton) { optionsButton.onClick.RemoveAllListeners(); optionsButton.onClick.AddListener(OnClickOtherOptions); }
@@ -41,7 +44,8 @@ public class MainMenuController : MonoBehaviour
 
     void Start()
     {
-        // 不再做任何 UI 狀態切換
+        TryRebindOptionsRefs(); // 再保險一次
+
         Time.timeScale = 1f;
 
         if (continueButton != null)
@@ -88,7 +92,9 @@ public class MainMenuController : MonoBehaviour
 
     public void OnClickOtherOptions()
     {
-        // 關掉主頁面
+        TryRebindOptionsRefs(); // ← 打開前，重新抓一次
+
+        // 關掉主畫面
         if (pageMain != null)
             pageMain.SetActive(false);
 
@@ -96,7 +102,7 @@ public class MainMenuController : MonoBehaviour
         if (pageOptionsRoot != null)
             pageOptionsRoot.SetActive(true);
 
-        // 打開 Wrapper + Slide
+        // 打開 Wrapper + Slide（上下→再左右）
         if (pageOptionsWrapperSlide != null)
         {
             pageOptionsWrapperSlide.Opened.RemoveListener(OpenOptionsHorizontal);
@@ -111,6 +117,8 @@ public class MainMenuController : MonoBehaviour
 
     public void OnClickOptionsBack()
     {
+        TryRebindOptionsRefs();
+
         // 關閉水平滑動
         if (pageOptionsSlide != null)
         {
@@ -149,12 +157,15 @@ public class MainMenuController : MonoBehaviour
 
     void OpenOptionsHorizontal()
     {
+        TryRebindOptionsRefs();
         if (pageOptionsSlide != null)
             pageOptionsSlide.Open();
     }
 
     void CloseWrapperAfterPage()
     {
+        TryRebindOptionsRefs();
+
         // 關閉 Wrapper
         if (pageOptionsWrapperSlide != null)
             pageOptionsWrapperSlide.Close();
@@ -170,10 +181,12 @@ public class MainMenuController : MonoBehaviour
     private Coroutine _focusCo;
     private void FocusNowAndNext(Selectable s)
     {
-        if (s == null || EventSystem.current == null) return;
-        if (!s.gameObject.activeInHierarchy) return;
+        if (EventSystem.current == null) return;
 
         EventSystem.current.SetSelectedGameObject(null);
+        if (s == null) return;
+
+        if (!s.gameObject.activeInHierarchy) return;
         EventSystem.current.SetSelectedGameObject(s.gameObject);
 
         if (_focusCo != null) StopCoroutine(_focusCo);
@@ -186,5 +199,31 @@ public class MainMenuController : MonoBehaviour
         if (!s.gameObject.activeInHierarchy) yield break;
         EventSystem.current.SetSelectedGameObject(null);
         EventSystem.current.SetSelectedGameObject(s.gameObject);
+    }
+
+    // —— 重新抓引用（回到主選單時若舊引用失效，用名稱補綁）——
+    private void TryRebindOptionsRefs()
+    {
+        if (pageOptionsRoot == null)
+        {
+            var go = GameObject.Find("Page_Options");
+            if (go != null) pageOptionsRoot = go;
+        }
+        if (pageOptionsSlide == null)
+        {
+            var go = GameObject.Find("Page_Options");
+            if (go != null) pageOptionsSlide = go.GetComponent<IngameMenuSlide>();
+        }
+        if (pageOptionsWrapperSlide == null)
+        {
+            var go = GameObject.Find("PageOptionsWrapper");
+            if (go != null) pageOptionsWrapperSlide = go.GetComponent<IngameMenuSlide>();
+        }
+        if (pageMain == null)
+        {
+            var go = GameObject.Find("MainMenuCanvas/Page_Main");
+            if (go == null) go = GameObject.Find("Page_Main"); // 備援
+            if (go != null) pageMain = go;
+        }
     }
 }

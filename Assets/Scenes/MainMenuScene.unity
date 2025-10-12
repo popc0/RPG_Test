@@ -456,6 +456,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 853e5d80ed606bb4aa8bdff993959726, type: 3}
+--- !u!1 &535079948 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 41151346101126382, guid: 853e5d80ed606bb4aa8bdff993959726, type: 3}
+  m_PrefabInstance: {fileID: 1262272246}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -705,7 +710,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8256515953266513226, guid: 853e5d80ed606bb4aa8bdff993959726, type: 3}
   m_PrefabInstance: {fileID: 1262272246}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 535079948}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
@@ -834,6 +839,7 @@ GameObject:
   - component: {fileID: 1324765468}
   - component: {fileID: 1324765467}
   - component: {fileID: 1324765466}
+  - component: {fileID: 1324765470}
   m_Layer: 5
   m_Name: MainMenuCanvas
   m_TagString: Untagged
@@ -930,6 +936,18 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!225 &1324765470
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1324765465}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!114 &1426797370 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2939124119388677839, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
@@ -1815,6 +1833,46 @@ PrefabInstance:
       propertyPath: m_LocalScale.z
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.size
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[3].id
+      value: MainMenu
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[2].type
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[3].type
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[3].group
+      value: 
+      objectReference: {fileID: 1324765470}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[3].defaultFocus
+      value: 
+      objectReference: {fileID: 535079948}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[0].restoreOnDeactivate
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[1].restoreOnDeactivate
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[2].restoreOnDeactivate
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940410919482403368, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
+      propertyPath: panels.Array.data[3].restoreOnDeactivate
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8313749909774781669, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
       propertyPath: m_Colors.m_DisabledColor.b
       value: 0.5471698
@@ -1907,7 +1965,8 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8427436898167298697, guid: eae8ba4b81685ff479e742b2d7330629, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
