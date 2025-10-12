@@ -44,7 +44,6 @@ public class IngameMenuRouterB : MonoBehaviour
 
     void Start()
     {
-        // 起始不主動切狀態；由 OnSceneLoaded（載入完成）切一次
         if (pageMain) pageMain.SetActive(true);
         if (pageOptions) pageOptions.SetActive(true);
 
@@ -79,24 +78,14 @@ public class IngameMenuRouterB : MonoBehaviour
         if (menuSlide != null)
         {
             menuSlide.Toggle();
-            if (UIStateManager.Instance != null)
-            {
-                UIStateManager.Instance.SwitchUI(menuSlide.IsOpen ? UIState.IngameMenu : UIState.HUD);
-            }
             FocusNowAndNext(menuSlide.IsOpen ? focusMain : null);
         }
     }
 
-    // 場景切換完成後，僅此時切一次狀態
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         currentSceneName = scene.name;
-        if (UIStateManager.Instance == null) return;
-
-        if (scene.name == mainMenuSceneName) UIStateManager.Instance.SwitchUI(UIState.MainMenu);
-        else UIStateManager.Instance.SwitchUI(UIState.HUD);
-
-        // 切完狀態補一次聚焦（下一幀）
+        // 不再切任何全域 UI 狀態；只做必要初始化
         FocusNowAndNext(focusMain);
     }
 
@@ -107,8 +96,6 @@ public class IngameMenuRouterB : MonoBehaviour
         if (menuSlide != null)
         {
             menuSlide.Close();
-            if (UIStateManager.Instance != null)
-                UIStateManager.Instance.SwitchUI(UIState.HUD);
             FocusNowAndNext(null); // 回遊戲不一定需要 UI 焦點
         }
     }
@@ -120,9 +107,6 @@ public class IngameMenuRouterB : MonoBehaviour
         optionsWrapperSlide.Opened.RemoveListener(OpenOptionsHorizontal);
         optionsWrapperSlide.Opened.AddListener(OpenOptionsHorizontal);
         optionsWrapperSlide.Open();
-
-        if (UIStateManager.Instance != null)
-            UIStateManager.Instance.SwitchUI(UIState.Options);
 
         FocusNowAndNext(focusOptions);
     }
@@ -148,12 +132,6 @@ public class IngameMenuRouterB : MonoBehaviour
         optionsSlide.Closed.AddListener(CloseWrapperAfterOptions);
         optionsSlide.Close();
 
-        bool isMainMenu = SceneManager.GetActiveScene().name == mainMenuSceneName;
-
-        if (UIStateManager.Instance != null)
-            UIStateManager.Instance.SwitchUI(isMainMenu ? UIState.MainMenu : UIState.IngameMenu);
-
-        // 主選單/遊戲 皆回到 Page_Main 的預設聚焦，避免 Enter 打到舊目標
         FocusNowAndNext(focusMain);
     }
 
@@ -169,9 +147,6 @@ public class IngameMenuRouterB : MonoBehaviour
 
         if (optionsSlide != null)
             optionsSlide.Open();
-
-        if (UIStateManager.Instance != null)
-            UIStateManager.Instance.SwitchUI(UIState.Options);
 
         FocusNowAndNext(focusOptions);
     }
@@ -192,7 +167,7 @@ public class IngameMenuRouterB : MonoBehaviour
         if (pendingGoToMainMenuAfterClose)
         {
             pendingGoToMainMenuAfterClose = false;
-            SaveAndLoadMainMenu(); // 切場景；狀態等載入完成後再切
+            SaveAndLoadMainMenu();
             return;
         }
 
@@ -201,8 +176,6 @@ public class IngameMenuRouterB : MonoBehaviour
             pendingReturnToMainAfterClose = false;
             ForceHideOptionsInstant();
             if (pageMain) pageMain.SetActive(true);
-            if (UIStateManager.Instance != null)
-                UIStateManager.Instance.SwitchUI(UIState.HUD);
         }
     }
 
@@ -212,7 +185,7 @@ public class IngameMenuRouterB : MonoBehaviour
             SaveManager.Instance.SaveNow();
 
         Time.timeScale = 1f;
-        SceneManager.LoadScene(mainMenuSceneName); // 切場景；狀態在 OnSceneLoaded 切一次
+        SceneManager.LoadScene(mainMenuSceneName);
     }
 
     void ForceHideOptionsInstant()

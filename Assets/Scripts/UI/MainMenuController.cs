@@ -41,9 +41,7 @@ public class MainMenuController : MonoBehaviour
 
     void Start()
     {
-        // 進入主選單時：切一次 MainMenu 狀態
-        UIStateManager.Instance?.SwitchUI(UIState.MainMenu);
-
+        // 不再做任何 UI 狀態切換
         Time.timeScale = 1f;
 
         if (continueButton != null)
@@ -109,9 +107,6 @@ public class MainMenuController : MonoBehaviour
         {
             OpenOptionsHorizontal();
         }
-
-        // 切 UI 狀態
-        UIStateManager.Instance?.SwitchUI(UIState.Options);
     }
 
     public void OnClickOptionsBack()
@@ -128,8 +123,6 @@ public class MainMenuController : MonoBehaviour
             CloseWrapperAfterPage();
         }
 
-        // 切回主選單狀態
-        UIStateManager.Instance?.SwitchUI(UIState.MainMenu);
         FocusNowAndNext(defaultMainButton);
     }
 
