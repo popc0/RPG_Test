@@ -1,44 +1,38 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+/// <summary>
+/// 掛在 Page_Options：按 ESC 關閉 Options（自動回 caller）
+/// - 主選單或遊戲內皆可用，不需知道來源；關閉後由 Page_Options 的 Close 機制回上一頁
+/// </summary>
 public class OptionsEscClose : MonoBehaviour
 {
-    [Header("場景判斷")]
-    [Tooltip("主選單場景名稱（用來判斷目前是否在主選單）")]
-    public string mainMenuSceneName = "MainMenuScene";
-
     [Header("熱鍵")]
-    public KeyCode escKey = KeyCode.Escape;
+    [SerializeField] private KeyCode escKey = KeyCode.Escape;
 
-    [Header("參考（兩個都可以填，腳本會自動判斷何時使用）")]
-    [Tooltip("主選單用：關 Page_Options（先左→再下）")]
-    public MainMenuController mainMenu;
+    [Header("（可選）僅在此物件啟用時響應 ESC")]
+    [SerializeField] private GameObject targetPageOptions; // 指 Page_Options 根物件
 
-    [Tooltip("遊戲內用：關子頁或先收整個面板再回主頁（實際狀態切換由 IngameMenuRouterB 內部負責）")]
-    public IngameMenuRouterB ingameRouter;
+    private SystemCanvasController scc;
 
-    [Header("（可選）只在 Page_Options 啟用時響應 ESC")]
-    [Tooltip("通常指定 Page_Options 的根物件；若留空則不做這項判斷")]
-    public GameObject targetPageOptions;
+    void Awake() => TryFindSCC();
 
     void Update()
     {
         if (!Input.GetKeyDown(escKey)) return;
 
-        // 若指定了 Page_Options 根物件，僅在它啟用時才響應
         if (targetPageOptions != null && !targetPageOptions.activeInHierarchy)
             return;
 
-        bool isMainMenu = SceneManager.GetActiveScene().name == mainMenuSceneName;
+        TryFindSCC();
+        if (scc != null) scc.CloseOptions();
+    }
 
-        if (isMainMenu)
-        {
-            // 主選單：呼叫主選單版本（內部會切到 MainMenu）
-            if (mainMenu != null) mainMenu.OnClickOptionsBack();
-            return;
-        }
-
-        // 遊戲內：呼叫遊戲內版本（內部會切到 IngameMenu）
-        if (ingameRouter != null) ingameRouter.OnClick_OptionsBack();
+    private void TryFindSCC()
+    {
+        if (scc != null) return;
+        scc = FindObjectOfType<SystemCanvasController>();
+        if (scc == null)
+            Debug.LogWarning("[OptionsEscClose] 找不到 SystemCanvasController。請確認它掛在 SystemCanvas。");
     }
 }

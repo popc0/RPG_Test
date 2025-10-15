@@ -5,6 +5,16 @@ public class PlayerMovement : MonoBehaviour
     [Header("移動")]
     public float moveSpeed = 5f;
 
+    [Header("手把 / 類比搖桿（選填軸名，不填就略過）")]
+    [Tooltip("手把 X 軸名稱（例如：JoyX / Joystick X / Horizontal_Stick 等）")]
+    [SerializeField] private string joystickAxisX = "";   // 例如 "JoyX"
+    [Tooltip("手把 Y 軸名稱（例如：JoyY / Joystick Y / Vertical_Stick 等）")]
+    [SerializeField] private string joystickAxisY = "";   // 例如 "JoyY"
+    [Tooltip("類比死區（避免微小抖動）")]
+    [Range(0f, 1f)][SerializeField] private float analogDeadzone = 0.2f;
+    [Tooltip("手把 Y 軸是否反向")]
+    [SerializeField] private bool invertJoyY = false;
+
     [Header("模型")]
     [SerializeField] private GameObject modelDownWalk;   // ↓ 象限「走路」用
     [SerializeField] private GameObject modelUp;         // ↑ 象限（走路與待機）
@@ -34,7 +44,7 @@ public class PlayerMovement : MonoBehaviour
     private Animator animDownIdle;
     private Animator currentAnim;
 
-    private Vector2 input;
+    private Vector2 input;       // 最終用來移動/驅動畫面的輸入（鍵盤或手把）
     private Vector2 lastPos;
     private Vector2 moveDelta;
 
@@ -69,8 +79,28 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        if (input.sqrMagnitude > 1f) input.Normalize();
+        // 1) 鍵盤輸入（原本邏輯不動）
+        Vector2 kb = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+
+        // 2) 手把類比輸入（若有設定軸名才讀）
+        Vector2 joy = Vector2.zero;
+        if (!string.IsNullOrEmpty(joystickAxisX))
+            joy.x = SafeGetAxis(joystickAxisX);
+        if (!string.IsNullOrEmpty(joystickAxisY))
+            joy.y = SafeGetAxis(joystickAxisY);
+
+        if (invertJoyY) joy.y = -joy.y;
+
+        // 類比死區與正規化
+        if (joy.magnitude < analogDeadzone) joy = Vector2.zero;
+        else if (joy.magnitude > 1f) joy.Normalize();
+
+        // 3) 合併策略：有手把就用手把；沒有再用鍵盤
+        input = (joy != Vector2.zero) ? joy : kb;
+
+        // 避免斜向過快
+        if (input.magnitude > 1f) input.Normalize();
+
         HandleAnimation();
     }
 
@@ -230,5 +260,12 @@ public class PlayerMovement : MonoBehaviour
         if (modelDownWalk != null) modelDownWalk.SetActive(go == modelDownWalk);
         if (modelUp != null) modelUp.SetActive(go == modelUp);
         if (modelDownIdle != null) modelDownIdle.SetActive(go == modelDownIdle);
+    }
+
+    // —— 輔助：安全讀取軸（未設置就當 0，不報錯）——
+    float SafeGetAxis(string axisName)
+    {
+        try { return Input.GetAxis(axisName); }
+        catch { return 0f; }
     }
 }

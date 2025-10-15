@@ -201,6 +201,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 5
+  joystickAxisX: 
+  joystickAxisY: 
+  analogDeadzone: 0.2
+  invertJoyY: 0
   modelDownWalk: {fileID: 6021809871629793580}
   modelUp: {fileID: 2902979773458652265}
   modelDownIdle: {fileID: 5181324698526677222}

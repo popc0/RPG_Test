@@ -34,6 +34,8 @@ MonoBehaviour:
       gotoNodeId: l3
     - text: "\u62C9\u9EB5"
       gotoNodeId: l4
+    - text: "\u5594\u6211\u4E0D\u8981\u963F"
+      gotoNodeId: l5
     autoDelay: 0
   - nodeId: l3
     nextNodeId: 
@@ -50,4 +52,32 @@ MonoBehaviour:
     speakerIds:
     - test
     choices: []
+    autoDelay: 2
+  - nodeId: l4
+    nextNodeId: 
+    displayName: 004
+    content: "\u597D\u6B50"
+    speakerIds:
+    - test
+    choices: []
+    autoDelay: 2
+  - nodeId: l5
+    nextNodeId: 
+    displayName: 005
+    content: "\u6B38\u4E0D\u662F"
+    speakerIds:
+    - test
+    choices:
+    - text: "\u4F60\u662F\u7532"
+      gotoNodeId: I6
+    autoDelay: 2
+  - nodeId: l6
+    nextNodeId: 
+    displayName: 006
+    content: ......
+    speakerIds:
+    - test
+    choices:
+    - text: "\u4F60\u662F\u7532"
+      gotoNodeId: I6
     autoDelay: 2
