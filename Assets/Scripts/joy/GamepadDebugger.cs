@@ -2,56 +2,53 @@ using UnityEngine;
 
 public class GamepadDebugger : MonoBehaviour
 {
-    [Tooltip("多久檢查一次 (秒)")]
-    public float checkInterval = 0.5f;
-    private float timer = 0f;
+    [Header("更新間隔 (秒)")]
+    public float interval = 0.2f;
+    private float timer;
 
-    private string[] testAxes = new string[]
+    // 你想觀察的軸名稱
+    private string[] axes = new string[]
     {
         "Horizontal", "Vertical",
-        "JoyX", "JoyY",        // 你可能在 Input Manager 自訂的軸名
+        "JoyX", "JoyY",
         "Joystick X", "Joystick Y"
     };
 
-    void Start()
+    private void Update()
     {
-        Debug.Log("=== [YuPad Debugger 啟動] ===");
-        Debug.Log("請移動搖桿或按 D-pad 檢查輸入值是否變動");
+        timer += Time.unscaledDeltaTime;
+        if (timer >= interval)
+        {
+            timer = 0f;
+            PrintInputValues();
+        }
     }
 
-    void Update()
+    private void PrintInputValues()
     {
-        timer += Time.deltaTime;
-        if (timer < checkInterval) return;
-        timer = 0f;
+        Debug.Log("===== [Gamepad Debugger] =====");
 
-        bool anyInput = false;
-        foreach (var axis in testAxes)
+        // 顯示所有軸的值
+        foreach (var axis in axes)
         {
-            float v = 0;
-            try { v = Input.GetAxis(axis); }
-            catch { continue; }
-
-            if (Mathf.Abs(v) > 0.01f)
+            try
             {
-                anyInput = true;
-                Debug.Log($"[Input] {axis} = {v:F2}");
+                float v = Input.GetAxisRaw(axis);
+                if (Mathf.Abs(v) > 0.01f)
+                    Debug.Log($"{axis} = {v:F3}");
+            }
+            catch
+            {
+                // 忽略不存在的軸
             }
         }
 
-        // 測試按鍵（D-pad、按鈕）
-        for (int i = 0; i < 20; i++)
+        // 顯示按鈕狀態（前 10 個）
+        for (int i = 0; i < 10; i++)
         {
-            if (Input.GetKey($"joystick button {i}"))
-            {
-                anyInput = true;
-                Debug.Log($"[Button] joystick button {i} = DOWN");
-            }
-        }
-
-        if (!anyInput)
-        {
-            Debug.Log("(No input detected — YuPad 可能未連線或軸名不符)");
+            string btn = $"joystick button {i}";
+            if (Input.GetKey(btn))
+                Debug.Log($"{btn} = DOWN");
         }
     }
 }

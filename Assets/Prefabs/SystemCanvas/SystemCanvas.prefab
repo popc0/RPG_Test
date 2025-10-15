@@ -833,7 +833,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7198379095049107464}
-  - component: {fileID: 7436985745599331645}
+  - component: {fileID: 3560705989382390068}
   m_Layer: 0
   m_Name: GamepadDebugger
   m_TagString: Untagged
@@ -856,19 +856,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 7450596883502489487}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7436985745599331645
+--- !u!114 &3560705989382390068
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5886884149496737730}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5402d43a16f65e640b3e0d4840b824f3, type: 3}
+  m_Script: {fileID: 11500000, guid: a84d5bd69d1befd4aa709d8ec59c2310, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  checkInterval: 0.51
 --- !u!1 &7891307245031870200
 GameObject:
   m_ObjectHideFlags: 0
@@ -1341,15 +1340,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 209188710383153117, guid: 853e5d80ed606bb4aa8bdff993959726, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 209188710383153117, guid: 853e5d80ed606bb4aa8bdff993959726, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 209188710383153117, guid: 853e5d80ed606bb4aa8bdff993959726, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 209188710383153117, guid: 853e5d80ed606bb4aa8bdff993959726, type: 3}
       propertyPath: m_LocalPosition.x
