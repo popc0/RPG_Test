@@ -250,6 +250,7 @@ GameObject:
   - component: {fileID: 7151729009257553215}
   - component: {fileID: 6991581838865296240}
   - component: {fileID: 5790867756750334554}
+  - component: {fileID: 6557314825161220729}
   m_Layer: 13
   m_Name: Canvas_TPHint
   m_TagString: Untagged
@@ -340,3 +341,15 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!225 &6557314825161220729
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5135073632832594059}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0

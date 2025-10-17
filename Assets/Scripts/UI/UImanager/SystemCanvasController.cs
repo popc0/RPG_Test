@@ -1,103 +1,159 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class SystemCanvasController : MonoBehaviour
 {
-    // —— 群組層（只用來鎖互動）——
-    [Header("群組 CanvasGroup")]
-    [SerializeField] private CanvasGroup groupIngameMenu; // 遊戲內主選單群組
-    [SerializeField] private CanvasGroup groupOptions;    // 共用設定群組
+    [Header("Groups in SystemCanvas")]
+    [SerializeField] private CanvasGroup groupIngameMenu;
+    [SerializeField] private CanvasGroup groupOptions;
 
-    // —— 頁面層（各自管理動畫/焦點）——
-    [Header("頁面控制腳本")]
-    [SerializeField] private PageMain pageMain;           // Page_Main：下滑入/下滑出
-    [SerializeField] private PageOptions pageOptions;     // Page_Options：右滑入/右滑出
+    [Header("Pages")]
+    [SerializeField] private PageMain pageMain;
+    [SerializeField] private PageOptions pageOptions;
 
-    private enum UiBlock { None, IngameMenu, Options }
-    private UiBlock current = UiBlock.None;
+    [Header("Hotkey")]
+    [SerializeField] private bool enableToggleHotkey = true;
+    [SerializeField] private KeyCode toggleKey = KeyCode.R;
+    [SerializeField] private string mainMenuSceneName = "MainMenu";
+    [SerializeField] private bool ignoreHotkeyInMainMenu = true;
 
-    // —— 公開 API：給外部呼叫 —— //
-    // 遊戲內：按 R 開關主選單
+    private enum UiGroup { None, IngameMenu, Options }
+    private UiGroup current = UiGroup.None;
+
+    bool pendingNotifyClose = false;
+
+    void Awake()
+    {
+        // 初始全部關（CanvasGroup 控制）
+        SetGroupVisible(groupIngameMenu, false);
+        SetGroupVisible(groupOptions, false);
+        current = UiGroup.None;
+        EnsureGameResumed();
+    }
+
+    void Update()
+    {
+        if (!enableToggleHotkey) return;
+        if (ignoreHotkeyInMainMenu && SceneManager.GetActiveScene().name == mainMenuSceneName) return;
+
+        if (Input.GetKeyDown(toggleKey)) ToggleIngameMenu();
+    }
+
+    // ===== 外層 Canvas 事件 =====
+    void EnsureSystemCanvasActive() => UIEvents.RaiseOpenSystemCanvas();
+    void RequestNotifyRootIfNone()
+    {
+        if (!pendingNotifyClose) StartCoroutine(CoDelayedNotifyNone());
+    }
+    IEnumerator CoDelayedNotifyNone()
+    {
+        pendingNotifyClose = true;
+        yield return null; // 等一幀讓切換完成（例如 Options→Main）
+        if (!HasAnyUiOpen()) UIEvents.RaiseCloseActiveCanvas();
+        pendingNotifyClose = false;
+    }
+
+    // ===== 群組層索引（先選群組，再開頁） =====
+    void SetGroupIndex(UiGroup target)
+    {
+        current = target;
+
+        // 只有索引指向的群組可見且可互動；其他關閉可見與互動
+        SetGroupVisible(groupIngameMenu, target == UiGroup.IngameMenu);
+        SetGroupVisible(groupOptions, target == UiGroup.Options);
+    }
+
+    // ===== 對外入口 =====
     public void ToggleIngameMenu()
     {
-        if (current == UiBlock.IngameMenu)
-            CloseIngameMenu();
+        if (!groupIngameMenu || !pageMain) return;
+
+        if (current != UiGroup.IngameMenu)
+        {
+            EnsureSystemCanvasActive();
+            SetGroupIndex(UiGroup.IngameMenu); // 先群組索引→可見可互動
+            pageMain.Open();                   // 再頁面
+            EnsureGamePaused();
+        }
         else
-            OpenIngameMenu();
+        {
+            pageMain.Close();                  // 先頁面關
+            SetGroupIndex(UiGroup.None);       // 再群組索引回 None
+            EnsureGameResumedIfNone();
+            RequestNotifyRootIfNone();
+        }
     }
 
-    // 開啟遊戲內主選單
     public void OpenIngameMenu()
     {
-        // 若設定頁開著，先關
-        if (current == UiBlock.Options)
-            CloseOptions();
-
-        LockAllExcept(UiBlock.IngameMenu);
+        if (!groupIngameMenu || !pageMain) return;
+        EnsureSystemCanvasActive();
+        SetGroupIndex(UiGroup.IngameMenu);
         pageMain.Open();
+        EnsureGamePaused();
     }
 
-    // 關閉遊戲內主選單
     public void CloseIngameMenu()
     {
+        if (!groupIngameMenu || !pageMain) return;
         pageMain.Close();
-        UnlockAll(); // 回到無互動群組
+        SetGroupIndex(UiGroup.None);
+        EnsureGameResumedIfNone();
+        RequestNotifyRootIfNone();
     }
 
-    // 從「主選單」開啟設定
     public void OpenOptionsFromMainMenu(GameObject callerPage)
     {
-        LockAllExcept(UiBlock.Options);
-        pageOptions.Open(callerPage); // caller=主選單的頁物件
+        if (!groupOptions || !pageOptions) return;
+        EnsureSystemCanvasActive();
+        SetGroupIndex(UiGroup.Options);
+        pageOptions.Open(callerPage);
+        EnsureGamePaused();
     }
 
-    // 從「遊戲內主選單 Page_Main」開啟設定
     public void OpenOptionsFromIngame(GameObject callerPage)
     {
-        LockAllExcept(UiBlock.Options);
-        pageOptions.Open(callerPage); // caller=Ingame 的 Page_Main
+        if (!groupOptions || !pageOptions) return;
+        EnsureSystemCanvasActive();
+        SetGroupIndex(UiGroup.Options);
+        pageOptions.Open(callerPage);
+        EnsureGamePaused();
     }
 
-    // 關閉設定（會自動回上一頁）
-    public void CloseOptions()
+    // 由 PageOptions 關閉完成後呼叫（Back）
+    public void OnOptionsClosed()
     {
-        ClearFocus();
-        pageOptions.Close();
-
-        // 嘗試判斷上一頁是不是遊戲內主選單（最常見情境）
-        // 由於 PageOptions 內已回到 caller，這裡只需把互斥鎖回去
-        if (pageMain != null && pageMain.gameObject.activeInHierarchy)
-            LockAllExcept(UiBlock.IngameMenu);
+        // 若 PageMain 仍開著，就回到 IngameMenu；否則關到 None
+        if (pageMain && pageMain.isActiveAndEnabled && pageMain.IsOpen)
+            SetGroupIndex(UiGroup.IngameMenu); // 這一步會把 Group_IngameMenu 的互動恢復
         else
-            UnlockAll(); // 可能是主選單回來，交給主選單自己接管
+            SetGroupIndex(UiGroup.None);
+
+        EnsureGameResumedIfNone();
+        RequestNotifyRootIfNone();
     }
 
-    // —— 內部工具 —— //
-    private void LockAllExcept(UiBlock which)
+    // ===== 判定有沒有 UI 開著（群組或頁面任一成立即可） =====
+    bool HasAnyUiOpen()
     {
-        SetGroupInteract(groupIngameMenu, which == UiBlock.IngameMenu);
-        SetGroupInteract(groupOptions, which == UiBlock.Options);
-        current = which;
+        if (current != UiGroup.None) return true; // 有群組索引即視為開著
+        if (pageMain && pageMain.isActiveAndEnabled && pageMain.IsOpen) return true;
+        if (pageOptions && pageOptions.isActiveAndEnabled && pageOptions.IsOpen) return true;
+        return false;
     }
 
-    private void UnlockAll()
+    // ===== CanvasGroup 工具（只用 CG，不關物件） =====
+    static void SetGroupVisible(CanvasGroup cg, bool visible)
     {
-        SetGroupInteract(groupIngameMenu, false);
-        SetGroupInteract(groupOptions, false);
-        current = UiBlock.None;
+        if (!cg) return;
+        cg.alpha = visible ? 1f : 0f;
+        cg.interactable = visible;
+        cg.blocksRaycasts = visible;
     }
 
-    private void SetGroupInteract(CanvasGroup cg, bool on)
-    {
-        if (cg == null) return;
-        cg.interactable = on;
-        cg.blocksRaycasts = on;
-        // alpha 是否要一起管理由你決定；通常群組層 alpha 保持 1 即可
-    }
-
-    private void ClearFocus()
-    {
-        if (EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(null);
-    }
+    // ===== 時間控制 =====
+    void EnsureGamePaused() => Time.timeScale = 0f;
+    void EnsureGameResumedIfNone() { if (!HasAnyUiOpen()) Time.timeScale = 1f; }
+    void EnsureGameResumed() => Time.timeScale = 1f;
 }

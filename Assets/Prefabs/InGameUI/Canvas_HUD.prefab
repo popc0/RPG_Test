@@ -741,7 +741,6 @@ GameObject:
   - component: {fileID: 4062647685202853924}
   - component: {fileID: 1472534787352098826}
   - component: {fileID: 7219484904784636551}
-  - component: {fileID: 6129390847405923459}
   - component: {fileID: 6296555134158236785}
   - component: {fileID: 4952800288354086934}
   - component: {fileID: 3317952306257949826}
@@ -836,20 +835,6 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
---- !u!114 &6129390847405923459
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7109212257390740009}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c19f94c382ea26b4eb221dccc6171234, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  hudRoot: {fileID: 7109212257390740009}
-  canvasGroup: {fileID: 6296555134158236785}
 --- !u!225 &6296555134158236785
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -874,10 +859,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3a3835ba009a23478cd764ff4c98a25, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  hudRoot: {fileID: 0}
-  hudGroup: {fileID: 0}
+  hudRoot: {fileID: 7109212257390740009}
+  hudGroup: {fileID: 6296555134158236785}
   hideInMainMenu: 1
   mainMenuSceneName: MainMenuScece
+  affectInteractionWhenToggling: 1
 --- !u!114 &3317952306257949826
 MonoBehaviour:
   m_ObjectHideFlags: 0

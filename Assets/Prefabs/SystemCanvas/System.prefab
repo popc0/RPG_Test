@@ -689,6 +689,7 @@ GameObject:
   - component: {fileID: 896122322676711679}
   - component: {fileID: 8968027310207949158}
   - component: {fileID: 2602380750759894862}
+  - component: {fileID: 2122352504158342134}
   m_Layer: 13
   m_Name: Canvas_Story
   m_TagString: Untagged
@@ -859,6 +860,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   overlay: {fileID: 5465732631473387239}
   fadeDuration: 0.25
+--- !u!225 &2122352504158342134
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2939082546951521669}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &3124457119272859624
 GameObject:
   m_ObjectHideFlags: 0
@@ -1121,7 +1134,7 @@ GameObject:
   m_Component:
   - component: {fileID: 9086059345590865676}
   - component: {fileID: 8947578597239515}
-  - component: {fileID: 6940410919482403368}
+  - component: {fileID: 2422886342801637325}
   m_Layer: 13
   m_Name: System
   m_TagString: Untagged
@@ -1168,7 +1181,7 @@ MonoBehaviour:
   systemSortingLayerName: SystemUI
   minSortingOrder: 600
   excludeHUDCanvases: 1
---- !u!114 &6940410919482403368
+--- !u!114 &2422886342801637325
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1177,37 +1190,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 4136016653928480702}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2ad0cf5b2bc86dd45bac95b82d83a6d7, type: 3}
+  m_Script: {fileID: 11500000, guid: d73e184e544483944b2abb591af022b9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panels:
-  - id: IngameMenu
-    group: {fileID: 8752885329535111886}
-    defaultFocus: {fileID: 101159551304670529}
-    type: 0
-    manageVisibility: 0
-    restoreOnDeactivate: 1
-    initAlpha: 0
-    initInteractable: 0
-    initBlocks: 0
-  - id: Options
-    group: {fileID: 0}
-    defaultFocus: {fileID: 0}
-    type: 0
-    manageVisibility: 0
-    restoreOnDeactivate: 1
-    initAlpha: 0
-    initInteractable: 0
-    initBlocks: 0
-  - id: HUD
-    group: {fileID: 5892039139920480664}
-    defaultFocus: {fileID: 0}
-    type: 1
-    manageVisibility: 0
-    restoreOnDeactivate: 1
-    initAlpha: 0
-    initInteractable: 0
-    initBlocks: 0
+  canvasSystem: {fileID: 7653218826003686456}
+  canvasStory: {fileID: 2122352504158342134}
+  canvasTPHint: {fileID: 7276533258234879552}
+  canvasHUD: {fileID: 5892039139920480664}
+  disableHUDWhenOthersActive: 1
+  includeTPHintInExclusion: 1
 --- !u!1 &4271256376109017026
 GameObject:
   m_ObjectHideFlags: 0
@@ -2289,10 +2280,6 @@ PrefabInstance:
       propertyPath: m_LocalScale.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 8749855439047247328, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
-      propertyPath: m_RenderMode
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 9052582537640506876, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
       propertyPath: m_Value
       value: 0.4
@@ -2302,19 +2289,14 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
---- !u!1 &101159551304670529 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4480728861854528098, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
-  m_PrefabInstance: {fileID: 4560417146295480099}
-  m_PrefabAsset: {fileID: 0}
 --- !u!224 &6353467848022995116 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7450596883502489487, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
   m_PrefabInstance: {fileID: 4560417146295480099}
   m_PrefabAsset: {fileID: 0}
---- !u!225 &8752885329535111886 stripped
+--- !u!225 &7653218826003686456 stripped
 CanvasGroup:
-  m_CorrespondingSourceObject: {fileID: 5058006300720496109, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
+  m_CorrespondingSourceObject: {fileID: 6159915775160404763, guid: 8cba51f88dd6b5e46922c8a580f5cbef, type: 3}
   m_PrefabInstance: {fileID: 4560417146295480099}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &4610335154429557817
@@ -2421,5 +2403,10 @@ PrefabInstance:
 --- !u!224 &1143862762658155357 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3469146627658069860, guid: cca1ececaacf3a24f89ffd6161a35b03, type: 3}
+  m_PrefabInstance: {fileID: 4610335154429557817}
+  m_PrefabAsset: {fileID: 0}
+--- !u!225 &7276533258234879552 stripped
+CanvasGroup:
+  m_CorrespondingSourceObject: {fileID: 6557314825161220729, guid: cca1ececaacf3a24f89ffd6161a35b03, type: 3}
   m_PrefabInstance: {fileID: 4610335154429557817}
   m_PrefabAsset: {fileID: 0}

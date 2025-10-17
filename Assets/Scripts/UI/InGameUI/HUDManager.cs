@@ -15,6 +15,9 @@ public class HUDManager : MonoBehaviour
     [Header("可選, 如果主選單不在 build index 0, 填入主選單場景名稱")]
     public string mainMenuSceneName = "";
 
+    [Header("可見度切換時是否同時改互動(預設否)")]
+    public bool affectInteractionWhenToggling = false;
+
     void Awake()
     {
         if (hudRoot == null)
@@ -41,12 +44,8 @@ public class HUDManager : MonoBehaviour
 
     bool IsMainMenuScene(Scene s)
     {
-        // 建議把主選單放在 build index 0
         if (s.buildIndex == 0) return true;
-
-        if (!string.IsNullOrEmpty(mainMenuSceneName) && s.name == mainMenuSceneName)
-            return true;
-
+        if (!string.IsNullOrEmpty(mainMenuSceneName) && s.name == mainMenuSceneName) return true;
         return false;
     }
 
@@ -54,13 +53,26 @@ public class HUDManager : MonoBehaviour
     {
         if (hudGroup != null)
         {
+            // 只改顯示，不動互動 (除非你勾選 affectInteractionWhenToggling)
             hudGroup.alpha = visible ? 1f : 0f;
-            hudGroup.interactable = visible;
-            hudGroup.blocksRaycasts = visible;
+
+            if (affectInteractionWhenToggling)
+            {
+                hudGroup.interactable = visible;
+                hudGroup.blocksRaycasts = visible;
+            }
         }
         else if (hudRoot != null)
         {
             hudRoot.SetActive(visible);
         }
+    }
+
+    // 給外部(例如 UIRootCanvasController)專門控制互動用
+    public void SetInteractionEnabled(bool enabled)
+    {
+        if (hudGroup == null) return;
+        hudGroup.interactable = enabled;
+        hudGroup.blocksRaycasts = enabled;
     }
 }

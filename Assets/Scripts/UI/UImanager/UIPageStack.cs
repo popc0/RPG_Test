@@ -32,7 +32,7 @@ public class UIPageStack : MonoBehaviour
     }
 
     /// <summary>彈出並回上一頁（顯示、解鎖互動、嘗試設定焦點）。</summary>
-    public GameObject PopAndReturn(params string[] preferFocusNames)
+    public GameObject PopAndFocus(params string[] preferFocusNames)
     {
         if (_stack.Count == 0) return null;
 

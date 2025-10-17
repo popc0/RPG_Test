@@ -1,36 +1,54 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using System.Collections;
 
 [RequireComponent(typeof(RectTransform))]
 [RequireComponent(typeof(CanvasGroup))]
 public class PageMain : MonoBehaviour
 {
-    [Header("滑入方向 = 從下滑入")]
+    [Header("入場出場動畫")]
     [SerializeField] float duration = 0.25f;
     [SerializeField] AnimationCurve ease = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
     [Header("預設聚焦按鈕")]
     [SerializeField] Selectable defaultFocus;
 
+    [Header("主選單場景名稱")]
+    [SerializeField] string mainMenuSceneName = "MainMenuScene";
+
     RectTransform rt;
     CanvasGroup cg;
-    Vector2 onPos;      // 顯示位置
-    Vector2 offPos;     // 畫面外位置（下方）
-    bool isOpen;
     Coroutine tweenCo;
+    Vector2 startPosHidden;
+    Vector2 startPosShown;
+    bool isOpen;
+
+    SystemCanvasController scc;
+
+    public bool IsOpen => isOpen;
 
     void Awake()
     {
         rt = GetComponent<RectTransform>();
         cg = GetComponent<CanvasGroup>();
-        onPos = rt.anchoredPosition;
 
-        var parent = rt.parent as RectTransform;
-        float height = parent != null ? parent.rect.height : Screen.height;
-        offPos = onPos + new Vector2(0, -height); // 從下方滑進
+        startPosShown = Vector2.zero;
+        startPosHidden = new Vector2(0, -rt.rect.height); // 從下滑入
 
-        SnapHidden();
+        cg.alpha = 0f;
+        cg.interactable = false;
+        cg.blocksRaycasts = false;
+        rt.anchoredPosition = startPosHidden;
+
+        TryFindSCC();
+    }
+
+    void StopTween()
+    {
+        if (tweenCo != null) StopCoroutine(tweenCo);
+        tweenCo = null;
     }
 
     public void Open()
@@ -39,19 +57,18 @@ public class PageMain : MonoBehaviour
         isOpen = true;
 
         StopTween();
-        gameObject.SetActive(true);
+
+        cg.alpha = 1f;
         cg.blocksRaycasts = true;
         cg.interactable = true;
-        cg.alpha = 1f;
 
         if (EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(null);
-
-        tweenCo = StartCoroutine(Slide(offPos, onPos, duration, ease, () =>
         {
-            if (defaultFocus != null && EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(defaultFocus.gameObject);
-        }));
+            EventSystem.current.SetSelectedGameObject(null);
+            StartCoroutine(SetFocusNextFrame());
+        }
+
+        tweenCo = StartCoroutine(TweenPos(rt.anchoredPosition, startPosShown, true));
     }
 
     public void Close()
@@ -60,48 +77,94 @@ public class PageMain : MonoBehaviour
         isOpen = false;
 
         StopTween();
-
-        if (EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(null);
-
-        tweenCo = StartCoroutine(Slide(rt.anchoredPosition, offPos, duration, ease, () =>
-        {
-            cg.blocksRaycasts = false;
-            cg.interactable = false;
-            cg.alpha = 0f;
-            gameObject.SetActive(false);
-        }));
-    }
-
-    void SnapHidden()
-    {
-        rt.anchoredPosition = offPos;
-        cg.alpha = 0f;
-        cg.interactable = false;
         cg.blocksRaycasts = false;
-        gameObject.SetActive(false);
-        isOpen = false;
+        cg.interactable = false;
+        tweenCo = StartCoroutine(TweenPos(rt.anchoredPosition, startPosHidden, false));
     }
 
-    IEnumerator Slide(Vector2 from, Vector2 to, float t, AnimationCurve curve, System.Action onDone)
+    IEnumerator TweenPos(Vector2 from, Vector2 to, bool opening)
     {
-        float elapsed = 0f;
-        while (elapsed < t)
+        float t = 0f;
+        while (t < 1f)
         {
-            elapsed += Time.unscaledDeltaTime; // 不受暫停影響
-            float k = Mathf.Clamp01(elapsed / t);
-            float e = curve.Evaluate(k);
-            rt.anchoredPosition = Vector2.LerpUnclamped(from, to, e);
+            t += Time.unscaledDeltaTime / duration;
+            float k = ease.Evaluate(Mathf.Clamp01(t));
+            rt.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
             yield return null;
         }
         rt.anchoredPosition = to;
-        onDone?.Invoke();
+
+        if (!opening)
+        {
+            cg.alpha = 0f;
+            cg.blocksRaycasts = false;
+            cg.interactable = false;
+        }
+
         tweenCo = null;
     }
 
-    void StopTween()
+    IEnumerator SetFocusNextFrame()
     {
-        if (tweenCo != null) StopCoroutine(tweenCo);
-        tweenCo = null;
+        yield return null;
+        if (defaultFocus != null && EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(defaultFocus.gameObject);
+    }
+
+    void TryFindSCC()
+    {
+        if (scc != null) return;
+        scc = FindObjectOfType<SystemCanvasController>();
+        if (scc == null)
+            Debug.LogWarning("[PageMain] 找不到 SystemCanvasController。請確認它掛在 SystemCanvas。");
+    }
+
+    // === 按鈕事件 ===
+
+    public void OnClick_Continue()
+    {
+        TryFindSCC();
+        if (scc != null) scc.CloseIngameMenu();
+    }
+
+    public void OnClick_Options()
+    {
+        TryFindSCC();
+        if (scc == null) return;
+
+        if (SceneManager.GetActiveScene().name == mainMenuSceneName)
+            scc.OpenOptionsFromMainMenu(gameObject);
+        else
+            scc.OpenOptionsFromIngame(gameObject);
+    }
+
+    public void OnClick_BackToMainMenu()
+    {
+        TryFindSCC();
+        if (scc != null) scc.CloseIngameMenu();
+
+        // 恢復時間流動
+        Time.timeScale = 1f;
+
+        // 播放淡出與存檔流程
+        StartCoroutine(ReturnToMainMenuAfterFade());
+    }
+
+    IEnumerator ReturnToMainMenuAfterFade()
+    {
+        // 模擬淡出動畫（可替換成你的實際黑幕控制）
+        yield return new WaitForSecondsRealtime(0.5f);
+
+        // 存檔（安全略過主選單）
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.SaveNow();
+
+        // 確保時間正常
+        Time.timeScale = 1f;
+
+        // 再等一點給檔案寫入時間
+        yield return new WaitForSecondsRealtime(0.1f);
+
+        SceneManager.LoadScene(mainMenuSceneName, LoadSceneMode.Single);
     }
 }
