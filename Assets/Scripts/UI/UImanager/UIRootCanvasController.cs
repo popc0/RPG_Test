@@ -1,141 +1,116 @@
 using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
 
 public class UIRootCanvasController : MonoBehaviour
 {
-    [Header("Managed canvases (CanvasGroup)")]
-    [SerializeField] CanvasGroup canvasSystem;   // SystemCanvas
-    [SerializeField] CanvasGroup canvasStory;    // Canvas_Story
-    [SerializeField] CanvasGroup canvasTPHint;   // Canvas_TPHint（預設不互斥，可疊加）
+    [Header("外層 key（只管這兩個）")]
+    [SerializeField] string keyMain = "mainmenu";
+    [SerializeField] string keySystem = "system";
 
-    [Header("HUD behavior")]
-    [SerializeField] CanvasGroup canvasHUD;                  // 可留空
-    [SerializeField] bool disableHUDWhenOthersActive = false;
+    enum TopIndex { None, MainMenu, System }
+    TopIndex current = TopIndex.None;
 
-    [Header("Participation flags")]
-    [SerializeField] bool includeTPHintInExclusion = false;  // 預設 false
-
-    CanvasGroup currentActive;
-
-    // 記錄 HUD 原始互動狀態
-    bool hudOrigInteractable = true;
-    bool hudOrigBlocksRaycasts = true;
-    bool hudOrigCaptured = false;
-
-    void Awake()
-    {
-        CaptureHUDOriginalState();
-        // 預設外層都可見狀態由各自 Canvas 管；此控制器只負責互斥與互動權
-    }
+    readonly Dictionary<string, CanvasGroup> map = new();
+    string pendingOpenKey = null;
 
     void OnEnable()
     {
-        UIEvents.OnOpenSystemCanvas += OpenSystem;
-        UIEvents.OnOpenStoryCanvas += OpenStory;
-        UIEvents.OnOpenTPHintCanvas += OpenTPHint;
-        UIEvents.OnCloseActiveCanvas += CloseActive;
+        UIEvents.OnRegisterCanvas += OnRegister;
+        UIEvents.OnUnregisterCanvas += OnUnregister;
+        UIEvents.OnOpenCanvas += OnOpenCanvas;
+        UIEvents.OnCloseActiveCanvas += OnCloseActive;
     }
 
     void OnDisable()
     {
-        UIEvents.OnOpenSystemCanvas -= OpenSystem;
-        UIEvents.OnOpenStoryCanvas -= OpenStory;
-        UIEvents.OnOpenTPHintCanvas -= OpenTPHint;
-        UIEvents.OnCloseActiveCanvas -= CloseActive;
+        UIEvents.OnRegisterCanvas -= OnRegister;
+        UIEvents.OnUnregisterCanvas -= OnUnregister;
+        UIEvents.OnOpenCanvas -= OnOpenCanvas;
+        UIEvents.OnCloseActiveCanvas -= OnCloseActive;
     }
 
-    void OpenSystem() => SetExclusive(canvasSystem);
-    void OpenStory() => SetExclusive(canvasStory);
-
-    void OpenTPHint()
+    void Start()
     {
-        if (canvasTPHint == null) return;
+        // 等一幀收集 Anchor，避免時序競賽
+        StartCoroutine(DelayedRegisterAnchors());
+    }
 
-        if (includeTPHintInExclusion)
+    IEnumerator DelayedRegisterAnchors()
+    {
+        yield return null;
+        foreach (var anchor in FindObjectsOfType<UICanvasAnchor>(true))
         {
-            SetExclusive(canvasTPHint);
+            if (string.IsNullOrEmpty(anchor.key)) continue;
+            var cg = anchor.GetComponent<CanvasGroup>();
+            if (cg && !map.ContainsKey(anchor.key))
+                map[anchor.key] = cg;
         }
-        else
-        {
-            // 疊加提示：只開自身互動與可見，不影響 currentActive
-            SetCGVisible(canvasTPHint, true);
-            // 不改 HUD（提示通常不該封鎖 HUD）
-        }
+        if (!string.IsNullOrEmpty(pendingOpenKey))
+            TryApplyTop(pendingOpenKey);
     }
 
-    void CloseActive()
+    // —— 註冊 / 反註冊 ——
+    void OnRegister(string key, CanvasGroup cg)
     {
-        if (currentActive != null)
-        {
-            SetCGVisible(currentActive, false);
-            currentActive = null;
-        }
-        RestoreHUD();
+        map[key] = cg;
+        if (!string.IsNullOrEmpty(pendingOpenKey))
+            TryApplyTop(pendingOpenKey);
     }
 
-    void SetExclusive(CanvasGroup target)
+    void OnUnregister(string key) { map.Remove(key); }
+
+    // —— 外層切前景（只接受 mainmenu / system）——
+    void OnOpenCanvas(string key)
     {
-        if (target == null) return;
-
-        // 關閉其他互斥 Canvas（只用 CanvasGroup）
-        if (canvasSystem && canvasSystem != target) SetCGVisible(canvasSystem, false);
-        if (canvasStory && canvasStory != target) SetCGVisible(canvasStory, false);
-
-        // TPHint 可選擇是否也互斥
-        if (includeTPHintInExclusion && canvasTPHint && canvasTPHint != target)
-            SetCGVisible(canvasTPHint, false);
-
-        // 開啟目標
-        SetCGVisible(target, true);
-        currentActive = target;
-
-        // HUD 只關互動不關顯示，之後 CloseActive 會復原
-        ApplyHUDAccess(target);
+        pendingOpenKey = key;
+        TryApplyTop(key);
     }
 
-    // ===== 顯示/互動工具（只用 CanvasGroup，不關物件） =====
-
-    static bool IsVisible(CanvasGroup cg)
+    // System 全關 → 回 MainMenu（若沒有就回 None）
+    void OnCloseActive()
     {
-        if (!cg) return false;
-        return cg.alpha > 0.001f && (cg.interactable || cg.blocksRaycasts);
+        pendingOpenKey = null;
+        if (Get(keyMain) != null) SetTopIndex(TopIndex.MainMenu);
+        else SetTopIndex(TopIndex.None);
     }
 
-    static void SetCGVisible(CanvasGroup cg, bool visible)
+    void TryApplyTop(string key)
+    {
+        bool ready =
+            (key == keyMain && Get(keyMain) != null) ||
+            (key == keySystem && Get(keySystem) != null);
+
+        if (!ready) return;
+
+        if (key == keyMain) SetTopIndex(TopIndex.MainMenu);
+        if (key == keySystem) SetTopIndex(TopIndex.System);
+    }
+
+    // —— 只改互動，不動顯示（alpha/SetActive 都不改）——
+    void SetTopIndex(TopIndex idx)
+    {
+        current = idx;
+
+        var main = Get(keyMain);
+        var system = Get(keySystem);
+
+        bool mainInteract = (current == TopIndex.MainMenu);
+        bool systemInteract = (current == TopIndex.System);
+
+        SetInteract(main, mainInteract);
+        SetInteract(system, systemInteract);
+        // HUD 交由 HUDManager 依事件自行處理（不在此更動）
+    }
+
+    // —— 工具 —— 
+    CanvasGroup Get(string key)
+        => (!string.IsNullOrEmpty(key) && map.TryGetValue(key, out var cg)) ? cg : null;
+
+    static void SetInteract(CanvasGroup cg, bool interactive)
     {
         if (!cg) return;
-        cg.alpha = visible ? 1f : 0f;
-        cg.interactable = visible;
-        cg.blocksRaycasts = visible;
-    }
-
-    void ApplyHUDAccess(CanvasGroup top)
-    {
-        if (!canvasHUD) return;
-
-        CaptureHUDOriginalState();
-
-        bool hudAccess = true;
-        if (disableHUDWhenOthersActive && top != null && top != canvasHUD)
-            hudAccess = false;
-
-        // 只調互動，不動顯示
-        canvasHUD.interactable = hudAccess;
-        canvasHUD.blocksRaycasts = hudAccess;
-    }
-
-    void RestoreHUD()
-    {
-        if (!canvasHUD || !hudOrigCaptured) return;
-
-        canvasHUD.interactable = hudOrigInteractable;
-        canvasHUD.blocksRaycasts = hudOrigBlocksRaycasts;
-    }
-
-    void CaptureHUDOriginalState()
-    {
-        if (canvasHUD == null || hudOrigCaptured) return;
-        hudOrigInteractable = canvasHUD.interactable;
-        hudOrigBlocksRaycasts = canvasHUD.blocksRaycasts;
-        hudOrigCaptured = true;
+        cg.interactable = interactive;
+        cg.blocksRaycasts = interactive;
     }
 }

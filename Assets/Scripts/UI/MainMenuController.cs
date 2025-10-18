@@ -2,75 +2,89 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections;
 
-/// <summary>
-/// 主選單控制器（極薄）
-/// - 「其他選項」→ SystemCanvasController.OpenOptionsFromMainMenu(pageMainRoot)
-/// - 返回主頁面：聚焦回 defaultMainButton
-/// 其他（開始/繼續/離開）沿用你現有邏輯即可。
-/// </summary>
 public class MainMenuController : MonoBehaviour
 {
-    [Header("主選單 Page_Main 根物件（作為 Options 的 caller）")]
-    [SerializeField] private GameObject pageMainRoot; // MainMenuCanvas 下的 Page_Main
-
     [Header("主畫面預設聚焦")]
-    [SerializeField] private Selectable defaultMainButton; // 例如 Continue/Start
+    [SerializeField] private Selectable defaultMainButton;
 
-    [Header("進入的第一個遊戲場景 & 落點（依你現有流程）")]
+    [Header("進入的第一個遊戲場景與落點")]
     [SerializeField] private string firstSceneName = "Scene1";
     [SerializeField] private string firstSpawnId = "Start";
     [SerializeField] private GameObject playerPrefab;
 
-    [Header("五個按鈕（直接拖）")]
-    [SerializeField] private Button startButton;
+    [Header("五個按鈕")]
+    [SerializeField] private Button startbutton;
     [SerializeField] private Button continueButton;
     [SerializeField] private Button optionsButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private Button deleteSaveButton;
 
     private SystemCanvasController scc;
+    private Coroutine refocusCo;
 
     void Awake()
     {
         TryFindSCC();
 
-        Bind(startButton, OnClickStart);
+        Bind(startbutton, OnClickStart);
         Bind(continueButton, OnClickContinue);
         Bind(optionsButton, OnClickOtherOptions);
         Bind(quitButton, OnClickQuit);
         Bind(deleteSaveButton, OnClickDeleteSave);
     }
 
-    void Start()
+    void OnEnable()
     {
-        // 可選：設定 Continue 可用狀態
-        if (continueButton != null) continueButton.interactable = SaveSystem.Exists();
+        // 外層前景 = MainMenu（外層互斥）
+        UIEvents.RaiseOpenCanvas("mainmenu");
 
-        // 進主選單聚焦預設
-        if (defaultMainButton != null && EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(defaultMainButton.gameObject);
+        // 每次啟用或回主選單場景時，重新聚焦
+        RefocusMainButton();
     }
 
+    void Start()
+    {
+        if (continueButton) continueButton.interactable = SaveSystem.Exists();
+        RefocusMainButton();
+    }
+
+    // 聚焦副程式（延遲一幀以確保 EventSystem 與 UI 皆初始化完成）
+    public void RefocusMainButton()
+    {
+        if (refocusCo != null) StopCoroutine(refocusCo);
+        refocusCo = StartCoroutine(RefocusNextFrame());
+    }
+
+    IEnumerator RefocusNextFrame()
+    {
+        yield return null; // 等下一幀，避免過早設定焦點被忽略
+
+        if (defaultMainButton == null) yield break;
+        if (EventSystem.current == null) yield break;
+
+        EventSystem.current.SetSelectedGameObject(null);
+        EventSystem.current.SetSelectedGameObject(defaultMainButton.gameObject);
+
+        refocusCo = null;
+    }
+
+    // 按鈕事件
     public void OnClickStart()
     {
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null && playerPrefab != null)
-            Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-
+        EnsurePlayer();
         TeleportRequest.hasPending = true;
         TeleportRequest.sceneName = firstSceneName;
         TeleportRequest.spawnId = firstSpawnId;
 
         Time.timeScale = 1f;
-        SceneManager.LoadScene(firstSceneName);
+        SceneManager.LoadScene(firstSceneName, LoadSceneMode.Single);
     }
 
     public void OnClickContinue()
     {
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null && playerPrefab != null)
-            Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+        EnsurePlayer();
 
         if (SaveSystem.Exists() && SaveManager.Instance != null)
         {
@@ -85,18 +99,12 @@ public class MainMenuController : MonoBehaviour
 
     public void OnClickOtherOptions()
     {
+        // 切外層前景到 System，鎖住 MainMenu 互動
+        UIEvents.RaiseOpenCanvas("system");
+
         TryFindSCC();
-        if (scc == null || pageMainRoot == null) return;
-
-        // 主選單開 Options：把主選單 Page_Main 當 caller
-        scc.OpenOptionsFromMainMenu(pageMainRoot);
-    }
-
-    public void OnClickOptionsBack_ToMain()
-    {
-        // 若你在主選單頁內有「返回主頁面」的按鈕，聚焦回預設
-        if (defaultMainButton != null && EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(defaultMainButton.gameObject);
+        if (scc == null) return;
+        scc.OpenOptionsFromMainMenu(null);
     }
 
     public void OnClickQuit()
@@ -116,7 +124,7 @@ public class MainMenuController : MonoBehaviour
         if (continueButton) continueButton.interactable = false;
     }
 
-    // —— 小工具 —— //
+    // 工具
     private void Bind(Button btn, UnityEngine.Events.UnityAction action)
     {
         if (!btn || action == null) return;
@@ -129,6 +137,12 @@ public class MainMenuController : MonoBehaviour
         if (scc != null) return;
         scc = FindObjectOfType<SystemCanvasController>();
         if (scc == null)
-            Debug.LogWarning("[MainMenuController] 找不到 SystemCanvasController。請確認 SystemCanvas 上有掛它。");
+            Debug.LogWarning("[MainMenuController] 找不到 SystemCanvasController，請確認 SystemCanvas 上有掛。");
+    }
+
+    private void EnsurePlayer()
+    {
+        if (GameObject.FindGameObjectWithTag("Player") != null) return;
+        if (playerPrefab) Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
     }
 }

@@ -743,7 +743,7 @@ GameObject:
   - component: {fileID: 7219484904784636551}
   - component: {fileID: 6296555134158236785}
   - component: {fileID: 4952800288354086934}
-  - component: {fileID: 3317952306257949826}
+  - component: {fileID: 9188680025854766340}
   m_Layer: 13
   m_Name: Canvas_HUD
   m_TagString: Untagged
@@ -864,7 +864,7 @@ MonoBehaviour:
   hideInMainMenu: 1
   mainMenuSceneName: MainMenuScece
   affectInteractionWhenToggling: 1
---- !u!114 &3317952306257949826
+--- !u!114 &9188680025854766340
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -873,9 +873,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 7109212257390740009}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b733df7396a9aa74ca92f76b040ee36f, type: 3}
+  m_Script: {fileID: 11500000, guid: e46560e4c691f644582396b7deead18c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  key: hud
 --- !u!1 &7129045340752332031
 GameObject:
   m_ObjectHideFlags: 0

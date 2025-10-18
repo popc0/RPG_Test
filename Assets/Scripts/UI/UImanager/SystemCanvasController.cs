@@ -25,7 +25,6 @@ public class SystemCanvasController : MonoBehaviour
 
     void Awake()
     {
-        // 初始全部關（CanvasGroup 控制）
         SetGroupVisible(groupIngameMenu, false);
         SetGroupVisible(groupOptions, false);
         current = UiGroup.None;
@@ -40,46 +39,46 @@ public class SystemCanvasController : MonoBehaviour
         if (Input.GetKeyDown(toggleKey)) ToggleIngameMenu();
     }
 
-    // ===== 外層 Canvas 事件 =====
-    void EnsureSystemCanvasActive() => UIEvents.RaiseOpenSystemCanvas();
+    // 外層前景切換訊息
+    void OpenSystemOnTop() => UIEvents.RaiseOpenCanvas("system");
+
     void RequestNotifyRootIfNone()
     {
         if (!pendingNotifyClose) StartCoroutine(CoDelayedNotifyNone());
     }
+
     IEnumerator CoDelayedNotifyNone()
     {
         pendingNotifyClose = true;
-        yield return null; // 等一幀讓切換完成（例如 Options→Main）
+        yield return null; // 等一幀讓切換完成（例如 Options → Main）
         if (!HasAnyUiOpen()) UIEvents.RaiseCloseActiveCanvas();
         pendingNotifyClose = false;
     }
 
-    // ===== 群組層索引（先選群組，再開頁） =====
+    // 群組層索引（先選群組，再開頁）
     void SetGroupIndex(UiGroup target)
     {
         current = target;
-
-        // 只有索引指向的群組可見且可互動；其他關閉可見與互動
         SetGroupVisible(groupIngameMenu, target == UiGroup.IngameMenu);
         SetGroupVisible(groupOptions, target == UiGroup.Options);
     }
 
-    // ===== 對外入口 =====
+    // 對外入口
     public void ToggleIngameMenu()
     {
         if (!groupIngameMenu || !pageMain) return;
 
         if (current != UiGroup.IngameMenu)
         {
-            EnsureSystemCanvasActive();
-            SetGroupIndex(UiGroup.IngameMenu); // 先群組索引→可見可互動
-            pageMain.Open();                   // 再頁面
+            OpenSystemOnTop();
+            SetGroupIndex(UiGroup.IngameMenu);
+            pageMain.Open();
             EnsureGamePaused();
         }
         else
         {
-            pageMain.Close();                  // 先頁面關
-            SetGroupIndex(UiGroup.None);       // 再群組索引回 None
+            pageMain.Close();
+            SetGroupIndex(UiGroup.None);
             EnsureGameResumedIfNone();
             RequestNotifyRootIfNone();
         }
@@ -88,7 +87,7 @@ public class SystemCanvasController : MonoBehaviour
     public void OpenIngameMenu()
     {
         if (!groupIngameMenu || !pageMain) return;
-        EnsureSystemCanvasActive();
+        OpenSystemOnTop();
         SetGroupIndex(UiGroup.IngameMenu);
         pageMain.Open();
         EnsureGamePaused();
@@ -106,7 +105,7 @@ public class SystemCanvasController : MonoBehaviour
     public void OpenOptionsFromMainMenu(GameObject callerPage)
     {
         if (!groupOptions || !pageOptions) return;
-        EnsureSystemCanvasActive();
+        OpenSystemOnTop();
         SetGroupIndex(UiGroup.Options);
         pageOptions.Open(callerPage);
         EnsureGamePaused();
@@ -115,7 +114,7 @@ public class SystemCanvasController : MonoBehaviour
     public void OpenOptionsFromIngame(GameObject callerPage)
     {
         if (!groupOptions || !pageOptions) return;
-        EnsureSystemCanvasActive();
+        OpenSystemOnTop();
         SetGroupIndex(UiGroup.Options);
         pageOptions.Open(callerPage);
         EnsureGamePaused();
@@ -124,9 +123,8 @@ public class SystemCanvasController : MonoBehaviour
     // 由 PageOptions 關閉完成後呼叫（Back）
     public void OnOptionsClosed()
     {
-        // 若 PageMain 仍開著，就回到 IngameMenu；否則關到 None
         if (pageMain && pageMain.isActiveAndEnabled && pageMain.IsOpen)
-            SetGroupIndex(UiGroup.IngameMenu); // 這一步會把 Group_IngameMenu 的互動恢復
+            SetGroupIndex(UiGroup.IngameMenu);
         else
             SetGroupIndex(UiGroup.None);
 
@@ -134,16 +132,16 @@ public class SystemCanvasController : MonoBehaviour
         RequestNotifyRootIfNone();
     }
 
-    // ===== 判定有沒有 UI 開著（群組或頁面任一成立即可） =====
+    // 判定有沒有 UI 開著（群組或頁面任一成立即可）
     bool HasAnyUiOpen()
     {
-        if (current != UiGroup.None) return true; // 有群組索引即視為開著
+        if (current != UiGroup.None) return true;
         if (pageMain && pageMain.isActiveAndEnabled && pageMain.IsOpen) return true;
         if (pageOptions && pageOptions.isActiveAndEnabled && pageOptions.IsOpen) return true;
         return false;
     }
 
-    // ===== CanvasGroup 工具（只用 CG，不關物件） =====
+    // CanvasGroup 工具（只用 CG，不關物件）
     static void SetGroupVisible(CanvasGroup cg, bool visible)
     {
         if (!cg) return;
@@ -152,7 +150,7 @@ public class SystemCanvasController : MonoBehaviour
         cg.blocksRaycasts = visible;
     }
 
-    // ===== 時間控制 =====
+    // 時間控制
     void EnsureGamePaused() => Time.timeScale = 0f;
     void EnsureGameResumedIfNone() { if (!HasAnyUiOpen()) Time.timeScale = 1f; }
     void EnsureGameResumed() => Time.timeScale = 1f;
