@@ -7,31 +7,24 @@ public class HUDManager : MonoBehaviour
     [Header("主選單場景名稱")]
     [SerializeField] private string mainMenuSceneName = "MainMenuScene";
 
-    [Header("主選單場景是否隱藏 HUD")]
-    [SerializeField] private bool hideInMainMenu = true;
-
     private CanvasGroup hudGroup;
+    private float initialAlpha = 1f;
 
-    // 記錄遊戲中的預設互動（非主選單時恢復用）
-    private bool defaultInteractable = true;
-    private bool defaultBlocksRaycasts = true;
-
-    // 外層目前前景（只關心 "system" 與 "mainmenu"；null 代表沒有任何外層 UI）
+    // 外層前景： "system" / "mainmenu" / null(無外層UI)
     private string currentTopKey = null;
 
     void Awake()
     {
         hudGroup = GetComponent<CanvasGroup>();
-        if (hudGroup == null) hudGroup = gameObject.AddComponent<CanvasGroup>();
+        if (!hudGroup) hudGroup = gameObject.AddComponent<CanvasGroup>();
 
-        defaultInteractable = hudGroup.interactable;
-        defaultBlocksRaycasts = hudGroup.blocksRaycasts;
+        initialAlpha = hudGroup.alpha;
 
+        // 先依當前場景套一次規則
         ApplyByScene(SceneManager.GetActiveScene());
 
+        // 只聽場景切換與外層事件（HUD 互動不由 UIRoot直接控制）
         SceneManager.activeSceneChanged += OnActiveSceneChanged;
-
-        // 只在外層互斥層接收訊息（避免跨場景斷接）
         UIEvents.OnOpenCanvas += OnOpenCanvas;
         UIEvents.OnCloseActiveCanvas += OnCloseActiveCanvas;
     }
@@ -43,7 +36,7 @@ public class HUDManager : MonoBehaviour
         UIEvents.OnCloseActiveCanvas -= OnCloseActiveCanvas;
     }
 
-    // 進入/切換場景時套用可見與互動基準
+    // 場景切換
     private void OnActiveSceneChanged(Scene oldScene, Scene newScene)
     {
         ApplyByScene(newScene);
@@ -53,77 +46,53 @@ public class HUDManager : MonoBehaviour
     {
         bool isMainMenu = s.name == mainMenuSceneName;
 
-        if (hideInMainMenu && isMainMenu)
+        if (isMainMenu)
         {
-            // 主選單：不可見且不互動
+            // 特殊狀態：主選單 → 隱藏 + 關互動（唯一會動能見度）
             hudGroup.alpha = 0f;
             hudGroup.interactable = false;
             hudGroup.blocksRaycasts = false;
-            currentTopKey = "mainmenu"; // 記錄當前在主選單
+
+            // 在主選單時外層狀態視為 mainmenu，且忽略後續外層互動切換
+            currentTopKey = "mainmenu";
         }
         else
         {
-            // 遊戲內：顯示，互動依外層狀態（若沒有任何 UI → 當作常態，HUD 開）
-            hudGroup.alpha = 1f;
-            hudGroup.interactable = defaultInteractable;
-            hudGroup.blocksRaycasts = defaultBlocksRaycasts;
-
-            // 依目前外層狀態做一次同步
-            ApplyTopKeyToHUD();
+            // 離開主選單：恢復顯示，不動互動；外層狀態設為「無外層UI」
+            hudGroup.alpha = initialAlpha;
+            currentTopKey = null;        // 常態
+            ApplyInteractionByTopKey();  // 依常態開啟互動
         }
     }
 
-    // 外層通知：某個前景被打開（我們只關心 system / mainmenu）
+    // 外層通知：某個前景被打開（只關心 system/mainmenu）
     private void OnOpenCanvas(string key)
     {
-        currentTopKey = key;
-        // 主選單場景交給場景規則處理，不覆蓋
+        // 主選單由場景規則接管，不覆蓋
         if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
 
-        ApplyTopKeyToHUD();
+        currentTopKey = key;
+        ApplyInteractionByTopKey();
     }
 
-    // 外層通知：前景關閉（System 全關）
+    // 外層通知：前景關閉（通常是 System 全關 → 回常態）
     private void OnCloseActiveCanvas()
     {
-        // 沒有任何外層 UI → 常態（HUD 開）
-        currentTopKey = null;
-
         if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
 
-        ApplyTopKeyToHUD();
+        currentTopKey = null; // 無外層UI → 常態
+        ApplyInteractionByTopKey();
     }
 
-    // 把 currentTopKey 對應到 HUD 互動規則
-    private void ApplyTopKeyToHUD()
+    // 非主選單下的互動規則（只改互動，不動能見度）
+    private void ApplyInteractionByTopKey()
     {
-        // 在遊戲內（非主選單）：
-        //  - key == "system"  → HUD 互動開
-        //  - key == null      → 沒有任何 UI → HUD 互動開（常態）
-        //  - 其他（理論上不會出現）→ 維持預設
-        bool enable = (currentTopKey == "system" || currentTopKey == null);
-
-        SetInteractionEnabled(enable);
-    }
-
-    /// <summary>
-    /// 只改互動與射線，不動顯示；主選單場景下忽略（維持隱藏且不互動）
-    /// </summary>
-    public void SetInteractionEnabled(bool enabled)
-    {
-        if (hideInMainMenu && SceneManager.GetActiveScene().name == mainMenuSceneName)
-            return;
-
-        hudGroup.interactable = enabled;
-        hudGroup.blocksRaycasts = enabled;
-    }
-
-    /// <summary>
-    /// 可選：更新「非主選單」預設互動快照。
-    /// </summary>
-    public void UpdateDefaultInteractionSnapshot()
-    {
-        defaultInteractable = hudGroup.interactable;
-        defaultBlocksRaycasts = hudGroup.blocksRaycasts;
+        // 非主選單：
+        // - key == null（None） → HUD 互動開（常態）
+        // - key == "system"     → HUD 互動關（避免擋到系統 UI）
+        // - key == "mainmenu"   → 理論上不會出現在非主選單；若出現，視為關
+        bool enable = (currentTopKey == null);
+        hudGroup.interactable = enable;
+        hudGroup.blocksRaycasts = enable;
     }
 }

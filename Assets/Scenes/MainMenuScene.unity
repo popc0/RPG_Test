@@ -160,6 +160,7 @@ MonoBehaviour:
   optionsButton: {fileID: 427144857}
   quitButton: {fileID: 2142912661}
   deleteSaveButton: {fileID: 1646676815}
+  mainMenuCanvasGroup: {fileID: 1324765470}
 --- !u!4 &77460124
 Transform:
   m_ObjectHideFlags: 0

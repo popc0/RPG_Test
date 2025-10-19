@@ -1,18 +1,18 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
 public class UIRootCanvasController : MonoBehaviour
 {
-    [Header("¥~¼h key¡]¥uºÞ³o¨â­Ó¡^")]
+    [Header("å¤–å±¤ key")]
     [SerializeField] string keyMain = "mainmenu";
     [SerializeField] string keySystem = "system";
 
-    enum TopIndex { None, MainMenu, System }
-    TopIndex current = TopIndex.None;
+    private enum TopIndex { None, MainMenu, System }
+    private TopIndex current = TopIndex.None;
 
-    readonly Dictionary<string, CanvasGroup> map = new();
-    string pendingOpenKey = null;
+    private readonly Dictionary<string, CanvasGroup> map = new();
+    private string pendingOpenKey = null;
 
     void OnEnable()
     {
@@ -32,7 +32,6 @@ public class UIRootCanvasController : MonoBehaviour
 
     void Start()
     {
-        // µ¥¤@´V¦¬¶° Anchor¡AÁ×§K®É§ÇÄvÁÉ
         StartCoroutine(DelayedRegisterAnchors());
     }
 
@@ -44,35 +43,44 @@ public class UIRootCanvasController : MonoBehaviour
             if (string.IsNullOrEmpty(anchor.key)) continue;
             var cg = anchor.GetComponent<CanvasGroup>();
             if (cg && !map.ContainsKey(anchor.key))
+            {
                 map[anchor.key] = cg;
+                Debug.Log($"[UIRoot] Registered key={anchor.key}");
+            }
         }
+
         if (!string.IsNullOrEmpty(pendingOpenKey))
             TryApplyTop(pendingOpenKey);
+        else
+            SetTopIndex(TopIndex.None);
     }
 
-    // ¡X¡X µù¥U / ¤Ïµù¥U ¡X¡X
     void OnRegister(string key, CanvasGroup cg)
     {
         map[key] = cg;
+        Debug.Log($"[UIRoot] OnRegister key={key}");
         if (!string.IsNullOrEmpty(pendingOpenKey))
             TryApplyTop(pendingOpenKey);
     }
 
-    void OnUnregister(string key) { map.Remove(key); }
+    void OnUnregister(string key)
+    {
+        map.Remove(key);
+        Debug.Log($"[UIRoot] OnUnregister key={key}");
+    }
 
-    // ¡X¡X ¥~¼h¤Á«e´º¡]¥u±µ¨ü mainmenu / system¡^¡X¡X
     void OnOpenCanvas(string key)
     {
+        Debug.Log($"[UIRoot] OnOpenCanvas received. key={key}");
         pendingOpenKey = key;
         TryApplyTop(key);
     }
 
-    // System ¥þÃö ¡÷ ¦^ MainMenu¡]­Y¨S¦³´N¦^ None¡^
     void OnCloseActive()
     {
+        Debug.Log("[UIRoot] OnCloseActive received. (No auto-switch this time)");
         pendingOpenKey = null;
-        if (Get(keyMain) != null) SetTopIndex(TopIndex.MainMenu);
-        else SetTopIndex(TopIndex.None);
+        SetTopIndex(TopIndex.None);
     }
 
     void TryApplyTop(string key)
@@ -81,29 +89,42 @@ public class UIRootCanvasController : MonoBehaviour
             (key == keyMain && Get(keyMain) != null) ||
             (key == keySystem && Get(keySystem) != null);
 
-        if (!ready) return;
+        Debug.Log($"[UIRoot] TryApplyTop key={key} ready={ready}");
+        if (!ready)
+        {
+            Debug.Log($"[UIRoot] Skip apply, map count={map.Count}");
+            return;
+        }
 
-        if (key == keyMain) SetTopIndex(TopIndex.MainMenu);
-        if (key == keySystem) SetTopIndex(TopIndex.System);
+        if (key == keyMain)
+        {
+            SetTopIndex(TopIndex.MainMenu);
+        }
+        else if (key == keySystem)
+        {
+            SetTopIndex(TopIndex.System);
+        }
+        else
+        {
+            Debug.Log($"[UIRoot] Unknown key={key}");
+        }
     }
 
-    // ¡X¡X ¥u§ï¤¬°Ê¡A¤£°ÊÅã¥Ü¡]alpha/SetActive ³£¤£§ï¡^¡X¡X
     void SetTopIndex(TopIndex idx)
     {
         current = idx;
-
         var main = Get(keyMain);
         var system = Get(keySystem);
 
-        bool mainInteract = (current == TopIndex.MainMenu);
-        bool systemInteract = (current == TopIndex.System);
+        SetInteract(main, current == TopIndex.MainMenu);
+        SetInteract(system, current == TopIndex.System);
 
-        SetInteract(main, mainInteract);
-        SetInteract(system, systemInteract);
-        // HUD ¥æ¥Ñ HUDManager ¨Ì¨Æ¥ó¦Û¦æ³B²z¡]¤£¦b¦¹§ó°Ê¡^
+        Debug.Log($"[UIRoot] >>> Switched top key={current} <<<");
+        Debug.Log($"[UIRoot] SetTopIndex current={current}, " +
+                  $"main(i={Flag(main)}), system(i={Flag(system)}), " +
+                  $"mapCount={map.Count}");
     }
 
-    // ¡X¡X ¤u¨ã ¡X¡X 
     CanvasGroup Get(string key)
         => (!string.IsNullOrEmpty(key) && map.TryGetValue(key, out var cg)) ? cg : null;
 
@@ -112,5 +133,13 @@ public class UIRootCanvasController : MonoBehaviour
         if (!cg) return;
         cg.interactable = interactive;
         cg.blocksRaycasts = interactive;
+        // ä¸å‹• alphaï¼Œä¿ç•™é¡¯ç¤ºé‚è¼¯çµ¦å…¶ä»–æŽ§åˆ¶å™¨
+        Debug.Log($"[UIRoot] SetInteract {cg.name} -> {interactive}");
+    }
+
+    static string Flag(CanvasGroup cg)
+    {
+        if (!cg) return "null";
+        return cg.interactable ? "1" : "0";
     }
 }
