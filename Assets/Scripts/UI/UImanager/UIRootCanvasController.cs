@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class UIRootCanvasController : MonoBehaviour
 {
-    [Header("外層 key")]
+    [Header("Outer layer keys")]
     [SerializeField] string keyMain = "mainmenu";
     [SerializeField] string keySystem = "system";
 
@@ -37,16 +37,15 @@ public class UIRootCanvasController : MonoBehaviour
 
     IEnumerator DelayedRegisterAnchors()
     {
+        // 等待場景內 Anchor 完成註冊
         yield return null;
+
         foreach (var anchor in FindObjectsOfType<UICanvasAnchor>(true))
         {
             if (string.IsNullOrEmpty(anchor.key)) continue;
             var cg = anchor.GetComponent<CanvasGroup>();
-            if (cg && !map.ContainsKey(anchor.key))
-            {
+            if (cg != null && !map.ContainsKey(anchor.key))
                 map[anchor.key] = cg;
-                Debug.Log($"[UIRoot] Registered key={anchor.key}");
-            }
         }
 
         if (!string.IsNullOrEmpty(pendingOpenKey))
@@ -57,30 +56,32 @@ public class UIRootCanvasController : MonoBehaviour
 
     void OnRegister(string key, CanvasGroup cg)
     {
+        if (string.IsNullOrEmpty(key) || cg == null) return;
         map[key] = cg;
-        Debug.Log($"[UIRoot] OnRegister key={key}");
         if (!string.IsNullOrEmpty(pendingOpenKey))
             TryApplyTop(pendingOpenKey);
     }
 
     void OnUnregister(string key)
     {
+        if (string.IsNullOrEmpty(key)) return;
         map.Remove(key);
-        Debug.Log($"[UIRoot] OnUnregister key={key}");
     }
 
     void OnOpenCanvas(string key)
     {
-        Debug.Log($"[UIRoot] OnOpenCanvas received. key={key}");
         pendingOpenKey = key;
         TryApplyTop(key);
     }
 
+    // 只在「主選單情境」會被呼叫（由 Mux 決策），外層回到 MainMenu
     void OnCloseActive()
     {
-        Debug.Log("[UIRoot] OnCloseActive received. (No auto-switch this time)");
         pendingOpenKey = null;
-        SetTopIndex(TopIndex.None);
+        if (Get(keyMain) != null)
+            SetTopIndex(TopIndex.MainMenu);
+        else
+            SetTopIndex(TopIndex.None);
     }
 
     void TryApplyTop(string key)
@@ -89,40 +90,21 @@ public class UIRootCanvasController : MonoBehaviour
             (key == keyMain && Get(keyMain) != null) ||
             (key == keySystem && Get(keySystem) != null);
 
-        Debug.Log($"[UIRoot] TryApplyTop key={key} ready={ready}");
-        if (!ready)
-        {
-            Debug.Log($"[UIRoot] Skip apply, map count={map.Count}");
-            return;
-        }
+        if (!ready) return;
 
-        if (key == keyMain)
-        {
-            SetTopIndex(TopIndex.MainMenu);
-        }
-        else if (key == keySystem)
-        {
-            SetTopIndex(TopIndex.System);
-        }
-        else
-        {
-            Debug.Log($"[UIRoot] Unknown key={key}");
-        }
+        if (key == keyMain) SetTopIndex(TopIndex.MainMenu);
+        else if (key == keySystem) SetTopIndex(TopIndex.System);
     }
 
     void SetTopIndex(TopIndex idx)
     {
         current = idx;
+
         var main = Get(keyMain);
         var system = Get(keySystem);
 
         SetInteract(main, current == TopIndex.MainMenu);
         SetInteract(system, current == TopIndex.System);
-
-        Debug.Log($"[UIRoot] >>> Switched top key={current} <<<");
-        Debug.Log($"[UIRoot] SetTopIndex current={current}, " +
-                  $"main(i={Flag(main)}), system(i={Flag(system)}), " +
-                  $"mapCount={map.Count}");
     }
 
     CanvasGroup Get(string key)
@@ -133,13 +115,6 @@ public class UIRootCanvasController : MonoBehaviour
         if (!cg) return;
         cg.interactable = interactive;
         cg.blocksRaycasts = interactive;
-        // 不動 alpha，保留顯示邏輯給其他控制器
-        Debug.Log($"[UIRoot] SetInteract {cg.name} -> {interactive}");
-    }
-
-    static string Flag(CanvasGroup cg)
-    {
-        if (!cg) return "null";
-        return cg.interactable ? "1" : "0";
+        // 不動 alpha（顯示交給各自控制器）
     }
 }

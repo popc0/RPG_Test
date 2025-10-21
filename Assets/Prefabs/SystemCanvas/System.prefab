@@ -536,8 +536,8 @@ CanvasGroup:
   m_GameObject: {fileID: 2649957808360390890}
   m_Enabled: 1
   m_Alpha: 1
-  m_Interactable: 0
-  m_BlocksRaycasts: 0
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
 --- !u!1 &2660715321030446854
 GameObject:
@@ -792,7 +792,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ffe030b9d03dc44ea56cac169e0eba2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panel: {fileID: 9093991996809076826}
+  panel: {fileID: 2122352504158342134}
   nameText: {fileID: 3101870029071940785}
   contentText: {fileID: 7867229673654797835}
   btnNext: {fileID: 618763250389754490}
@@ -1244,6 +1244,7 @@ MonoBehaviour:
   nameSystem: SystemCanvas
   nameStory: Canvas_Story
   nameTPHint: Canvas_TPHint
+  sceneSwitchGraceFrames: 2
 --- !u!1 &4271256376109017026
 GameObject:
   m_ObjectHideFlags: 0

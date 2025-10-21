@@ -23,7 +23,7 @@ public class StoryManager : MonoBehaviour
     public float defaultCharsPerSec = 30f;
 
     [Header("輸入控制")]
-    public KeyCode keyNext = KeyCode.Space;   // 空白鍵控制
+    public KeyCode keyNext = KeyCode.Space;
 
     [Header("預設對話資料（可空）")]
     public DialogueData initialData;
@@ -81,10 +81,7 @@ public class StoryManager : MonoBehaviour
     void Update()
     {
         if (!IsPlaying) return;
-
-        // 按空白鍵 → 補完或下一句
-        if (Input.GetKeyDown(keyNext))
-            OnPressNextKey();
+        if (Input.GetKeyDown(keyNext)) OnPressNextKey();
     }
 
     // -------------------------------------------------------------
@@ -106,6 +103,9 @@ public class StoryManager : MonoBehaviour
                 map.Add(l.nodeId, l);
         }
 
+        var mux = FindObjectOfType<SystemLayerMux>();
+        if (mux != null) mux.OpenStory();
+
         SetPanelVisible(true);
 
         IsPlaying = true;
@@ -114,7 +114,7 @@ public class StoryManager : MonoBehaviour
 
         if (!map.TryGetValue(startNodeId, out current))
         {
-            Debug.LogWarning($"[Story] 找不到節點: {startNodeId}");
+            Debug.LogWarning("[Story] 找不到節點: " + startNodeId);
             EndStory();
             return;
         }
@@ -132,6 +132,9 @@ public class StoryManager : MonoBehaviour
         RestoreRaised();
         SetPanelVisible(false);
         OnStoryEnd?.Invoke();
+
+        var mux = FindObjectOfType<SystemLayerMux>();
+        if (mux != null) mux.NotifyChildClosed();
     }
 
     // -------------------------------------------------------------
@@ -184,7 +187,6 @@ public class StoryManager : MonoBehaviour
             IsTyping = false;
         }
 
-        // 打完字：顯示選項或下一步
         if (line.choices != null && line.choices.Count > 0)
         {
             ShowChoices(line.choices);
@@ -213,10 +215,8 @@ public class StoryManager : MonoBehaviour
     // -------------------------------------------------------------
     void OnPressNextKey()
     {
-        // 有選項時不處理空白鍵
         bool showingChoices = (choicesPanel != null && choicesPanel.childCount > 0);
         if (showingChoices) return;
-
         OnClickNext();
     }
 
@@ -224,7 +224,6 @@ public class StoryManager : MonoBehaviour
     {
         if (!IsPlaying) return;
 
-        // 打字中：補完
         if (IsTyping)
         {
             IsTyping = false;
@@ -241,10 +240,9 @@ public class StoryManager : MonoBehaviour
             {
                 if (btnNext != null) btnNext.gameObject.SetActive(true);
             }
-            return; // 停下，不進下一句
+            return;
         }
 
-        // 打字完畢：進下一句
         string nextId = (current != null) ? current.nextNodeId : "";
         if (string.IsNullOrEmpty(nextId))
         {
@@ -254,7 +252,7 @@ public class StoryManager : MonoBehaviour
 
         if (!map.TryGetValue(nextId, out current))
         {
-            Debug.LogWarning($"[Story] 找不到節點: {nextId}");
+            Debug.LogWarning("[Story] 找不到節點: " + nextId);
             EndStory();
             return;
         }
@@ -273,17 +271,34 @@ public class StoryManager : MonoBehaviour
         foreach (var c in choices)
         {
             var btn = Instantiate(choiceButtonPrefab, choicesPanel);
+
+            // 確保可被 EventSystem 導覽
+            var nav = btn.navigation;
+            if (nav.mode == Navigation.Mode.None)
+            {
+                nav.mode = Navigation.Mode.Automatic;
+                btn.navigation = nav;
+            }
+
             var label = btn.GetComponentInChildren<TextMeshProUGUI>();
             if (label != null) label.text = c.text;
+
             string target = c.gotoNodeId;
             btn.onClick.AddListener(() => OnClickChoice(target));
             btn.gameObject.SetActive(true);
         }
+
+        FocusFirstChoiceNextFrame();
     }
 
     private void ClearChoices()
     {
         if (choicesPanel == null) return;
+
+        // 清除現有選中，避免殘留到不存在的按鈕
+        if (EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(null);
+
         for (int i = choicesPanel.childCount - 1; i >= 0; i--)
             Destroy(choicesPanel.GetChild(i).gameObject);
     }
@@ -298,7 +313,7 @@ public class StoryManager : MonoBehaviour
         }
         if (!map.TryGetValue(targetNodeId, out current))
         {
-            Debug.LogWarning($"[Story] 找不到節點: {targetNodeId}");
+            Debug.LogWarning("[Story] 找不到節點: " + targetNodeId);
             EndStory();
             return;
         }
@@ -319,6 +334,11 @@ public class StoryManager : MonoBehaviour
         panel.blocksRaycasts = on;
 
         if (btnNext != null) btnNext.gameObject.SetActive(false);
+
+        // 清掉焦點，避免殘留到不可見的物件
+        if (!on && EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(null);
+
         ClearChoices();
     }
 
@@ -370,5 +390,33 @@ public class StoryManager : MonoBehaviour
             raisedNow.spriteRenderer.sortingOrder = raisedNow.originalOrder;
 
         raisedNow = null;
+    }
+
+    // -------------------------------------------------------------
+    // 聚焦輔助
+    // -------------------------------------------------------------
+    void FocusFirstChoiceNextFrame()
+    {
+        StartCoroutine(CoFocusFirstChoice());
+    }
+
+    IEnumerator CoFocusFirstChoice()
+    {
+        // 等一幀讓 Layout 與 GraphicRaycaster 準備完成
+        yield return null;
+
+        if (choicesPanel != null && choicesPanel.childCount > 0)
+        {
+            var first = choicesPanel.GetChild(0).gameObject;
+            var es = EventSystem.current;
+            if (es != null)
+            {
+                es.SetSelectedGameObject(null);
+                es.SetSelectedGameObject(first);
+
+                var sel = first.GetComponent<Selectable>();
+                if (sel != null) sel.Select();
+            }
+        }
     }
 }

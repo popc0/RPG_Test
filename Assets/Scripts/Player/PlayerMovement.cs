@@ -5,15 +5,15 @@ public class PlayerMovement : MonoBehaviour
     [Header("移動")]
     public float moveSpeed = 5f;
 
-    [Header("手把 / 類比搖桿（選填軸名，不填就略過）")]
-    [Tooltip("手把 X 軸名稱（例如：JoyX / Joystick X / Horizontal_Stick 等）")]
-    [SerializeField] private string joystickAxisX = "";   // 例如 "JoyX"
-    [Tooltip("手把 Y 軸名稱（例如：JoyY / Joystick Y / Vertical_Stick 等）")]
-    [SerializeField] private string joystickAxisY = "";   // 例如 "JoyY"
-    [Tooltip("類比死區（避免微小抖動）")]
-    [Range(0f, 1f)][SerializeField] private float analogDeadzone = 0.2f;
-    [Tooltip("手把 Y 軸是否反向")]
+    [Header("手把（舊 Input Manager 軸）")]
+    [Tooltip("手把 X 軸名稱（在 Input Manager → Axes 建立），建議: JoyX")]
+    [SerializeField] private string joystickAxisX = "JoyX";
+    [Tooltip("手把 Y 軸名稱（在 Input Manager → Axes 建立），建議: JoyY")]
+    [SerializeField] private string joystickAxisY = "JoyY";
+    [Tooltip("手把 Y 軸是否反向（你的 ESP32 已做往上=正值，通常不用反）")]
     [SerializeField] private bool invertJoyY = false;
+    [Tooltip("圓形死區（避免微抖），0.20~0.30 較穩")]
+    [Range(0f, 1f)][SerializeField] private float analogDeadzone = 0.25f;
 
     [Header("模型")]
     [SerializeField] private GameObject modelDownWalk;   // ↓ 象限「走路」用
@@ -39,14 +39,11 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float idleBuffer = 0.08f;
 
     private Rigidbody2D rb;
-    private Animator animDownWalk;
-    private Animator animUp;
-    private Animator animDownIdle;
-    private Animator currentAnim;
+    private Animator animDownWalk, animUp, animDownIdle, currentAnim;
 
-    private Vector2 input;       // 最終用來移動/驅動畫面的輸入（鍵盤或手把）
-    private Vector2 lastPos;
-    private Vector2 moveDelta;
+    // 最終用來移動/驅動畫面的輸入（鍵盤或手把）
+    private Vector2 input;
+    private Vector2 lastPos, moveDelta;
 
     // -1=左/下，+1=右/上（初始右下）
     private int lastHorizSign = +1;
@@ -79,28 +76,22 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        // 1) 鍵盤輸入（原本邏輯不動）
-        Vector2 kb = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        // 1) 鍵盤輸入（保留原本邏輯）
+        Vector2 kb = new Vector2(
+            Input.GetAxisRaw("Horizontal"),
+            Input.GetAxisRaw("Vertical")
+        );
 
-        // 2) 手把類比輸入（若有設定軸名才讀）
-        Vector2 joy = Vector2.zero;
-        if (!string.IsNullOrEmpty(joystickAxisX))
-            joy.x = SafeGetAxis(joystickAxisX);
-        if (!string.IsNullOrEmpty(joystickAxisY))
-            joy.y = SafeGetAxis(joystickAxisY);
-
-        if (invertJoyY) joy.y = -joy.y;
-
-        // 類比死區與正規化
-        if (joy.magnitude < analogDeadzone) joy = Vector2.zero;
-        else if (joy.magnitude > 1f) joy.Normalize();
+        // 2) 手把類比輸入（舊 Input Manager 軸）
+        Vector2 joy = ReadJoystickAxes(joystickAxisX, joystickAxisY, invertJoyY);
+        joy = ApplyCircularDeadzone(joy, analogDeadzone);   // 圓形死區 + 正規化
 
         // 3) 合併策略：有手把就用手把；沒有再用鍵盤
         input = (joy != Vector2.zero) ? joy : kb;
 
         // 避免斜向過快
         if (input.magnitude > 1f) input.Normalize();
-
+        Debug.Log(new Vector2(Input.GetAxisRaw("JoyX"), Input.GetAxisRaw("JoyY")));
         HandleAnimation();
     }
 
@@ -117,6 +108,7 @@ public class PlayerMovement : MonoBehaviour
             moveDelta = Vector2.zero;
     }
 
+    // ====== 動畫邏輯（原樣保留） ======
     void HandleAnimation()
     {
         Vector2 dir = moveDelta;
@@ -262,10 +254,30 @@ public class PlayerMovement : MonoBehaviour
         if (modelDownIdle != null) modelDownIdle.SetActive(go == modelDownIdle);
     }
 
-    // —— 輔助：安全讀取軸（未設置就當 0，不報錯）——
-    float SafeGetAxis(string axisName)
+    // ====== 輔助：讀軸 + 圓形死區處理 ======
+    static Vector2 ReadJoystickAxes(string ax, string ay, bool invertY)
     {
-        try { return Input.GetAxis(axisName); }
-        catch { return 0f; }
+        float x = 0f, y = 0f;
+        if (!string.IsNullOrEmpty(ax))
+        {
+            try { x = Input.GetAxisRaw(ax); } catch { }
+        }
+        if (!string.IsNullOrEmpty(ay))
+        {
+            try { y = Input.GetAxisRaw(ay); } catch { }
+        }
+        if (invertY) y = -y;
+        return new Vector2(x, y);
+    }
+
+    static Vector2 ApplyCircularDeadzone(Vector2 v, float dead)
+    {
+        float m = v.magnitude;
+        if (m <= dead) return Vector2.zero;
+
+        // 把 [dead,1] 線性映到 [0,1]，並做平滑
+        float t = Mathf.InverseLerp(dead, 1f, m);
+        t = Mathf.SmoothStep(0f, 1f, t);
+        return (v / m) * t;
     }
 }

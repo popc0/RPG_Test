@@ -97,7 +97,6 @@ GameObject:
   - component: {fileID: 5246432677593132545}
   - component: {fileID: 633833544583670658}
   - component: {fileID: 9213125033226778837}
-  - component: {fileID: 962464624665497654}
   m_Layer: 10
   m_Name: Player
   m_TagString: Player
@@ -204,8 +203,8 @@ MonoBehaviour:
   moveSpeed: 5
   joystickAxisX: JoyX
   joystickAxisY: JoyY
-  analogDeadzone: 0.563
-  invertJoyY: 1
+  invertJoyY: 0
+  analogDeadzone: 0.25
   modelDownWalk: {fileID: 6021809871629793580}
   modelUp: {fileID: 2902979773458652265}
   modelDownIdle: {fileID: 5181324698526677222}
@@ -483,32 +482,6 @@ MonoBehaviour:
   - PlayerMovement
   - PlayerInteractor
   - KeyboardInputSource
---- !u!114 &962464624665497654
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1233599281039529457}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 05de81660a6517a4abdb04c68f4211f3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  axisX: JoyX
-  axisY: JoyY
-  invertY: 1
-  innerDeadzone: 0.18
-  outerCut: 1
-  minSamples: 60
-  maxFrames: 600
-  stillness: 0.4
-  startDelay: 1
-  maxOffsetClamp: 0.5
-  rawInput: {x: 0, y: 0}
-  filteredInput: {x: 0, y: 0}
-  offset: {x: 0, y: 0}
-  calibrated: 0
 --- !u!1 &2433672989429476946
 GameObject:
   m_ObjectHideFlags: 0

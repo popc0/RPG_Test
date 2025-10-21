@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -18,195 +17,174 @@ public class SystemCanvasController : MonoBehaviour
     [SerializeField] private string mainMenuSceneName = "MainMenuScene";
     [SerializeField] private bool ignoreHotkeyInMainMenu = true;
 
+    [Header("Auto bind on Awake")]
+    [SerializeField] private bool autoFindOnAwake = true;
+
     private enum UiGroup { None, IngameMenu, Options }
     private UiGroup current = UiGroup.None;
-
-    // 新增：SystemCanvas 自身的 CanvasGroup
     private CanvasGroup rootCanvasGroup;
-
-    bool pendingNotifyClose = false;
 
     void Awake()
     {
         rootCanvasGroup = GetComponent<CanvasGroup>();
         if (!rootCanvasGroup)
-        {
             rootCanvasGroup = gameObject.AddComponent<CanvasGroup>();
-            Debug.Log("[SCC] Root CanvasGroup added automatically.");
-        }
+
+        if (autoFindOnAwake) AutoBindIfMissing();
 
         SetGroupVisible(groupIngameMenu, false);
         SetGroupVisible(groupOptions, false);
         current = UiGroup.None;
 
-        // 開場確保時間為正常
         EnsureGameResumed();
-
-        // 開場預設將 System 根關互動，等真的有頁面開啟再打開
         SetRootActive(false);
-
-        Debug.Log("[SCC] Awake. Groups bound: Ingame=" + (groupIngameMenu != null) + " Options=" + (groupOptions != null));
     }
 
     void Update()
     {
-        if (!enableToggleHotkey) return;
-        if (ignoreHotkeyInMainMenu && SceneManager.GetActiveScene().name == mainMenuSceneName) return;
-
-        if (Input.GetKeyDown(toggleKey))
-        {
-            Debug.Log("[SCC] Toggle hotkey pressed: " + toggleKey);
-            ToggleIngameMenu();
-        }
+        if (!Input.GetKeyDown(toggleKey)) return;
+        if (!ShouldHandleHotkey(out _)) return;
+        ToggleIngameMenu();
     }
 
-    // 對外告知外層目前前景為 system
-    void OpenSystemOnTop()
+    bool ShouldHandleHotkey(out string whyNot)
     {
-        Debug.Log("[SCC] RaiseOpenCanvas(system)");
-        UIEvents.RaiseOpenCanvas("system");
+        var scene = SceneManager.GetActiveScene().name;
+
+        if (!enableToggleHotkey) { whyNot = "disable"; return false; }
+        if (!isActiveAndEnabled) { whyNot = "disabled"; return false; }
+        if (!gameObject.activeInHierarchy) { whyNot = "inactive"; return false; }
+        if (ignoreHotkeyInMainMenu && scene == mainMenuSceneName) { whyNot = "mainmenu"; return false; }
+        if (!groupIngameMenu || !pageMain) { whyNot = "missing"; return false; }
+
+        // 新增：Options 開啟時，忽略 R，避免把 Options 留在未正確關閉的狀態就切回主頁
+        if (pageOptions && pageOptions.isActiveAndEnabled && pageOptions.IsOpen)
+        {
+            whyNot = "optionsOpen";
+            return false;
+        }
+
+        whyNot = null;
+        return true;
     }
 
-    // 新增：控制 SystemCanvas 根層的互動與能見度
+    void OpenSystemOnTop() => UIEvents.RaiseOpenCanvas("system");
+
     void SetRootActive(bool active)
     {
         if (!rootCanvasGroup) return;
         rootCanvasGroup.interactable = active;
         rootCanvasGroup.blocksRaycasts = active;
         rootCanvasGroup.alpha = active ? 1f : 0f;
-        Debug.Log("[SCC] SetRootActive = " + active);
     }
 
-    void RequestNotifyRootIfNone()
+    void NotifyMuxNone()
     {
-        if (!pendingNotifyClose) StartCoroutine(CoDelayedNotifyNone());
+        var mux = FindObjectOfType<SystemLayerMux>();
+        if (mux) mux.NotifyChildClosed();
     }
 
-    IEnumerator CoDelayedNotifyNone()
-    {
-        pendingNotifyClose = true;
-        yield return null; // 等一幀讓切換完成（例如 Options → Main）
-        if (!HasAnyUiOpen())
-        {
-            Debug.Log("[SCC] None UI open. RaiseCloseActiveCanvas()");
-            UIEvents.RaiseCloseActiveCanvas();
-        }
-        pendingNotifyClose = false;
-    }
-
-    // 群組層索引（先選群組，再開頁）
     void SetGroupIndex(UiGroup target)
     {
         current = target;
         SetGroupVisible(groupIngameMenu, target == UiGroup.IngameMenu);
         SetGroupVisible(groupOptions, target == UiGroup.Options);
-
-        Debug.Log("[SCC] SetGroupIndex -> " + target);
     }
 
-    // 對外入口
     public void ToggleIngameMenu()
     {
-        if (!groupIngameMenu || !pageMain) { Debug.LogWarning("[SCC] ToggleIngameMenu missing refs"); return; }
+        if (!groupIngameMenu || !pageMain) return;
 
         if (current != UiGroup.IngameMenu)
         {
+            var mux = FindObjectOfType<SystemLayerMux>();
+            if (mux) mux.OpenSystem();
+
             OpenSystemOnTop();
-            SetRootActive(true);                 // 先打開 System 根
+            SetRootActive(true);
             SetGroupIndex(UiGroup.IngameMenu);
             pageMain.Open();
-            Debug.Log("[SCC] Open IngameMenu");
             EnsureGamePaused();
         }
         else
         {
             pageMain.Close();
             SetGroupIndex(UiGroup.None);
-            Debug.Log("[SCC] Close IngameMenu");
             EnsureGameResumedIfNone();
-
-            if (!HasAnyUiOpen())
-                SetRootActive(false);           // 所有頁面都關才關 System 根
-
-            RequestNotifyRootIfNone();
+            if (!HasAnyUiOpen()) SetRootActive(false);
+            NotifyMuxNone();
         }
     }
 
     public void OpenIngameMenu()
     {
-        if (!groupIngameMenu || !pageMain) { Debug.LogWarning("[SCC] OpenIngameMenu missing refs"); return; }
+        if (!groupIngameMenu || !pageMain) return;
+
+        var mux = FindObjectOfType<SystemLayerMux>();
+        if (mux) mux.OpenSystem();
 
         OpenSystemOnTop();
-        SetRootActive(true);                     // 先打開 System 根
+        SetRootActive(true);
         SetGroupIndex(UiGroup.IngameMenu);
         pageMain.Open();
-        Debug.Log("[SCC] Open IngameMenu (direct)");
         EnsureGamePaused();
     }
 
     public void CloseIngameMenu()
     {
-        if (!groupIngameMenu || !pageMain) { Debug.LogWarning("[SCC] CloseIngameMenu missing refs"); return; }
+        if (!groupIngameMenu || !pageMain) return;
 
         pageMain.Close();
         SetGroupIndex(UiGroup.None);
-        Debug.Log("[SCC] Close IngameMenu (direct)");
         EnsureGameResumedIfNone();
-
-        if (!HasAnyUiOpen())
-            SetRootActive(false);               // 所有頁面都關才關 System 根
-
-        RequestNotifyRootIfNone();
+        if (!HasAnyUiOpen()) SetRootActive(false);
+        NotifyMuxNone();
     }
 
     public void OpenOptionsFromMainMenu(GameObject callerPage)
     {
-        if (!groupOptions || !pageOptions) { Debug.LogWarning("[SCC] OpenOptionsFromMainMenu missing refs"); return; }
+        if (!groupOptions || !pageOptions) return;
+
+        var mux = FindObjectOfType<SystemLayerMux>();
+        if (mux) mux.OpenSystem();
 
         OpenSystemOnTop();
-        SetRootActive(true);                     // 先打開 System 根
+        SetRootActive(true);
         SetGroupIndex(UiGroup.Options);
         pageOptions.Open(callerPage);
-        Debug.Log("[SCC] Open Options from MainMenu");
         EnsureGamePaused();
     }
 
     public void OpenOptionsFromIngame(GameObject callerPage)
     {
-        if (!groupOptions || !pageOptions) { Debug.LogWarning("[SCC] OpenOptionsFromIngame missing refs"); return; }
+        if (!groupOptions || !pageOptions) return;
+
+        var mux = FindObjectOfType<SystemLayerMux>();
+        if (mux) mux.OpenSystem();
 
         OpenSystemOnTop();
-        SetRootActive(true);                     // 先打開 System 根
+        SetRootActive(true);
         SetGroupIndex(UiGroup.Options);
         pageOptions.Open(callerPage);
-        Debug.Log("[SCC] Open Options from Ingame");
         EnsureGamePaused();
     }
 
-    // 由 PageOptions 關閉完成後呼叫（Back）
     public void OnOptionsClosed()
     {
         if (pageMain && pageMain.isActiveAndEnabled && pageMain.IsOpen)
         {
             SetGroupIndex(UiGroup.IngameMenu);
-            Debug.Log("[SCC] Options closed -> back to IngameMenu");
-            // 保持 System 根為開狀態
             SetRootActive(true);
         }
         else
         {
             SetGroupIndex(UiGroup.None);
-            Debug.Log("[SCC] Options closed -> none");
             EnsureGameResumedIfNone();
-
-            if (!HasAnyUiOpen())
-                SetRootActive(false);           // 沒有任何頁面時關閉 System 根
+            if (!HasAnyUiOpen()) SetRootActive(false);
+            NotifyMuxNone();
         }
-
-        RequestNotifyRootIfNone();
     }
 
-    // 判定有沒有 UI 開著（群組或頁面任一成立即可）
     bool HasAnyUiOpen()
     {
         if (current != UiGroup.None) return true;
@@ -215,7 +193,6 @@ public class SystemCanvasController : MonoBehaviour
         return false;
     }
 
-    // CanvasGroup 工具（只用 CG，不關物件）
     static void SetGroupVisible(CanvasGroup cg, bool visible)
     {
         if (!cg) return;
@@ -224,13 +201,31 @@ public class SystemCanvasController : MonoBehaviour
         cg.blocksRaycasts = visible;
     }
 
-    // 時間控制
     void EnsureGamePaused() => Time.timeScale = 0f;
-
-    void EnsureGameResumedIfNone()
-    {
-        if (!HasAnyUiOpen()) Time.timeScale = 1f;
-    }
-
+    void EnsureGameResumedIfNone() { if (!HasAnyUiOpen()) Time.timeScale = 1f; }
     void EnsureGameResumed() => Time.timeScale = 1f;
+
+    void AutoBindIfMissing()
+    {
+        if (!groupIngameMenu)
+        {
+            var t = transform.Find("Group_IngameMenu");
+            if (t) groupIngameMenu = t.GetComponent<CanvasGroup>();
+        }
+        if (!groupOptions)
+        {
+            var t = transform.Find("Group_Options");
+            if (t) groupOptions = t.GetComponent<CanvasGroup>();
+        }
+        if (!pageMain && groupIngameMenu)
+        {
+            var t = groupIngameMenu.transform.Find("Page_Main");
+            if (t) pageMain = t.GetComponent<PageMain>();
+        }
+        if (!pageOptions && groupOptions)
+        {
+            var t = groupOptions.transform.Find("Page_Options");
+            if (t) pageOptions = t.GetComponent<PageOptions>();
+        }
+    }
 }
