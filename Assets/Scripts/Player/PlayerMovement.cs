@@ -91,7 +91,7 @@ public class PlayerMovement : MonoBehaviour
 
         // Á×§K±×¦V¹L§Ö
         if (input.magnitude > 1f) input.Normalize();
-        Debug.Log(new Vector2(Input.GetAxisRaw("JoyX"), Input.GetAxisRaw("JoyY")));
+        //Debug.Log(new Vector2(Input.GetAxisRaw("JoyX"), Input.GetAxisRaw("JoyY")));
         HandleAnimation();
     }
 
