@@ -4,26 +4,37 @@ using System.Collections.Generic;
 
 namespace RPG
 {
-    /// <summary>
-    /// 技能施放主控：讀取 SkillData + MainPoint 計算數值，
-    /// 用 PlayerStats 扣 MP / 觸發 HUD，並以 Raycast 簡化命中流程。
-    /// </summary>
+    /// <summary>純 2D 施放器：平常吃 AimSource2D；真正施放時可改用滑鼠方向。</summary>
     public class SkillCaster : MonoBehaviour
     {
         [Header("引用")]
-        public MainPoint mainPoint;     // 屬性公式來源（攻/防/敏/技）
-        public PlayerStats playerStats; // 狀態資源（CurrentHP/CurrentMP），HUD 應綁這個
+        public MainPointComponent main;
+        public PlayerStats playerStats;
+        public AimSource2D aimSource;       // 鍵盤/手把方向來源（預覽或備援）
 
         [Header("技能")]
         public List<SkillData> Skills = new List<SkillData>();
         public int currentSkillIndex = 0;
 
-        [Header("設定")]
-        public float rayDistance = 12f;     // 簡易命中距離
-        public bool autoCastOnStart = false;
+        [Header("命中設定 (2D)")]
+        public Transform firePoint;
+        public float rayDistance = 12f;
+        [SerializeField] private LayerMask targetMask = ~0;
+        public bool ignoreLayerMaskForTest = true;
+
+        [Header("方向來源")]
+        [Tooltip("施放攻擊時是否使用滑鼠位置作為方向")]
+        public bool useMouseForAttack = true;
+
+        [Header("視覺化")]
+        public bool drawTracer = true;
+        public float tracerDuration = 0.08f;
+        public float tracerWidth = 0.035f;
+        public Color tracerColor = new Color(1f, 0.9f, 0.2f, 1f);
 
         private float[] cooldownTimers;
         private bool isCasting;
+        private LineRenderer tracer;
 
         void OnEnable()
         {
@@ -32,19 +43,33 @@ namespace RPG
 
         void Start()
         {
-            if (autoCastOnStart) Invoke(nameof(TryCastCurrentSkill), 0.2f);
+            if (!firePoint) firePoint = transform;
+
+            if (drawTracer)
+            {
+                tracer = new GameObject("RayTracer2D").AddComponent<LineRenderer>();
+                tracer.transform.SetParent(null);
+                tracer.enabled = false;
+                tracer.widthMultiplier = tracerWidth;
+                tracer.positionCount = 2;
+                tracer.useWorldSpace = true;
+                tracer.material = new Material(Shader.Find("Sprites/Default"));
+                tracer.startColor = tracerColor;
+                tracer.endColor = tracerColor;
+                tracer.numCornerVertices = 4;
+                tracer.numCapVertices = 4;
+            }
+
+            if (playerStats && playerStats.MaxMP > 0 && playerStats.CurrentMP <= 0)
+                playerStats.CurrentMP = playerStats.MaxMP;
         }
 
         void Update()
         {
-            // 冷卻倒數
             if (cooldownTimers != null)
-            {
                 for (int i = 0; i < cooldownTimers.Length; i++)
                     if (cooldownTimers[i] > 0f) cooldownTimers[i] -= Time.deltaTime;
-            }
 
-            // 測試鍵：空白鍵施放
             if (Input.GetKeyDown(KeyCode.Space))
                 TryCastCurrentSkill();
         }
@@ -56,51 +81,22 @@ namespace RPG
                 cooldownTimers = new float[n];
         }
 
-        public void SetCurrentSkillIndex(int index)
-        {
-            currentSkillIndex = Mathf.Clamp(index, 0, Mathf.Max(0, (Skills?.Count ?? 1) - 1));
-        }
-
-        /// <summary>對當前索引的技能嘗試施放</summary>
         public void TryCastCurrentSkill()
         {
             if (isCasting) return;
-            if (mainPoint == null || playerStats == null) { Debug.LogWarning("[SkillCaster] 缺少 mainPoint 或 playerStats"); return; }
-            if (Skills == null || Skills.Count == 0) { Debug.LogWarning("[SkillCaster] Skills 為空"); return; }
-            if (currentSkillIndex < 0 || currentSkillIndex >= Skills.Count) { Debug.LogWarning("[SkillCaster] currentSkillIndex 超出範圍"); return; }
+            if (!main || !playerStats) { Debug.LogWarning("[SkillCaster2D] 缺 main 或 playerStats"); return; }
+            if (Skills == null || Skills.Count == 0) { Debug.LogWarning("[SkillCaster2D] Skills 為空"); return; }
+            if (currentSkillIndex < 0 || currentSkillIndex >= Skills.Count) { Debug.LogWarning("[SkillCaster2D] 索引越界"); return; }
 
             var data = Skills[currentSkillIndex];
-            if (data == null) { Debug.LogWarning("[SkillCaster] SkillData 為 null"); return; }
+            if (!data) { Debug.LogWarning("[SkillCaster2D] SkillData 為 null"); return; }
+            if (cooldownTimers[currentSkillIndex] > 0f) { Debug.Log($"{data.SkillName} 冷卻中 ({cooldownTimers[currentSkillIndex]:F1}s)"); return; }
 
-            // 冷卻
-            if (cooldownTimers[currentSkillIndex] > 0f)
-            {
-                Debug.Log($"{data.SkillName} 冷卻中 ({cooldownTimers[currentSkillIndex]:F1}s)");
-                return;
-            }
+            var comp = SkillCalculator.Compute(data, main.MP);
+            if (playerStats.CurrentMP < comp.MpCost) { Debug.Log($"MP不足 ({playerStats.CurrentMP:F1}/{comp.MpCost:F1})"); return; }
 
-            // 取得條件
-            if (!SkillCalculator.PassAcquireCheck(data, mainPoint))
-            {
-                Debug.Log($"{data.SkillName} 條件不足，無法施放");
-                return;
-            }
-
-            // 計算核心數字
-            SkillComputed comp = SkillCalculator.Compute(data, mainPoint);
-
-            // MP 檢查與扣除（走狀態層，HUD 會更新）
-            if (playerStats.CurrentMP < comp.MpCost)
-            {
-                Debug.Log($"MP不足 ({playerStats.CurrentMP:F1}/{comp.MpCost:F1})");
-                return;
-            }
             playerStats.UseMP(comp.MpCost);
-
-            // 冷卻啟動
             cooldownTimers[currentSkillIndex] = comp.Cooldown;
-
-            // 施放流程
             StartCoroutine(CastRoutine(comp));
         }
 
@@ -108,36 +104,85 @@ namespace RPG
         {
             isCasting = true;
             if (comp.CastTime > 0f) yield return new WaitForSeconds(comp.CastTime);
-
-            // 命中解析（簡化：前方 Raycast）
-            DoHit(comp);
-
+            DoHit2D(comp);
             isCasting = false;
         }
 
-        private void DoHit(SkillComputed comp)
+        private void DoHit2D(SkillComputed comp)
         {
-            Vector3 origin = transform.position + Vector3.up * 1f;
-            Vector3 dir = transform.forward;
+            Vector3 origin3 = firePoint ? firePoint.position : transform.position;
+            Vector2 dir = GetAttackDirection2D(origin3);  // ← 施放時決定方向
 
-            Debug.DrawRay(origin, dir * rayDistance, Color.yellow, 1.5f);
+            float dist = rayDistance;
+            int mask = ignoreLayerMaskForTest ? ~0 : targetMask;
 
-            if (Physics.Raycast(origin, dir, out RaycastHit hit, rayDistance, ~0, QueryTriggerInteraction.Collide))
+            // Raycast2D
+            RaycastHit2D hit2D = Physics2D.Raycast(origin3, dir, dist, mask);
+            if (hit2D.collider != null)
             {
-                var target = hit.collider.GetComponent<EffectApplier>();
+                DrawTracer(origin3, hit2D.point);
+                var target = hit2D.collider.GetComponentInParent<EffectApplier>();
                 if (target != null)
                 {
-                    // 這裡示範「在受擊端再算防禦」
-                    target.ApplyIncomingRaw(comp.Damage, mainPoint);
+                    target.ApplyIncomingRaw(comp.Damage);
+                    Debug.Log($"[{comp.SkillName}] 命中 {target.name}（Raycast2D）");
                     return;
                 }
+                Debug.Log($"命中 {hit2D.collider.name}（無 EffectApplier）");
+                return;
+            }
 
-                Debug.Log($"命中 {hit.collider.name}（無 EffectApplier）");
-            }
-            else
+            // 近點補偵測
+            Vector2 probeCenter = (Vector2)origin3 + dir * Mathf.Min(3f, dist * 0.25f);
+            float probeRadius = 0.35f;
+            var hits = Physics2D.OverlapCircleAll(probeCenter, probeRadius, mask);
+            foreach (var c in hits)
             {
-                Debug.Log("未命中任何目標");
+                var t = c.GetComponentInParent<EffectApplier>();
+                if (t != null)
+                {
+                    DrawTracer(origin3, c.bounds.ClosestPoint(origin3));
+                    t.ApplyIncomingRaw(comp.Damage);
+                    Debug.Log($"[{comp.SkillName}] 命中 {t.name}（ProbeCircle2D）");
+                    return;
+                }
             }
+
+            // 未命中 → 畫到最遠點
+            DrawTracer(origin3, origin3 + (Vector3)(dir * dist));
+            Debug.Log($"[{comp.SkillName}] 未命中任何目標（2D）");
+        }
+
+        private Vector2 GetAttackDirection2D(Vector3 origin)
+        {
+            if (useMouseForAttack && Camera.main != null)
+            {
+                Vector3 m = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                m.z = 0f;
+                Vector2 v = ((Vector2)(m - origin));
+                if (v.sqrMagnitude > 0.0001f) return v.normalized;
+            }
+            // 沒有滑鼠或距離太小 → 用 AimSource2D（鍵盤/手把）的方向
+            if (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f)
+                return aimSource.AimDir;
+
+            return Vector2.right;
+        }
+
+        private void DrawTracer(Vector3 a, Vector3 b)
+        {
+            if (!drawTracer || tracer == null) return;
+            StopAllCoroutines();
+            StartCoroutine(FlashLine(a, b));
+        }
+
+        private IEnumerator FlashLine(Vector3 a, Vector3 b)
+        {
+            tracer.SetPosition(0, a);
+            tracer.SetPosition(1, b);
+            tracer.enabled = true;
+            yield return new WaitForSeconds(tracerDuration);
+            tracer.enabled = false;
         }
     }
 }
