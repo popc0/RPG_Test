@@ -1,78 +1,91 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// 2D 瞄準輸入來源（支援鍵盤 + 手把舊 Input Manager）
-/// 可讀左搖桿、右搖桿或鍵盤 WASD/方向鍵，
-/// 當無輸入時自動保持上次朝向。
+/// 2D 瞄準輸入來源：
+///  - 滑鼠優先：由 origin 到滑鼠世界座標的向量；距離太近視為無效。
+///  - 備援：舊 Input Manager 的 Horizontal/Vertical。
+///  - 無有效輸入時維持最後一次方向。
+/// NOTE: SkillCaster / AimPreview2D 只要讀 AimDir 即可，不需再處理滑鼠。
 /// </summary>
 public class AimSource2D : MonoBehaviour
 {
-    [Header("來源優先序")]
-    [Tooltip("若有右搖桿，優先用來瞄準；否則用左搖桿/鍵盤。")]
-    public bool preferRightStickForAim = true;
+    [Header("參考點（不設則用自身）")]
+    public Transform origin;
 
-    [Header("軸名稱設定（舊 Input Manager）")]
-    [Tooltip("左搖桿或鍵盤 X 軸名稱（建議: Horizontal 或 JoyX）")]
+    [Header("舊 Input Manager 備援軸")]
     public string moveX = "Horizontal";
-    [Tooltip("左搖桿或鍵盤 Y 軸名稱（建議: Vertical 或 JoyY）")]
     public string moveY = "Vertical";
-    [Tooltip("右搖桿 X 軸名稱（若未設可留空）")]
-    public string aimX = "AimX";
-    [Tooltip("右搖桿 Y 軸名稱（若未設可留空）")]
-    public string aimY = "AimY";
-    [Tooltip("Y 軸是否反向（通常不用）")]
     public bool invertY = false;
 
-    [Header("一般參數")]
-    [Range(0f, 1f)] public float deadZone = 0.25f;
-    public bool normalize = true;
+    [Header("靈敏度")]
+    [Tooltip("滑鼠相對 origin 的最小有效距離")]
+    public float mouseDeadRadius = 0.05f;
+    [Range(0f, 1f)] public float stickDeadZone = 0.25f;
+    public bool normalizeOutput = true;
 
-    /// <summary>最終輸出的瞄準方向</summary>
+    Camera _cam;
+
+    /// <summary>最終的瞄準方向（單位向量）</summary>
     public Vector2 AimDir { get; private set; } = Vector2.right;
 
-    private Vector2 lastDir = Vector2.right; // ⬅️ 記錄最後一次有效方向
+    Vector2 _lastDir = Vector2.right;
+
+    void Reset()
+    {
+        if (!origin) origin = transform;
+        _cam = Camera.main;
+    }
+
+    void Awake()
+    {
+        if (!origin) origin = transform;
+        _cam = Camera.main;
+    }
 
     void Update()
     {
-        Vector2 dir = Vector2.zero;
+        Vector2 dir = ReadMouseDir();
+        if (dir.sqrMagnitude < mouseDeadRadius * mouseDeadRadius)
+            dir = ReadAxesDir();
 
-        // 優先右搖桿
-        if (preferRightStickForAim)
-            dir = ReadAxes(aimX, aimY);
-
-        // 若沒有，改用左搖桿/鍵盤
-        if (dir.sqrMagnitude < deadZone * deadZone)
-            dir = ReadAxes(moveX, moveY);
-
-        // 有輸入 → 更新方向
-        if (dir.sqrMagnitude >= deadZone * deadZone)
+        if (dir.sqrMagnitude >= 1e-6f)
         {
-            lastDir = normalize ? dir.normalized : dir;
-            AimDir = lastDir;
+            _lastDir = normalizeOutput ? dir.normalized : dir;
+            AimDir = _lastDir;
         }
-        // 無輸入 → 保留最後方向
         else
         {
-            AimDir = lastDir;
+            AimDir = _lastDir; // 維持最後方向
         }
     }
 
-    Vector2 ReadAxes(string ax, string ay)
+Vector2 ReadMouseDir()
+{
+    if (!_cam)
     {
-        if (string.IsNullOrEmpty(ax) || string.IsNullOrEmpty(ay))
-            return Vector2.zero;
+        _cam = Camera.main;
+        if (!_cam) return Vector2.zero;
+    }
+    Vector3 o = origin ? origin.position : transform.position;
+    Vector3 m = _cam.ScreenToWorldPoint(Input.mousePosition);
+    m.z = 0f;
+    return (Vector2)(m - o);
+}
 
+
+    Vector2 ReadAxesDir()
+    {
         float x = 0f, y = 0f;
-        try { x = Input.GetAxisRaw(ax); } catch { }
-        try { y = Input.GetAxisRaw(ay); } catch { }
-
+        try { x = Input.GetAxisRaw(moveX); } catch { }
+        try { y = Input.GetAxisRaw(moveY); } catch { }
         if (invertY) y = -y;
 
         Vector2 v = new Vector2(x, y);
-        if (v.magnitude <= deadZone) return Vector2.zero;
+        float mag = v.magnitude;
+        if (mag <= stickDeadZone) return Vector2.zero;
 
-        // 線性映射 + 平滑處理
-        float t = Mathf.InverseLerp(deadZone, 1f, v.magnitude);
+        // 讓小幅度輸入更平順
+        float t = Mathf.InverseLerp(stickDeadZone, 1f, mag);
         t = Mathf.SmoothStep(0f, 1f, t);
         return v.normalized * t;
     }

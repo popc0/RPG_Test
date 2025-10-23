@@ -1,31 +1,26 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RPG
 {
-    /// <summary>在 Inspector 即時查看公式結果的測試組件</summary>
+    /// <summary>開發期用：簡單把主屬性顯示在 UI Text 或 Console</summary>
     public class MainPointDebug : MonoBehaviour
     {
-        public MainPoint MP = new MainPoint();
-        public float TestBaseDamage = 100f;
-        public float TestBaseSpeed = 5f;
+        public MainPointComponent main;
+        public Text text;
 
-        void OnValidate()
+        void Reset()
         {
-            float dmg = MP.CalcOutgoingDamage(TestBaseDamage);
-            float cd = MP.CooldownMul();
-            float mp = MP.MpCostMul();
-            float ar = MP.AreaScale();
-            float spd = MP.MoveSpeed(TestBaseSpeed);
-
-            Debug.Log($"[MainPointDebug] ATK={MP.Attack}, DEF={MP.Defense}, AGI={MP.Agility}, TEC={MP.Technique} " +
-                      $"→ Dmg={dmg:F1}, CDx={cd:F3}, MPx={mp:F3}, AreaX={ar:F3}, Move={spd:F2}");
+            if (!main) main = GetComponentInParent<MainPointComponent>();
         }
 
-        void OnDrawGizmosSelected()
+        void Update()
         {
-            Gizmos.color = new Color(1f, 0.5f, 0f, 0.3f);
-            float r = 2.5f * MP.AreaScale();
-            Gizmos.DrawWireSphere(transform.position, r);
+            if (!main) return;
+
+            string s = $"ATK {main.Attack:0}  DEF {main.Defense:0}  AGI {main.Agility:0}  TEC {main.Technique:0}  HPs {main.HPStat:0}  MPs {main.MPStat:0}";
+            if (text) text.text = s;
+            else Debug.Log(s);
         }
     }
 }

@@ -3,17 +3,17 @@ using UnityEngine;
 namespace RPG
 {
     /// <summary>
-    /// 可掛在主體或子物件（Body / Feet）。
-    /// 命中時會往上找 PlayerStats 與 MainPointComponent。
+    /// 受擊端：可掛在主體或子物件（Body/Feet）。
+    /// 命中時會往上找 PlayerStats / MainPointComponent；並保留此受擊器的 InteractionLayer 標記。
     /// </summary>
     [DisallowMultipleComponent]
     public class EffectApplier : MonoBehaviour
     {
         [Header("主體組件（自動往上找）")]
-        public PlayerStats stats;
-        public MainPointComponent main;
+        public PlayerStats stats;                 // 你的現有 HP/MP 腳本
+        public MainPointComponent main;           // 主屬性容器
 
-        [Header("這個物件屬於哪一層互動層（Body / Feet）")]
+        [Header("受擊區層")]
         public InteractionLayer layer = InteractionLayer.Body;
 
         void Awake()
@@ -22,32 +22,46 @@ namespace RPG
             if (!main) main = GetComponentInParent<MainPointComponent>();
         }
 
-        /// <summary>從 Collider 推回受擊主體與互動層。</summary>
-        public static bool TryResolveOwner(Collider2D col, out EffectApplier owner, out InteractionLayer layer)
+        /// <summary>
+        /// 從被命中的 Collider2D 推回受擊主體與互動層（Body/Feet）。
+        /// 需確保該 Collider2D 所在物件或其父物件，有掛 EffectApplier。
+        /// </summary>
+        public static bool TryResolveOwner(Collider2D col, out EffectApplier owner, out InteractionLayer hitLayer)
         {
             owner = null;
-            layer = InteractionLayer.Body;
+            hitLayer = InteractionLayer.Body;
             if (!col) return false;
 
             owner = col.GetComponentInParent<EffectApplier>();
-            if (owner)
-            {
-                layer = owner.layer;
-                return true;
-            }
-            return false;
+            if (!owner) return false;
+
+            hitLayer = owner.layer;
+            return true;
         }
 
+        /// <summary>傳入攻擊端的原始傷害，這裡會依防禦計算後扣血。</summary>
         public void ApplyIncomingRaw(float outgoingDamage)
         {
             if (!stats || !main)
             {
-                Debug.LogWarning($"{name}: 缺少 PlayerStats 或 MainPointComponent。");
+                Debug.LogWarning($"{name}: 缺少 PlayerStats 或 MainPointComponent，無法受擊。");
                 return;
             }
             float finalDamage = main.AfterDefense(outgoingDamage);
             stats.TakeDamage(finalDamage);
-            Debug.Log($"[{name}] 受到 {finalDamage:F1} 傷害 (raw {outgoingDamage:F1}, DEF {main.Defense:F1})");
+            Debug.Log($"[{name}] 受到 {finalDamage:F1} 傷害（raw={outgoingDamage:F1}, DEF={main.Defense:F1}）");
+        }
+
+        /// <summary>若外部已算好最終傷害，可直接扣。</summary>
+        public void ApplyFinalDamage(float finalDamage)
+        {
+            if (!stats)
+            {
+                Debug.LogWarning($"{name}: 缺少 PlayerStats，無法直接扣血。");
+                return;
+            }
+            stats.TakeDamage(finalDamage);
+            Debug.Log($"[{name}] 扣血 {finalDamage:F1}");
         }
     }
 }

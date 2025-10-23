@@ -2,39 +2,34 @@ using UnityEngine;
 
 namespace RPG
 {
-    [CreateAssetMenu(menuName = "RPG/Skill Data", fileName = "SkillData_New")]
+    /// <summary>技能資料（SO）</summary>
+    [CreateAssetMenu(menuName = "RPG/Skill Data", fileName = "SkillData_")]
     public class SkillData : ScriptableObject
     {
         [Header("基本資料")]
         public string SkillName = "New Skill";
-        [Tooltip("秒")]
         public float BaseCooldown = 8f;
-        [Tooltip("MP")]
         public float BaseMpCost = 20f;
-        [Tooltip("秒（0 = 瞬發）")]
         public float CastTime = 0.3f;
 
         [Header("命中與目標")]
-        public TargetSide Target = TargetSide.Enemy;
-        public HitType HitType = HitType.Single;             // 預設單體
-        public InteractionLayer Layer = InteractionLayer.Body;
+        public TargetType Target = TargetType.Enemy;
+        public HitType HitType = HitType.Single;
+        public InteractionLayer TargetLayer = InteractionLayer.Body;
 
-        [Header("基礎數值（供計算層使用）")]
-        public float BaseDamage = 100f;                      // 主傷基礎
-        public float BaseAreaRadius = 2.0f;                  // AoE 半徑（HitType=Area 時才用）
+        [Header("基礎數值（提供計算用）")]
+        public float BaseDamage = 100f;
+        public float BaseAreaRadius = 2f;
 
         [Header("取得條件（屬性門檻，可全部關閉）")]
-        public bool UseAttackReq; public float ReqAttack;
-        public bool UseDefenseReq; public float ReqDefense;
-        public bool UseAgilityReq; public float ReqAgility;
-        public bool UseTechniqueReq; public float ReqTechnique;
-        public bool UseHPReq; public float ReqHPStat;
-        public bool UseMPReq; public float ReqMPStat;
+        public bool UseAttackReq = false; public float ReqAttack = 0f;
+        public bool UseDefenseReq = false; public float ReqDefense = 0f;
+        public bool UseAgilityReq = false; public float ReqAgility = 0f;
+        public bool UseTechniqueReq = false; public float ReqTechnique = 0f;
+        public bool UseHPReq = false; public float ReqHPStat = 0f;
+        public bool UseMPReq = false; public float ReqMPStat = 0f;
 
-        /// <summary>
-        /// 是否通過學習/裝備條件（不做字串解析，策劃用勾選＋數值）
-        /// </summary>
-        public bool CanAcquire(MainPoint mp)
+        public bool MeetsRequirement(MainPoint mp)
         {
             if (UseAttackReq && mp.Attack < ReqAttack) return false;
             if (UseDefenseReq && mp.Defense < ReqDefense) return false;
@@ -44,15 +39,5 @@ namespace RPG
             if (UseMPReq && mp.MPStat < ReqMPStat) return false;
             return true;
         }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            // 簡單資料校驗，避免打架
-            if (HitType != HitType.Area) BaseAreaRadius = Mathf.Max(0f, BaseAreaRadius); // 保留值但不報錯
-            if (HitType == HitType.Area && BaseAreaRadius <= 0f)
-                BaseAreaRadius = 1.0f; // 給最小半徑，避免為 0
-        }
-#endif
     }
 }

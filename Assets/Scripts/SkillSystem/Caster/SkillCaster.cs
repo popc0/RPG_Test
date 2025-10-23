@@ -5,17 +5,16 @@ using System.Collections.Generic;
 namespace RPG
 {
     /// <summary>
-    /// 純 2D 技能施放器：
-    /// - 單體/直線：障礙物會擋住（Raycast 以 enemy|obstacle 為遮罩）
-    /// - 範圍（HitType.Area）：不理會障礙物（OverlapCircleAll 只掃敵人）
-    /// - 攻擊方向：施放當下優先滑鼠，否則 AimSource2D
+    /// 純 2D 技能施放器（方向只讀 AimSource2D）：
+    /// - 單體/直線：障礙物會擋住（Raycast 以 enemy|obstacle 為遮罩），並依 SkillData.TargetLayer 過濾 Body/Feet。
+    /// - 範圍（HitType.Area）：不理會障礙物（OverlapCircleAll 只掃敵人），同樣過濾 Body/Feet。
     /// </summary>
     public class SkillCaster : MonoBehaviour
     {
         [Header("引用")]
         public MainPointComponent main;
         public PlayerStats playerStats;
-        public AimSource2D aimSource;
+        public AimSource2D aimSource;                 // ✅ 唯一方向來源
 
         [Header("技能")]
         public List<SkillData> Skills = new List<SkillData>();
@@ -31,12 +30,8 @@ namespace RPG
         [Tooltip("障礙物圖層（只含 Obstacle/牆）")]
         [SerializeField] private LayerMask obstacleMask = 0;
 
-        [Tooltip("測試用：忽略圖層過濾（會穿牆）")]
+        [Tooltip("測試用：忽略圖層過濾（會穿牆、打到全部）")]
         public bool ignoreLayerMaskForTest = false;
-
-        [Header("方向來源")]
-        [Tooltip("施放時是否用滑鼠指向；無滑鼠則用 AimSource2D")]
-        public bool useMouseForAttack = true;
 
         [Header("可視化（短暫顯示）")]
         public bool drawTracer = true;
@@ -52,37 +47,41 @@ namespace RPG
         private bool isCasting;
         private LineRenderer tracer;
         private LineRenderer areaRing;
+        private static Material s_lineMat;
 
-        void OnEnable()
-        {
-            EnsureCooldownArray();
-        }
+
+        void OnEnable() => EnsureCooldownArray();
 
         void Start()
         {
             if (!firePoint) firePoint = transform;
 
-            if (drawTracer)
-            {
-                tracer = NewLR("RayTracer2D", tracerColor, tracerWidth, false, 2);
-            }
-            if (drawAreaFlash)
-            {
-                areaRing = NewLR("AreaRing2D", areaFlashColor, areaFlashWidth, true, areaSegments + 1);
-            }
+            if (drawTracer) tracer = NewLR("RayTracer2D", tracerColor, tracerWidth, false, 2);
+            if (drawAreaFlash) areaRing = NewLR("AreaRing2D", areaFlashColor, areaFlashWidth, true, areaSegments + 1);
 
             if (playerStats && playerStats.MaxMP > 0 && playerStats.CurrentMP <= 0)
                 playerStats.CurrentMP = playerStats.MaxMP;
         }
 
+        void OnValidate() { EnsureCooldownArray(); }
+
         void Update()
         {
             if (cooldownTimers != null)
+            {
                 for (int i = 0; i < cooldownTimers.Length; i++)
-                    if (cooldownTimers[i] > 0f) cooldownTimers[i] -= Time.deltaTime;
+                    if (cooldownTimers[i] > 0f)
+                        cooldownTimers[i] = Mathf.Max(0f, cooldownTimers[i] - Time.deltaTime);
+            }
 
             if (Input.GetKeyDown(KeyCode.Space))
                 TryCastCurrentSkill();
+        }
+
+        void OnDestroy()
+        {
+            if (tracer) Destroy(tracer.gameObject);
+            if (areaRing) Destroy(areaRing.gameObject);
         }
 
         private void EnsureCooldownArray()
@@ -103,12 +102,19 @@ namespace RPG
             if (!data) { Debug.LogWarning("[SkillCaster2D] SkillData 為 null"); return; }
             if (cooldownTimers[currentSkillIndex] > 0f) { Debug.Log($"{data.SkillName} 冷卻中 ({cooldownTimers[currentSkillIndex]:F1}s)"); return; }
 
+            // 取得條件
+            if (!data.MeetsRequirement(main.MP))
+            {
+                Debug.Log($"{data.SkillName} 未達成屬性門檻，無法施放/學習");
+                return;
+            }
+
             var comp = SkillCalculator.Compute(data, main.MP);
             if (playerStats.CurrentMP < comp.MpCost) { Debug.Log($"MP不足 ({playerStats.CurrentMP:F1}/{comp.MpCost:F1})"); return; }
 
             playerStats.UseMP(comp.MpCost);
             cooldownTimers[currentSkillIndex] = comp.Cooldown;
-            StartCoroutine(CastRoutine( data, comp));
+            StartCoroutine(CastRoutine(data, comp));
         }
 
         private IEnumerator CastRoutine(SkillData data, SkillComputed comp)
@@ -116,19 +122,18 @@ namespace RPG
             isCasting = true;
             if (comp.CastTime > 0f) yield return new WaitForSeconds(comp.CastTime);
 
-            // Area 與 Single 分流
             bool isAreaSkill = (data != null && data.HitType == HitType.Area);
-            if (isAreaSkill) DoArea2D(comp, data);
-            else DoSingle2D(comp, data);
+            if (isAreaSkill) DoArea2D(data, comp);
+            else DoSingle2D(data, comp);
 
             isCasting = false;
         }
 
-        // ====== 單體 / 直線：障礙物會擋住 ======
-        private void DoSingle2D(SkillComputed comp, SkillData data)
+        // ====== 單體 / 直線：障礙物會擋住，且需通過 Body/Feet 過濾 ======
+        private void DoSingle2D(SkillData data, SkillComputed comp)
         {
             Vector3 origin3 = firePoint ? firePoint.position : transform.position;
-            Vector2 dir = GetAttackDirection2D(origin3);
+            Vector2 dir = GetDir();
             float dist = rayDistance;
 
             int mask = ignoreLayerMaskForTest ? ~0 : (enemyMask | obstacleMask);
@@ -141,45 +146,54 @@ namespace RPG
 
                 if (!ignoreLayerMaskForTest && IsInMask(hit2D.collider.gameObject.layer, obstacleMask))
                 {
-                    Debug.Log($"[{comp.SkillName}] 被障礙物擋住：{hit2D.collider.name}");
+                    Debug.Log($"[{data.SkillName}] 被障礙物擋住：{hit2D.collider.name}");
                     return;
                 }
 
-                var target = hit2D.collider.GetComponentInParent<EffectApplier>();
-                if (target != null)
+                if (EffectApplier.TryResolveOwner(hit2D.collider, out var owner, out var hitLayer))
                 {
-                    target.ApplyIncomingRaw(comp.Damage);
-                    Debug.Log($"[{comp.SkillName}] 命中 {target.name}（Raycast2D）");
+                    if (data.TargetLayer == hitLayer)
+                    {
+                        owner.ApplyIncomingRaw(comp.Damage);
+                        Debug.Log($"[{data.SkillName}] 命中 {owner.name}（{hitLayer}）");
+                    }
+                    else
+                    {
+                        Debug.Log($"[{data.SkillName}] 命中 {owner.name} 但區層不符（需要 {data.TargetLayer}，實際 {hitLayer}）");
+                    }
                     return;
                 }
 
-                Debug.Log($"命中 {hit2D.collider.name}（非敵人/障礙物圖層，請檢查 Layer）");
+                Debug.Log($"命中 {hit2D.collider.name}（非敵人/無 EffectApplier，請檢查設定）");
                 return;
             }
 
-            // 2) 近點補偵測：只找敵人，且確認中間沒有障礙物
+            // 2) 近點補偵測：只找敵人，且確認中間沒有障礙物；同時過濾 Body/Feet
             Vector2 probeCenter = (Vector2)origin3 + dir * Mathf.Min(3f, dist * 0.25f);
             float probeRadius = 0.35f;
             int enemyOnlyMask = ignoreLayerMaskForTest ? ~0 : enemyMask;
             var hits = Physics2D.OverlapCircleAll(probeCenter, probeRadius, enemyOnlyMask);
 
             EffectApplier closest = null;
+            InteractionLayer chosenLayer = InteractionLayer.Body;
             float closestSq = float.MaxValue;
 
             foreach (var c in hits)
             {
-                var t = c.GetComponentInParent<EffectApplier>();
-                if (t == null) continue;
+                if (!EffectApplier.TryResolveOwner(c, out var candidate, out var hLayer))
+                    continue;
+
+                if (data.TargetLayer != hLayer) continue;
 
                 if (!ignoreLayerMaskForTest)
                 {
-                    Vector2 toTarget = (Vector2)(t.transform.position - origin3);
+                    Vector2 toTarget = (Vector2)(candidate.transform.position - origin3);
                     if (Physics2D.Raycast(origin3, toTarget.normalized, toTarget.magnitude, obstacleMask))
-                        continue; // 有牆擋住
+                        continue;
                 }
 
-                float sq = (t.transform.position - origin3).sqrMagnitude;
-                if (sq < closestSq) { closestSq = sq; closest = t; }
+                float sq = (candidate.transform.position - origin3).sqrMagnitude;
+                if (sq < closestSq) { closestSq = sq; closest = candidate; chosenLayer = hLayer; }
             }
 
             if (closest != null)
@@ -190,69 +204,53 @@ namespace RPG
 
                 FlashLine(origin3, hitPos);
                 closest.ApplyIncomingRaw(comp.Damage);
-                Debug.Log($"[{comp.SkillName}] 命中 {closest.name}（ProbeCircle2D，無障礙）");
+                Debug.Log($"[{data.SkillName}] 命中 {closest.name}（{chosenLayer}，ProbeCircle2D）");
                 return;
             }
 
             // 3) 完全未命中 → 畫到最遠端
             FlashLine(origin3, origin3 + (Vector3)(dir * dist));
-            Debug.Log($"[{comp.SkillName}] 未命中任何目標（2D，含障礙判定）");
+            Debug.Log($"[{data.SkillName}] 未命中任何目標（2D，含障礙判定/區層過濾）");
         }
 
-        // ====== 範圍：不理會障礙物，直接在「瞄準點」爆炸 ======
-        private void DoArea2D(SkillComputed comp, SkillData data)
+        // ====== 範圍 AoE：不理會障礙物，但仍需 Body/Feet 過濾 ======
+        private void DoArea2D(SkillData data, SkillComputed comp)
         {
             Vector3 origin3 = firePoint ? firePoint.position : transform.position;
 
-            // 瞄準點：滑鼠方向的點（距離上限 rayDistance）
-            Vector2 dir = GetAttackDirection2D(origin3);
-            Vector2 mousePoint = origin3 + (Vector3)(dir * rayDistance);
-
-            if (useMouseForAttack && Camera.main != null)
-            {
-                Vector3 m = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                m.z = 0f;
-                Vector2 v = (Vector2)(m - origin3);
-                if (v.sqrMagnitude > 0.0001f)
-                    mousePoint = origin3 + (Vector3)Vector2.ClampMagnitude(v, rayDistance);
-            }
+            Vector2 dir = GetDir();
+            Vector2 center = origin3 + (Vector3)(dir * Mathf.Clamp(rayDistance, 0.1f, rayDistance));
 
             float radius = Mathf.Max(0.05f, comp.AreaRadius);
             int maskEnemies = ignoreLayerMaskForTest ? ~0 : enemyMask;
 
-            // 掃描敵人（不檢查牆）
-            Collider2D[] hits = Physics2D.OverlapCircleAll(mousePoint, radius, maskEnemies);
+            Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius, maskEnemies);
+
+            // 去重：同一受擊主體只吃一次
+            var unique = new System.Collections.Generic.HashSet<EffectApplier>();
+
             foreach (var c in hits)
             {
-                var t = c.GetComponentInParent<EffectApplier>();
-                if (t != null)
+                if (!EffectApplier.TryResolveOwner(c, out var owner, out var hitLayer)) continue;
+                if (data.TargetLayer != hitLayer) continue;
+
+                if (unique.Add(owner))
                 {
-                    t.ApplyIncomingRaw(comp.Damage);
-                    Debug.Log($"[{comp.SkillName}] 範圍命中 {t.name}");
+                    owner.ApplyIncomingRaw(comp.Damage);
+                    Debug.Log($"[{data.SkillName}] 範圍命中 {owner.name}（{hitLayer}）");
                 }
             }
 
-            // 可視化：閃一下爆點圈
             if (drawAreaFlash && areaRing)
-            {
-                StartCoroutine(FlashCircle(areaRing, mousePoint, radius, tracerDuration));
-            }
+                StartCoroutine(FlashCircle(areaRing, center, radius, tracerDuration));
         }
 
-        // ====== 方向取得 ======
-        private Vector2 GetAttackDirection2D(Vector3 origin)
+        // ====== 方向取得（只讀 AimSource2D） ======
+        private Vector2 GetDir()
         {
-            if (useMouseForAttack && Camera.main != null)
-            {
-                Vector3 m = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                m.z = 0f;
-                Vector2 v = ((Vector2)(m - origin));
-                if (v.sqrMagnitude > 0.0001f) return v.normalized;
-            }
             if (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f)
                 return aimSource.AimDir;
-
-            return Vector2.right;
+            return Vector2.right; // 保底
         }
 
         // ====== 小工具 ======
@@ -260,10 +258,13 @@ namespace RPG
 
         private LineRenderer NewLR(string name, Color color, float width, bool loop, int posCount)
         {
-            var lr = new GameObject(name).AddComponent<LineRenderer>();
-            lr.transform.SetParent(null);
+            if (s_lineMat == null)
+                s_lineMat = new Material(Shader.Find("Sprites/Default"));
+
+            var go = new GameObject(name);
+            var lr = go.AddComponent<LineRenderer>();
             lr.useWorldSpace = true;
-            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.material = s_lineMat;
             lr.positionCount = posCount;
             lr.widthMultiplier = width;
             lr.startColor = lr.endColor = color;
