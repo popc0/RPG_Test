@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1be0a826d20df6b4d934aa5d1ec69578, type: 3}
   m_Name: SkillData_001
   m_EditorClassIdentifier: 
-  SkillName: New Skill
+  SkillName: "\u6280\u80FD"
   BaseCooldown: 8
   BaseMpCost: 20
   CastTime: 0.3
