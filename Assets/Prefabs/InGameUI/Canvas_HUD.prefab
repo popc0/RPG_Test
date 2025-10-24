@@ -877,7 +877,7 @@ MonoBehaviour:
   mpArc: {fileID: 3230020996406150122}
   hpText: {fileID: 8780987115991169547}
   mpText: {fileID: 5151064613585537372}
-  autoConfigureArc: 0
+  autoConfigureArc: 1
   smoothLerp: 1
   lerpSpeed: 12
 --- !u!1 &7129045340752332031

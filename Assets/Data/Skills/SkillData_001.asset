@@ -13,14 +13,19 @@ MonoBehaviour:
   m_Name: SkillData_001
   m_EditorClassIdentifier: 
   SkillName: "\u6280\u80FD"
-  BaseCooldown: 8
-  BaseMpCost: 20
-  CastTime: 0.3
+  BaseCooldown: 3
+  BaseMpCost: 10
+  CastTime: 0
   Target: 2
   HitType: 0
-  Layer: 0
+  TargetLayer: 0
   BaseDamage: 100
+  BaseRange: 12
   BaseAreaRadius: 2
+  UseProjectile: 1
+  ProjectilePrefab: {fileID: 3133480608834982146, guid: c33d42b0446f7504d8f536f28ecf07ba, type: 3}
+  ProjectileSpeed: 18
+  ProjectileRadius: 0.1
   UseAttackReq: 1
   ReqAttack: 60
   UseDefenseReq: 0
@@ -30,6 +35,6 @@ MonoBehaviour:
   UseTechniqueReq: 0
   ReqTechnique: 0
   UseHPReq: 0
-  ReqHPStat: 0
+  ReqHP: 0
   UseMPReq: 0
-  ReqMPStat: 0
+  ReqMP: 0

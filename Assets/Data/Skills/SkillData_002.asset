@@ -15,12 +15,17 @@ MonoBehaviour:
   SkillName: "\u7BC4\u570D\u653B\u64CA"
   BaseCooldown: 8
   BaseMpCost: 20
-  CastTime: 0.3
+  CastTime: 0
   Target: 2
   HitType: 1
-  Layer: 0
+  TargetLayer: 0
   BaseDamage: 100
-  BaseAreaRadius: 2
+  BaseRange: 12
+  BaseAreaRadius: 4
+  UseProjectile: 1
+  ProjectilePrefab: {fileID: 3133480608834982146, guid: c33d42b0446f7504d8f536f28ecf07ba, type: 3}
+  ProjectileSpeed: 16
+  ProjectileRadius: 0.25
   UseAttackReq: 0
   ReqAttack: 0
   UseDefenseReq: 0
@@ -30,6 +35,6 @@ MonoBehaviour:
   UseTechniqueReq: 0
   ReqTechnique: 0
   UseHPReq: 0
-  ReqHPStat: 0
+  ReqHP: 0
   UseMPReq: 0
-  ReqMPStat: 0
+  ReqMP: 0

@@ -1,19 +1,19 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 public class HUDStatsBinder : MonoBehaviour
 {
-    [Header("¨Ó·½¡]ª¬ºA¼h¡^")]
+    [Header("ä¾†æºï¼ˆç‹€æ…‹å±¤ï¼‰")]
     public PlayerStats playerStats;
 
-    [Header("UI °Ñ¦Ò¡]¨â­Ó¶ê§Î Image Å|¦b¤@°_¡^")]
-    public Image hpArc;   // ¬õ¦â¥b¶ê¡]¥ª¡^
-    public Image mpArc;   // ÂÅ¦â¥b¶ê¡]¥k¡^
+    [Header("UI åƒè€ƒï¼ˆå…©å€‹åœ“å½¢ Image ç–Šåœ¨ä¸€èµ·ï¼‰")]
+    public Image hpArc;   // ç´…è‰²åŠåœ“ï¼ˆå·¦ï¼‰
+    public Image mpArc;   // è—è‰²åŠåœ“ï¼ˆå³ï¼‰
     public TextMeshProUGUI hpText;
     public TextMeshProUGUI mpText;
 
-    [Header("Åã¥Ü¿ï¶µ")]
+    [Header("é¡¯ç¤ºé¸é …")]
     public bool autoConfigureArc = true;
     public bool smoothLerp = true;
     public float lerpSpeed = 12f;
@@ -23,17 +23,17 @@ public class HUDStatsBinder : MonoBehaviour
     void OnEnable()
     {
         if (playerStats != null)
-            playerStats.OnStatsChanged += RefreshTargets;
+            playerStats.OnStatsChanged += OnStatsChanged;
 
         ConfigureArcsIfNeeded();
-        RefreshTargets();
+        ForceRefresh();
         ApplyImmediate();
     }
 
     void OnDisable()
     {
         if (playerStats != null)
-            playerStats.OnStatsChanged -= RefreshTargets;
+            playerStats.OnStatsChanged -= OnStatsChanged;
     }
 
     void Update()
@@ -47,25 +47,34 @@ public class HUDStatsBinder : MonoBehaviour
             mpArc.fillAmount = Mathf.MoveTowards(mpArc.fillAmount, targetMpFill, Time.unscaledDeltaTime * lerpSpeed);
     }
 
+    void OnStatsChanged(float curHP, float maxHP, float curMP, float maxMP)
+    {
+        UpdateTargets(curHP, maxHP, curMP, maxMP);
+    }
+
     public void ApplyImmediate()
     {
         if (hpArc) hpArc.fillAmount = targetHpFill;
         if (mpArc) mpArc.fillAmount = targetMpFill;
     }
 
-    public void RefreshTargets()
+    public void ForceRefresh()
     {
         if (playerStats == null) return;
+        UpdateTargets(playerStats.CurrentHP, playerStats.MaxHP, playerStats.CurrentMP, playerStats.MaxMP);
+    }
 
-        float hpRatio = SafeRatio(playerStats.CurrentHP, playerStats.MaxHP);
-        float mpRatio = SafeRatio(playerStats.CurrentMP, playerStats.MaxMP);
+    void UpdateTargets(float curHP, float maxHP, float curMP, float maxMP)
+    {
+        float hpRatio = SafeRatio(curHP, maxHP);
+        float mpRatio = SafeRatio(curMP, maxMP);
 
-        // ¥b°éÅã¥Ü ¡÷ 0..0.5
+        // åŠåœˆé¡¯ç¤º â†’ 0..0.5
         targetHpFill = 0.5f * hpRatio;
         targetMpFill = 0.5f * mpRatio;
 
-        if (hpText) hpText.text = $"{Mathf.CeilToInt(playerStats.CurrentHP)}/{Mathf.CeilToInt(playerStats.MaxHP)}";
-        if (mpText) mpText.text = $"{Mathf.CeilToInt(playerStats.CurrentMP)}/{Mathf.CeilToInt(playerStats.MaxMP)}";
+        if (hpText) hpText.text = $"{Mathf.CeilToInt(curHP)}/{Mathf.CeilToInt(maxHP)}";
+        if (mpText) mpText.text = $"{Mathf.CeilToInt(curMP)}/{Mathf.CeilToInt(maxMP)}";
     }
 
     float SafeRatio(float v, float max)
@@ -78,21 +87,21 @@ public class HUDStatsBinder : MonoBehaviour
     {
         if (!autoConfigureArc) return;
 
-        // ¨â­Ó¥b¶ê³£¡u¥Ñ¤W©¹¤U¡v¦¬
+        // å…©å€‹åŠåœ“éƒ½ã€Œç”±ä¸Šå¾€ä¸‹ã€æ”¶
         if (hpArc)
         {
             hpArc.type = Image.Type.Filled;
             hpArc.fillMethod = Image.FillMethod.Radial360;
-            hpArc.fillOrigin = (int)Image.Origin360.Left;   // ¥ª¥b
-            hpArc.fillClockwise = true;                     //  ¤W ¡÷ ¤U
+            hpArc.fillOrigin = (int)Image.Origin360.Left;   // å·¦åŠ
+            hpArc.fillClockwise = true;                     // ä¸Š â†’ ä¸‹
             hpArc.fillAmount = 0f;
         }
         if (mpArc)
         {
             mpArc.type = Image.Type.Filled;
             mpArc.fillMethod = Image.FillMethod.Radial360;
-            mpArc.fillOrigin = (int)Image.Origin360.Right;  // ¥k¥b
-            mpArc.fillClockwise = false;                    //  ¤W ¡÷ ¤U
+            mpArc.fillOrigin = (int)Image.Origin360.Right;  // å³åŠ
+            mpArc.fillClockwise = false;                    // ä¸Š â†’ ä¸‹
             mpArc.fillAmount = 0f;
         }
     }
