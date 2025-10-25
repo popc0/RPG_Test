@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 namespace RPG
 {
@@ -16,10 +17,20 @@ namespace RPG
         [Header("受擊區層")]
         public InteractionLayer layer = InteractionLayer.Body;
 
+        [Header("顯示名稱（空白則用物件名）")]
+        public string displayName;
+
+        /// <summary>
+        /// 任一單位受到傷害時廣播：(name, curHP, maxHP, curMP, maxMP)
+        /// 供 HUD 顯示「誰受傷、剩餘血魔」。
+        /// </summary>
+        public static event Action<string, float, float, float, float> OnAnyDamaged;
+
         void Awake()
         {
             if (!stats) stats = GetComponentInParent<PlayerStats>();
             if (!main) main = GetComponentInParent<MainPointComponent>();
+            if (string.IsNullOrWhiteSpace(displayName)) displayName = gameObject.name;
         }
 
         /// <summary>
@@ -48,8 +59,12 @@ namespace RPG
                 return;
             }
             float finalDamage = main.AfterDefense(outgoingDamage);
-            stats.TakeDamage(finalDamage);
-            Debug.Log($"[{name}] 受到 {finalDamage:F1} 傷害（raw={outgoingDamage:F1}, DEF={main.Defense:F1}）");
+            stats.TakeDamage(finalDamage); // ★ 實際扣血
+
+            // 廣播給 HUD（誰受傷＆剩餘血魔）
+            OnAnyDamaged?.Invoke(displayName, stats.CurrentHP, stats.MaxHP, stats.CurrentMP, stats.MaxMP);
+
+            Debug.Log($"[{displayName}] 受到 {finalDamage:F1} 傷害（raw={outgoingDamage:F1}, DEF={main.Defense:F1}）");
         }
 
         /// <summary>若外部已算好最終傷害，可直接扣。</summary>
@@ -60,8 +75,9 @@ namespace RPG
                 Debug.LogWarning($"{name}: 缺少 PlayerStats，無法直接扣血。");
                 return;
             }
-            stats.TakeDamage(finalDamage);
-            Debug.Log($"[{name}] 扣血 {finalDamage:F1}");
+            stats.TakeDamage(finalDamage); // ★ 實際扣血
+            OnAnyDamaged?.Invoke(displayName, stats.CurrentHP, stats.MaxHP, stats.CurrentMP, stats.MaxMP);
+            Debug.Log($"[{displayName}] 扣血 {finalDamage:F1}");
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
+using System.Collections;
 
 public class HUDStatsBinder : MonoBehaviour
 {
@@ -20,8 +22,18 @@ public class HUDStatsBinder : MonoBehaviour
 
     float targetHpFill, targetMpFill;
 
+    void Awake()
+    {
+        // 遊戲啟動先嘗試一次
+        AutoBindPlayerStatsIfNeeded();
+    }
+
     void OnEnable()
     {
+        // 訂閱場景載入事件：切換場景後自動重新綁定
+        SceneManager.sceneLoaded += OnSceneLoaded;
+
+        // 綁事件（若此時已有 playerStats）
         if (playerStats != null)
             playerStats.OnStatsChanged += OnStatsChanged;
 
@@ -32,6 +44,8 @@ public class HUDStatsBinder : MonoBehaviour
 
     void OnDisable()
     {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+
         if (playerStats != null)
             playerStats.OnStatsChanged -= OnStatsChanged;
     }
@@ -45,6 +59,30 @@ public class HUDStatsBinder : MonoBehaviour
 
         if (mpArc)
             mpArc.fillAmount = Mathf.MoveTowards(mpArc.fillAmount, targetMpFill, Time.unscaledDeltaTime * lerpSpeed);
+    }
+
+    // 場景載入完成後（任何 LoadSceneMode），下一幀再綁一次，確保 Player 已出現在場景裡
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        StartCoroutine(RebindNextFrame());
+    }
+
+    IEnumerator RebindNextFrame()
+    {
+        yield return null; // 等一幀讓場景物件建立完成
+
+        var prev = playerStats;
+        AutoBindPlayerStats(); // 這裡「強制」重新抓一次
+
+        // 若對象改變，重綁事件
+        if (prev != playerStats)
+        {
+            if (prev != null) prev.OnStatsChanged -= OnStatsChanged;
+            if (playerStats != null) playerStats.OnStatsChanged += OnStatsChanged;
+        }
+
+        ForceRefresh();
+        ApplyImmediate();
     }
 
     void OnStatsChanged(float curHP, float maxHP, float curMP, float maxMP)
@@ -92,17 +130,39 @@ public class HUDStatsBinder : MonoBehaviour
         {
             hpArc.type = Image.Type.Filled;
             hpArc.fillMethod = Image.FillMethod.Radial360;
-            hpArc.fillOrigin = (int)Image.Origin360.Left;   // 左半
-            hpArc.fillClockwise = true;                     // 上 → 下
+            hpArc.fillOrigin = (int)Image.Origin360.Right;   // 左半
+            hpArc.fillClockwise = false;                     // 上 → 下
             hpArc.fillAmount = 0f;
         }
         if (mpArc)
         {
             mpArc.type = Image.Type.Filled;
             mpArc.fillMethod = Image.FillMethod.Radial360;
-            mpArc.fillOrigin = (int)Image.Origin360.Right;  // 右半
-            mpArc.fillClockwise = false;                    // 上 → 下
+            mpArc.fillOrigin = (int)Image.Origin360.Left;  // 右半
+            mpArc.fillClockwise = true;                    // 上 → 下
             mpArc.fillAmount = 0f;
+        }
+    }
+
+    // —— 自動綁定 —— //
+    void AutoBindPlayerStatsIfNeeded()
+    {
+        if (playerStats == null) AutoBindPlayerStats();
+    }
+
+    void AutoBindPlayerStats()
+    {
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO != null)
+        {
+            // 先抓本體，抓不到再往子物件找
+            playerStats = playerGO.GetComponent<PlayerStats>();
+            if (playerStats == null)
+                playerStats = playerGO.GetComponentInChildren<PlayerStats>(true);
+        }
+        else
+        {
+            playerStats = null;
         }
     }
 }
