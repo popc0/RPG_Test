@@ -189,12 +189,18 @@ public class StoryManager : MonoBehaviour
 
         if (line.choices != null && line.choices.Count > 0)
         {
+            // 有選項：維持原本邏輯 → 顯示選項並聚焦到第一個
             ShowChoices(line.choices);
             if (btnNext != null) btnNext.gameObject.SetActive(false);
         }
         else
         {
-            if (btnNext != null) btnNext.gameObject.SetActive(true);
+            // 無選項：顯示 Next 並自動聚焦 Next
+            if (btnNext != null)
+            {
+                btnNext.gameObject.SetActive(true);
+                StartCoroutine(FocusNextButtonNextFrame()); // ★ 新增：下一幀聚焦到 Next
+            }
 
             if (IsAuto)
             {
@@ -239,6 +245,8 @@ public class StoryManager : MonoBehaviour
             else
             {
                 if (btnNext != null) btnNext.gameObject.SetActive(true);
+                //（此分支是「點 Next 直接跳過打字機」的情況，不主動改焦點，
+                // 讓現有焦點保持在 Next，以免來回閃爍）
             }
             return;
         }
@@ -417,6 +425,20 @@ public class StoryManager : MonoBehaviour
                 var sel = first.GetComponent<Selectable>();
                 if (sel != null) sel.Select();
             }
+        }
+    }
+
+    // ★ 新增：每句普通對話（無選項）結束後，下一幀聚焦 Next 按鈕
+    IEnumerator FocusNextButtonNextFrame()
+    {
+        yield return null; // 等一幀，確保 Layout / GraphicRaycaster 更新完成
+        if (btnNext != null && btnNext.gameObject.activeInHierarchy && EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+            EventSystem.current.SetSelectedGameObject(btnNext.gameObject);
+
+            var sel = btnNext.GetComponent<Selectable>();
+            if (sel != null) sel.Select();
         }
     }
 }
