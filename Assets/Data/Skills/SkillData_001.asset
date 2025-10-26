@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: SkillData_001
   m_EditorClassIdentifier: 
   SkillName: "\u6280\u80FD"
-  BaseCooldown: 3
-  BaseMpCost: 10
+  BaseCooldown: 0
+  BaseMpCost: 0
   CastTime: 0
   Target: 2
   HitType: 0
