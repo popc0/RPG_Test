@@ -1,235 +1,243 @@
-using UnityEngine;
+ï»¿using UnityEngine;
+using UnityEngine.InputSystem; // New Input System
 
 public class PlayerMovement : MonoBehaviour
 {
-    [Header("²¾°Ê")]
+    [Header("ç§»å‹•")]
     public float moveSpeed = 5f;
+    [Tooltip("æ‰‹æŠŠæ–æ¡¿çš„åœ“å½¢æ­»å€ï¼ˆé¡å¤–ä¿éšªï¼Œé¿å…å¾®æŠ–ï¼‰")]
+    [Range(0f, 1f)] public float joystickDeadzone = 0.25f;
 
-    [Header("¤â§â¡]ÂÂ Input Manager ¶b¡^")]
-    [Tooltip("¤â§â X ¶b¦WºÙ¡]¦b Input Manager ¡÷ Axes «Ø¥ß¡^¡A«ØÄ³: JoyX")]
-    [SerializeField] private string joystickAxisX = "JoyX";
-    [Tooltip("¤â§â Y ¶b¦WºÙ¡]¦b Input Manager ¡÷ Axes «Ø¥ß¡^¡A«ØÄ³: JoyY")]
-    [SerializeField] private string joystickAxisY = "JoyY";
-    [Tooltip("¤â§â Y ¶b¬O§_¤Ï¦V¡]§Aªº ESP32 ¤w°µ©¹¤W=¥¿­È¡A³q±`¤£¥Î¤Ï¡^")]
-    [SerializeField] private bool invertJoyY = false;
-    [Tooltip("¶ê§Î¦º°Ï¡]Á×§K·L§İ¡^¡A0.20~0.30 ¸ûÃ­")]
-    [Range(0f, 1f)][SerializeField] private float analogDeadzone = 0.25f;
+    [Header("æ¨¡å‹/å‹•ç•«ç‰©ä»¶")]
+    public GameObject modelDownWalk;
+    public GameObject modelUp;
+    public GameObject modelDownIdle;
 
-    [Header("¼Ò«¬")]
-    [SerializeField] private GameObject modelDownWalk;   // ¡õ ¶H­­¡u¨«¸ô¡v¥Î
-    [SerializeField] private GameObject modelUp;         // ¡ô ¶H­­¡]¨«¸ô»P«İ¾÷¡^
-    [SerializeField] private GameObject modelDownIdle;   // ¡õ ¶H­­¡u«İ¾÷¡v¥Î¡]Á×§K°Ñ¼Æ¦¾¬V¡^
+    [Header("ç¿»è½‰æ ¹ç‰©ä»¶")]
+    public Transform flipTargetDownWalk;
+    public Transform flipTargetUp;
+    public Transform flipTargetDownIdle;
 
-    [Header("Â½Âà¥Ø¼Ğ(¦U¼Ò«¬¥~Æ[®Ú)")]
-    [SerializeField] private Transform flipTargetDownWalk;
-    [SerializeField] private Transform flipTargetUp;
-    [SerializeField] private Transform flipTargetDownIdle;
+    [Header("å‹•ç•«åç¨±")]
+    public string walkRU = "walk_ru";
+    public string walkLU = "walk_lu";
+    public string walkRD = "walk_rd";
+    public string walkLD = "walk_ld";
+    public string idleRU = "idle_ru";
+    public string idleLU = "idle_lu";
+    public string idleRD = "idle_rd";
+    public string idleLD = "idle_ld";
 
-    [Header("°Êµeª¬ºA¦WºÙ¡]¦U Animator »İ¦³¦P¦Wª¬ºA¡^")]
-    [SerializeField] private string walkRU = "walk_ru";
-    [SerializeField] private string walkLU = "walk_lu";   // ¥ª°¼¥Î¤ô¥­Â½Âà
-    [SerializeField] private string walkRD = "walk_rd";
-    [SerializeField] private string walkLD = "walk_ld";   // ¥ª°¼¥Î¤ô¥­Â½Âà
-    [SerializeField] private string idleRU = "idle_ru";
-    [SerializeField] private string idleLU = "idle_lu";
-    [SerializeField] private string idleRD = "idle_rd";
-    [SerializeField] private string idleLD = "idle_ld";
+    [Header("å¾…æ©Ÿå»¶é² (ç§’)")]
+    public float idleBuffer = 0.08f;
 
-    [Header("«İ¾÷©µ¿ğ¡]¬í¡^")]
-    [SerializeField] private float idleBuffer = 0.08f;
-
+    // ====== å…§éƒ¨ ======
     private Rigidbody2D rb;
     private Animator animDownWalk, animUp, animDownIdle, currentAnim;
-
-    // ³Ì²×¥Î¨Ó²¾°Ê/ÅX°Êµe­±ªº¿é¤J¡]Áä½L©Î¤â§â¡^
     private Vector2 input;
     private Vector2 lastPos, moveDelta;
-
-    // -1=¥ª/¤U¡A+1=¥k/¤W¡]ªì©l¥k¤U¡^
-    private int lastHorizSign = +1;
-    private int lastVertSign = -1;
-
-    private enum Quad { RU, LU, RD, LD }
-    private Quad currentQuad = Quad.RD;
-    private string currentState = null;
     private float idleTimer = 0f;
+    private string currentState = null;
+    private int lastHorizSign = +1; // -1=å·¦, +1=å³
+    private int lastVertSign = -1; // -1=ä¸‹, +1=ä¸Š
+
+    private enum Facing { RU, LU, RD, LD }
+    private Facing currentFacing = Facing.RD;
+
+    private InputDevice boundPad = null; // Joystick æˆ– Gamepad
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
 
-        if (modelDownWalk != null) animDownWalk = modelDownWalk.GetComponentInChildren<Animator>(true);
-        if (modelUp != null) animUp = modelUp.GetComponentInChildren<Animator>(true);
-        if (modelDownIdle != null) animDownIdle = modelDownIdle.GetComponentInChildren<Animator>(true);
+        if (modelDownWalk) animDownWalk = modelDownWalk.GetComponentInChildren<Animator>(true);
+        if (modelUp) animUp = modelUp.GetComponentInChildren<Animator>(true);
+        if (modelDownIdle) animDownIdle = modelDownIdle.GetComponentInChildren<Animator>(true);
 
-        // ¹w³]Åã¥Ü¡u¤U¨«¸ô¡v¼Ò«¬
         ActivateOnly(modelDownWalk);
         currentAnim = animDownWalk;
 
-        // ¹w³]Â½Âà®Ú
-        if (flipTargetDownWalk == null && animDownWalk != null) flipTargetDownWalk = animDownWalk.transform;
-        if (flipTargetUp == null && animUp != null) flipTargetUp = animUp.transform;
-        if (flipTargetDownIdle == null && animDownIdle != null) flipTargetDownIdle = animDownIdle.transform;
+        if (!rb) lastPos = transform.position;
+        else lastPos = rb.position;
 
-        lastPos = rb != null ? rb.position : (Vector2)transform.position;
+        TryBindPad();
+        InputSystem.onDeviceChange += OnDeviceChange;
+    }
+
+    void OnDestroy()
+    {
+        InputSystem.onDeviceChange -= OnDeviceChange;
+    }
+
+    void OnDeviceChange(InputDevice device, InputDeviceChange change)
+    {
+        if (device is Joystick || device is Gamepad)
+        {
+            if (change == InputDeviceChange.Added || change == InputDeviceChange.Reconnected)
+                TryBindPad();
+            else if (change == InputDeviceChange.Removed && device == boundPad)
+                boundPad = null;
+        }
+    }
+
+    void TryBindPad()
+    {
+        if (Joystick.current != null) { boundPad = Joystick.current; return; }
+        if (Joystick.all.Count > 0) { boundPad = Joystick.all[0]; return; }
+        if (Gamepad.current != null) { boundPad = Gamepad.current; return; }
+        if (Gamepad.all.Count > 0) { boundPad = Gamepad.all[0]; return; }
+        boundPad = null;
     }
 
     void Update()
     {
-        // 1) Áä½L¿é¤J¡]«O¯d­ì¥»ÅŞ¿è¡^
-        Vector2 kb = new Vector2(
-            Input.GetAxisRaw("Horizontal"),
-            Input.GetAxisRaw("Vertical")
-        );
+        // 1) æ‰‹æŠŠï¼šJoystickï¼ˆå„ªå…ˆï¼‰æˆ– Gamepad
+        Vector2 stick = Vector2.zero;
 
-        // 2) ¤â§âÃş¤ñ¿é¤J¡]ÂÂ Input Manager ¶b¡^
-        Vector2 joy = ReadJoystickAxes(joystickAxisX, joystickAxisY, invertJoyY);
-        joy = ApplyCircularDeadzone(joy, analogDeadzone);   // ¶ê§Î¦º°Ï + ¥¿³W¤Æ
+        if (boundPad == null) TryBindPad();
 
-        // 3) ¦X¨Öµ¦²¤¡G¦³¤â§â´N¥Î¤â§â¡F¨S¦³¦A¥ÎÁä½L
-        input = (joy != Vector2.zero) ? joy : kb;
+        if (boundPad is Joystick js)
+            stick = js.stick.ReadValue();
+        else if (boundPad is Gamepad gp)
+            stick = gp.leftStick.ReadValue();
+        else
+        {
+            if (Joystick.current != null) stick = Joystick.current.stick.ReadValue();
+            else if (Gamepad.current != null) stick = Gamepad.current.leftStick.ReadValue();
+        }
 
-        // Á×§K±×¦V¹L§Ö
-        if (input.magnitude > 1f) input.Normalize();
-        //Debug.Log(new Vector2(Input.GetAxisRaw("JoyX"), Input.GetAxisRaw("JoyY")));
+        if (stick.magnitude < joystickDeadzone) stick = Vector2.zero;
+
+        // 2) éµç›¤
+        Vector2 k = Vector2.zero;
+        var kb = Keyboard.current;
+        if (kb != null)
+        {
+            int x = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0)
+                  - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
+            int y = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0)
+                  - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0);
+            k = new Vector2(x, y);
+            if (k != Vector2.zero) k.Normalize();
+        }
+
+        // 3) æ‰‹æŠŠå„ªå…ˆï¼Œå¦å‰‡éµç›¤
+        input = (stick != Vector2.zero) ? stick : k;
+
         HandleAnimation();
     }
 
     void FixedUpdate()
     {
         if (rb != null)
+        {
             rb.MovePosition(rb.position + input * moveSpeed * Time.fixedDeltaTime);
-
-        var pos = rb != null ? rb.position : (Vector2)transform.position;
-        moveDelta = pos - lastPos;
-        lastPos = pos;
-
-        if (moveDelta.sqrMagnitude < 0.0001f)
+            moveDelta = rb.position - lastPos;
+            lastPos = rb.position;
+        }
+        else
+        {
+            transform.position += (Vector3)(input * moveSpeed * Time.fixedDeltaTime);
             moveDelta = Vector2.zero;
+        }
     }
 
-    // ====== °ÊµeÅŞ¿è¡]­ì¼Ë«O¯d¡^ ======
+    // ====== å‹•ç•« ======
     void HandleAnimation()
     {
         Vector2 dir = moveDelta;
 
-        // °±¤î¡G²Ö¿n¤@ÂI®É¶¡¦A¤Á«İ¾÷¡]Á×§K·í´V«º¶Õ¸õ°Ê¡^
         if (dir == Vector2.zero)
         {
             idleTimer += Time.deltaTime;
             if (idleTimer >= idleBuffer)
             {
-                ShowForIdle(currentQuad);
-                PlayIdle(currentQuad);
+                ShowForIdle(currentFacing);
+                PlayIdle(currentFacing);
             }
             return;
         }
-        else
-        {
-            idleTimer = 0f;
-        }
+        else idleTimer = 0f;
 
-        // ¥D¶b§P©w
         if (Mathf.Abs(dir.x) > Mathf.Abs(dir.y))
         {
             int sx = Mathf.Sign(dir.x) >= 0 ? +1 : -1;
-            int sy = lastVertSign;      // ªu¥Î¤W¤@­Ó¡u¤W/¤U¡v
+            int sy = lastVertSign;
             lastHorizSign = sx;
-
-            Quad q = ToQuad(sx, sy);
-            ShowForWalk(q);
-            PlayWalk(q);
+            Facing f = ToFacing(sx, sy);
+            ShowForWalk(f); PlayWalk(f);
         }
         else
         {
             int sy = Mathf.Sign(dir.y) >= 0 ? +1 : -1;
-            int sx = lastHorizSign;     // ªu¥Î¤W¤@­Ó¡u¥ª/¥k¡v
+            int sx = lastHorizSign;
             lastVertSign = sy;
-
-            Quad q = ToQuad(sx, sy);
-            ShowForWalk(q);
-            PlayWalk(q);
+            Facing f = ToFacing(sx, sy);
+            ShowForWalk(f); PlayWalk(f);
         }
     }
 
-    Quad ToQuad(int sx, int sy)
+    Facing ToFacing(int sx, int sy)
     {
-        // sx: +1=¥k, -1=¥ª ; sy: +1=¤W, -1=¤U
-        if (sy >= 0) return (sx >= 0) ? Quad.RU : Quad.LU;
-        else return (sx >= 0) ? Quad.RD : Quad.LD;
+        if (sy >= 0) return (sx >= 0) ? Facing.RU : Facing.LU;
+        else return (sx >= 0) ? Facing.RD : Facing.LD;
     }
 
-    // ¦æ¨«®É¡G¤W¡÷modelUp¡F¤U¡÷modelDownWalk
-    void ShowForWalk(Quad q)
+    void ShowForWalk(Facing f)
     {
-        currentQuad = q;
-
-        if (q == Quad.RU || q == Quad.LU)
+        currentFacing = f;
+        if (f == Facing.RU || f == Facing.LU)
         {
-            ActivateOnly(modelUp);
-            currentAnim = animUp;
-
-            bool isLeft = (q == Quad.LU);
-            ApplyFlip(flipTargetUp, isLeft);
+            ActivateOnly(modelUp); currentAnim = animUp;
+            ApplyFlip(flipTargetUp, f == Facing.LU);
         }
         else
         {
-            ActivateOnly(modelDownWalk);
-            currentAnim = animDownWalk;
-
-            bool isLeft = (q == Quad.LD);
-            ApplyFlip(flipTargetDownWalk, isLeft);
+            ActivateOnly(modelDownWalk); currentAnim = animDownWalk;
+            ApplyFlip(flipTargetDownWalk, f == Facing.LD);
         }
     }
 
-    // «İ¾÷®É¡G¤W¡÷modelUp¡F¤U¡÷modelDownIdle¡]­«ÂI¡G»P¨«¸ô¤À¶}¡AÁ×§K°Ñ¼Æ¤¬¬Û¼vÅT¡^
-    void ShowForIdle(Quad q)
+    void ShowForIdle(Facing f)
     {
-        currentQuad = q;
-
-        if (q == Quad.RU || q == Quad.LU)
+        currentFacing = f;
+        if (f == Facing.RU || f == Facing.LU)
         {
-            ActivateOnly(modelUp);
-            currentAnim = animUp;
-
-            bool isLeft = (q == Quad.LU);
-            ApplyFlip(flipTargetUp, isLeft);
+            ActivateOnly(modelUp); currentAnim = animUp;
+            ApplyFlip(flipTargetUp, f == Facing.LU);
         }
         else
         {
-            ActivateOnly(modelDownIdle);
-            currentAnim = animDownIdle;
-
-            bool isLeft = (q == Quad.LD);
-            ApplyFlip(flipTargetDownIdle, isLeft);
+            ActivateOnly(modelDownIdle); currentAnim = animDownIdle;
+            ApplyFlip(flipTargetDownIdle, f == Facing.LD);
         }
     }
 
-    void PlayWalk(Quad q)
+    void PlayWalk(Facing f)
     {
-        switch (q)
+        switch (f)
         {
-            case Quad.RU: PlayOnce(walkRU); break;
-            case Quad.LU: PlayOnce(walkLU); break;
-            case Quad.RD: PlayOnce(walkRD); break;
-            case Quad.LD: PlayOnce(walkLD); break;
+            case Facing.RU: PlayOnce(walkRU); break;
+            case Facing.LU: PlayOnce(walkLU); break;
+            case Facing.RD: PlayOnce(walkRD); break;
+            case Facing.LD: PlayOnce(walkLD); break;
         }
     }
 
-    void PlayIdle(Quad q)
+    void PlayIdle(Facing f)
     {
-        switch (q)
+        switch (f)
         {
-            case Quad.RU: PlayOnce(idleRU); break;
-            case Quad.LU: PlayOnce(idleLU); break;
-            case Quad.RD: PlayOnce(idleRD); break;
-            case Quad.LD: PlayOnce(idleLD); break;
+            case Facing.RU: PlayOnce(idleRU); break;
+            case Facing.LU: PlayOnce(idleLU); break;
+            case Facing.RD: PlayOnce(idleRD); break;
+            case Facing.LD: PlayOnce(idleLD); break;
         }
     }
 
     void PlayOnce(string stateName)
     {
-        if (currentAnim == null) return;
+        if (!currentAnim) return;
         if (currentState == stateName) return;
         currentAnim.Play(stateName);
         currentState = stateName;
@@ -237,7 +245,7 @@ public class PlayerMovement : MonoBehaviour
 
     void ApplyFlip(Transform target, bool flip)
     {
-        if (target == null) return;
+        if (!target) return;
         var s = target.localScale;
         float tx = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
         if (!Mathf.Approximately(s.x, tx))
@@ -249,35 +257,8 @@ public class PlayerMovement : MonoBehaviour
 
     void ActivateOnly(GameObject go)
     {
-        if (modelDownWalk != null) modelDownWalk.SetActive(go == modelDownWalk);
-        if (modelUp != null) modelUp.SetActive(go == modelUp);
-        if (modelDownIdle != null) modelDownIdle.SetActive(go == modelDownIdle);
-    }
-
-    // ====== »²§U¡GÅª¶b + ¶ê§Î¦º°Ï³B²z ======
-    static Vector2 ReadJoystickAxes(string ax, string ay, bool invertY)
-    {
-        float x = 0f, y = 0f;
-        if (!string.IsNullOrEmpty(ax))
-        {
-            try { x = Input.GetAxisRaw(ax); } catch { }
-        }
-        if (!string.IsNullOrEmpty(ay))
-        {
-            try { y = Input.GetAxisRaw(ay); } catch { }
-        }
-        if (invertY) y = -y;
-        return new Vector2(x, y);
-    }
-
-    static Vector2 ApplyCircularDeadzone(Vector2 v, float dead)
-    {
-        float m = v.magnitude;
-        if (m <= dead) return Vector2.zero;
-
-        // §â [dead,1] ½u©Ê¬M¨ì [0,1]¡A¨Ã°µ¥­·Æ
-        float t = Mathf.InverseLerp(dead, 1f, m);
-        t = Mathf.SmoothStep(0f, 1f, t);
-        return (v / m) * t;
+        if (modelDownWalk) modelDownWalk.SetActive(go == modelDownWalk);
+        if (modelUp) modelUp.SetActive(go == modelUp);
+        if (modelDownIdle) modelDownIdle.SetActive(go == modelDownIdle);
     }
 }
