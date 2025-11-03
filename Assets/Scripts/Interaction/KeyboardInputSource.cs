@@ -1,7 +1,15 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class KeyboardInputSource : MonoBehaviour, IInputSource
 {
-    public KeyCode interactKey = KeyCode.E;
-    public bool InteractPressedThisFrame() => Input.GetKeyDown(interactKey);
+    [Header("Interact Key (Input System)")]
+    public Key interactKey = Key.E;
+
+    public bool InteractPressedThisFrame()
+    {
+        var kb = Keyboard.current;
+        if (kb == null) return false;
+        return kb[interactKey].wasPressedThisFrame;
+    }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem; // ★ 改用新輸入系統
 
 public class SaveManager : MonoBehaviour
 {
@@ -24,9 +25,7 @@ public class SaveManager : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         DontDestroyOnLoad(gameObject);
-
         SceneManager.sceneLoaded += OnSceneLoaded;
-        // 不在這裡自動因切到 MainMenu 而存檔
     }
 
     void OnDestroy()
@@ -37,40 +36,30 @@ public class SaveManager : MonoBehaviour
 
     void Update()
     {
-        // 測試熱鍵（可保留）
-        if (Input.GetKeyDown(KeyCode.F5)) SaveNow();
-        if (Input.GetKeyDown(KeyCode.F9)) LoadNow();
+        // ★ 新輸入系統：F5 存檔、F9 讀檔
+        var kb = Keyboard.current;
+        if (kb != null)
+        {
+            if (kb.f5Key.wasPressedThisFrame) SaveNow();
+            if (kb.f9Key.wasPressedThisFrame) LoadNow();
+        }
     }
 
     // —— 自動存檔點（退出 / 進入背景）——
-    void OnApplicationQuit()
-    {
-        SaveNow(); // 退出前存檔（在遊玩場景才會成功）
-    }
-
-    void OnApplicationPause(bool paused)
-    {
-        if (paused) SaveNow(); // 切到背景時存（主選單會自動略過）
-    }
+    void OnApplicationQuit() { SaveNow(); }
+    void OnApplicationPause(bool paused) { if (paused) SaveNow(); }
 
     // —— 對外 API —— 
     public void SaveNow()
     {
-        // 在主選單就不做（避免找不到 Player）
-        if (SceneManager.GetActiveScene().name == mainMenuSceneName)
-            return;
+        if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
 
         var player = GameObject.FindGameObjectWithTag(playerTag);
-        if (player == null)
-        {
-            // 例如切場景過程中略過即可
-            return;
-        }
+        if (player == null) return;
 
         var p = player.transform.position;
         float vol = Mathf.Clamp01(AudioListener.volume);
 
-        // 取玩家數值
         var stats = player.GetComponent<PlayerStats>();
         var data = new SaveData(SceneManager.GetActiveScene().name, p.x, p.y, vol);
         if (stats != null)
@@ -92,18 +81,15 @@ public class SaveManager : MonoBehaviour
             return;
         }
 
-        // 先還原音量（不論是否切場景）
         AudioListener.volume = (data.masterVolume > 0f) ? data.masterVolume : 1f;
 
         var current = SceneManager.GetActiveScene().name;
         pendingPos = new Vector2(data.playerX, data.playerY);
 
-        // 暫存數值（同場景會立刻用，跨場景到 OnSceneLoaded 用）
         _loadedData = data;
 
         if (current == data.sceneName)
         {
-            // 同場景：直接定位 + 套數值
             PlacePlayerAt(pendingPos);
             ApplyLoadedStatsIfPossible();
             hasPendingSpawn = false;
@@ -111,10 +97,9 @@ public class SaveManager : MonoBehaviour
         }
         else
         {
-            // 跨場景：等載入完成再定位 + 套數值
             hasPendingSpawn = true;
             pendingScene = data.sceneName;
-            Time.timeScale = 1f; // 切場景前確保不是暫停
+            Time.timeScale = 1f;
             SceneManager.LoadScene(data.sceneName);
         }
     }
@@ -135,7 +120,6 @@ public class SaveManager : MonoBehaviour
             pendingScene = null;
         }
 
-        // 若剛載入過存檔，這裡把數值套回 Player
         if (_loadedData != null)
         {
             ApplyLoadedStatsIfPossible();
@@ -151,7 +135,6 @@ public class SaveManager : MonoBehaviour
         var stats = player.GetComponent<PlayerStats>();
         if (stats != null)
         {
-            // 還原 Max 再寫 Current
             if (_loadedData.playerMaxHP > 0f) stats.MaxHP = _loadedData.playerMaxHP;
             if (_loadedData.playerMaxMP > 0f) stats.MaxMP = _loadedData.playerMaxMP;
 

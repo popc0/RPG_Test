@@ -1,12 +1,9 @@
 ﻿using UnityEngine;
-using UnityEngine.InputSystem; // New Input System
 
 public class PlayerMovement : MonoBehaviour
 {
     [Header("移動")]
     public float moveSpeed = 5f;
-    [Tooltip("手把搖桿的圓形死區（額外保險，避免微抖）")]
-    [Range(0f, 1f)] public float joystickDeadzone = 0.25f;
 
     [Header("模型/動畫物件")]
     public GameObject modelDownWalk;
@@ -31,6 +28,10 @@ public class PlayerMovement : MonoBehaviour
     [Header("待機延遲 (秒)")]
     public float idleBuffer = 0.08f;
 
+    [Header("輸入提供者（可放同物件上）")]
+    public MonoBehaviour inputProviderBehaviour; // 需實作 IMoveInputProvider
+    private IMoveInputProvider inputProvider;
+
     // ====== 內部 ======
     private Rigidbody2D rb;
     private Animator animDownWalk, animUp, animDownIdle, currentAnim;
@@ -39,12 +40,10 @@ public class PlayerMovement : MonoBehaviour
     private float idleTimer = 0f;
     private string currentState = null;
     private int lastHorizSign = +1; // -1=左, +1=右
-    private int lastVertSign = -1; // -1=下, +1=上
+    private int lastVertSign = -1;  // -1=下, +1=上
 
     private enum Facing { RU, LU, RD, LD }
     private Facing currentFacing = Facing.RD;
-
-    private InputDevice boundPad = null; // Joystick 或 Gamepad
 
     void Awake()
     {
@@ -60,69 +59,16 @@ public class PlayerMovement : MonoBehaviour
         if (!rb) lastPos = transform.position;
         else lastPos = rb.position;
 
-        TryBindPad();
-        InputSystem.onDeviceChange += OnDeviceChange;
-    }
-
-    void OnDestroy()
-    {
-        InputSystem.onDeviceChange -= OnDeviceChange;
-    }
-
-    void OnDeviceChange(InputDevice device, InputDeviceChange change)
-    {
-        if (device is Joystick || device is Gamepad)
-        {
-            if (change == InputDeviceChange.Added || change == InputDeviceChange.Reconnected)
-                TryBindPad();
-            else if (change == InputDeviceChange.Removed && device == boundPad)
-                boundPad = null;
-        }
-    }
-
-    void TryBindPad()
-    {
-        if (Joystick.current != null) { boundPad = Joystick.current; return; }
-        if (Joystick.all.Count > 0) { boundPad = Joystick.all[0]; return; }
-        if (Gamepad.current != null) { boundPad = Gamepad.current; return; }
-        if (Gamepad.all.Count > 0) { boundPad = Gamepad.all[0]; return; }
-        boundPad = null;
+        // 綁定輸入提供者
+        if (inputProviderBehaviour is IMoveInputProvider p) inputProvider = p;
+        else inputProvider = GetComponent<IMoveInputProvider>();
     }
 
     void Update()
     {
-        // 1) 手把：Joystick（優先）或 Gamepad
-        Vector2 stick = Vector2.zero;
-
-        if (boundPad == null) TryBindPad();
-
-        if (boundPad is Joystick js)
-            stick = js.stick.ReadValue();
-        else if (boundPad is Gamepad gp)
-            stick = gp.leftStick.ReadValue();
-        else
-        {
-            if (Joystick.current != null) stick = Joystick.current.stick.ReadValue();
-            else if (Gamepad.current != null) stick = Gamepad.current.leftStick.ReadValue();
-        }
-
-        if (stick.magnitude < joystickDeadzone) stick = Vector2.zero;
-
-        // 2) 鍵盤
-        Vector2 k = Vector2.zero;
-        var kb = Keyboard.current;
-        if (kb != null)
-        {
-            int x = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0)
-                  - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
-            int y = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0)
-                  - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0);
-            k = new Vector2(x, y);
-            if (k != Vector2.zero) k.Normalize();
-        }
-
-        // 3) 手把優先，否則鍵盤
-        input = (stick != Vector2.zero) ? stick : k;
+        // 從外部輸入提供者讀取（沒有就當作靜止）
+        input = (inputProvider != null) ? inputProvider.ReadMove() : Vector2.zero;
+        input = input.sqrMagnitude > 1e-6f ? Vector2.ClampMagnitude(input, 1f) : Vector2.zero;
 
         HandleAnimation();
     }
@@ -261,4 +207,13 @@ public class PlayerMovement : MonoBehaviour
         if (modelUp) modelUp.SetActive(go == modelUp);
         if (modelDownIdle) modelDownIdle.SetActive(go == modelDownIdle);
     }
+}
+
+/// <summary>
+/// 統一的「移動向量提供」介面，讓 PlayerMovement 只關心 Vector2。
+/// </summary>
+public interface IMoveInputProvider
+{
+    /// <returns>一般化到 -1..1 的移動向量（可為零向量）。</returns>
+    Vector2 ReadMove();
 }

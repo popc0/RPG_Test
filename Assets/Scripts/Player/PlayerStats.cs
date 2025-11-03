@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// 玩家數值（事件驅動 + UnityEvent 版本）
@@ -125,9 +126,9 @@ public class PlayerStats : MonoBehaviour
     // ===== 測試快捷鍵 =====
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.H)) TakeDamage(10);
-        if (Input.GetKeyDown(KeyCode.J)) Heal(5);
-        if (Input.GetKeyDown(KeyCode.K)) UseMP(5);
-        if (Input.GetKeyDown(KeyCode.L)) RecoverMP(3);
+        //if (Input.GetKeyDown(KeyCode.H)) TakeDamage(10);
+        //if (Input.GetKeyDown(KeyCode.J)) Heal(5);
+        //if (Input.GetKeyDown(KeyCode.K)) UseMP(5);
+        //if (Input.GetKeyDown(KeyCode.L)) RecoverMP(3);
     }
 }

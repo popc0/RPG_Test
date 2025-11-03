@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem; // ★ 新增
 
 public class SystemCanvasController : MonoBehaviour
 {
@@ -11,9 +12,9 @@ public class SystemCanvasController : MonoBehaviour
     [SerializeField] private PageMain pageMain;
     [SerializeField] private PageOptions pageOptions;
 
-    [Header("Hotkey")]
+    [Header("Hotkey (Input System)")]
     [SerializeField] private bool enableToggleHotkey = true;
-    [SerializeField] private KeyCode toggleKey = KeyCode.R;
+    [SerializeField] private Key toggleKey = Key.R; // ★ 改用 Input System 的 Key
     [SerializeField] private string mainMenuSceneName = "MainMenuScene";
     [SerializeField] private bool ignoreHotkeyInMainMenu = true;
 
@@ -42,22 +43,24 @@ public class SystemCanvasController : MonoBehaviour
 
     void Update()
     {
-        if (!Input.GetKeyDown(toggleKey)) return;
-        if (!ShouldHandleHotkey(out _)) return;
-        ToggleIngameMenu();
+        if (!enableToggleHotkey) return;
+
+        var kb = Keyboard.current;
+        if (kb == null) return;
+
+        if (kb[toggleKey].wasPressedThisFrame && ShouldHandleHotkey(out _))
+            ToggleIngameMenu();
     }
 
     bool ShouldHandleHotkey(out string whyNot)
     {
         var scene = SceneManager.GetActiveScene().name;
 
-        if (!enableToggleHotkey) { whyNot = "disable"; return false; }
         if (!isActiveAndEnabled) { whyNot = "disabled"; return false; }
         if (!gameObject.activeInHierarchy) { whyNot = "inactive"; return false; }
         if (ignoreHotkeyInMainMenu && scene == mainMenuSceneName) { whyNot = "mainmenu"; return false; }
         if (!groupIngameMenu || !pageMain) { whyNot = "missing"; return false; }
 
-        // 新增：Options 開啟時，忽略 R，避免把 Options 留在未正確關閉的狀態就切回主頁
         if (pageOptions && pageOptions.isActiveAndEnabled && pageOptions.IsOpen)
         {
             whyNot = "optionsOpen";

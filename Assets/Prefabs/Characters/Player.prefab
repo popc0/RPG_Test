@@ -185,6 +185,7 @@ GameObject:
   - component: {fileID: 6863493812143999194}
   - component: {fileID: 4677559227400757571}
   - component: {fileID: 8842748255488638651}
+  - component: {fileID: 5971781172709230675}
   m_Layer: 10
   m_Name: Player
   m_TagString: Player
@@ -292,7 +293,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 5
-  joystickDeadzone: 0.25
   modelDownWalk: {fileID: 6021809871629793580}
   modelUp: {fileID: 2902979773458652265}
   modelDownIdle: {fileID: 5181324698526677222}
@@ -308,6 +308,7 @@ MonoBehaviour:
   idleRD: idle_rd
   idleLD: idle_ld
   idleBuffer: 0.08
+  inputProviderBehaviour: {fileID: 7890147501078692717}
 --- !u!212 &6921559338277733654
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -404,7 +405,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 49b6a2c5aba83684c8f4a0bfaa3af55e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  interactKey: 101
+  interactKey: 19
 --- !u!114 &2428879407248108621
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -606,6 +607,7 @@ MonoBehaviour:
   tracer: {fileID: 603340719181522081}
   areaRing: {fileID: 20884650059301842}
   areaSegments: 48
+  castKey: 1
 --- !u!114 &6863493812143999194
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -663,12 +665,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   origin: {fileID: 5812291194592223921}
-  moveX: Horizontal
-  moveY: Vertical
+  allowKeyboardAim: 1
   invertY: 0
   mouseDeadRadius: 0.05
-  stickDeadZone: 0.25
+  keyDeadZone: 0
   normalizeOutput: 1
+--- !u!114 &5971781172709230675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1233599281039529457}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 840e1dadf45a6eb4c911cd81dd60640e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  normalize: 1
 --- !u!1 &1396069349325001329
 GameObject:
   m_ObjectHideFlags: 0

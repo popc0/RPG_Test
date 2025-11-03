@@ -1,13 +1,13 @@
-
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem; // ★ 新輸入系統
 
 [RequireComponent(typeof(Button))]
 public class ButtonKey : MonoBehaviour, ISelectHandler, IDeselectHandler
 {
-    [Header("對應快捷鍵（例如 Return, Space, E）")]
-    public KeyCode hotkey = KeyCode.Return;
+    [Header("對應快捷鍵（例如 Enter, Space, E）")]
+    public Key hotkey = Key.Enter; // ★ 原本 KeyCode → 新系統 Key
 
     [Header("聚焦視覺效果")]
     public float highlightScale = 1.1f;
@@ -31,8 +31,9 @@ public class ButtonKey : MonoBehaviour, ISelectHandler, IDeselectHandler
 
     void Update()
     {
-        // 熱鍵觸發（可用在任何 UI 按鈕）
-        if (isFocused && Input.GetKeyDown(hotkey))
+        // ★ 新系統：以 Keyboard.current 讀取
+        var kb = Keyboard.current;
+        if (isFocused && kb != null && kb[hotkey].wasPressedThisFrame)
         {
             btn.onClick.Invoke();
         }

@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
 using UnityEngine.Rendering;
+using UnityEngine.InputSystem; // ★ 新增
 
 public class StoryManager : MonoBehaviour
 {
@@ -23,7 +24,7 @@ public class StoryManager : MonoBehaviour
     public float defaultCharsPerSec = 30f;
 
     [Header("輸入控制")]
-    public KeyCode keyNext = KeyCode.Space;
+    public Key keyNext = Key.Space;
 
     [Header("預設對話資料（可空）")]
     public DialogueData initialData;
@@ -81,7 +82,12 @@ public class StoryManager : MonoBehaviour
     void Update()
     {
         if (!IsPlaying) return;
-        if (Input.GetKeyDown(keyNext)) OnPressNextKey();
+
+        var kb = Keyboard.current;
+        if (kb != null && kb[keyNext].wasPressedThisFrame)
+        {
+            OnPressNextKey();
+        }
     }
 
     // -------------------------------------------------------------

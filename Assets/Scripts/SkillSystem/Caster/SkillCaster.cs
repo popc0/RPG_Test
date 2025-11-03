@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.InputSystem; // ★ 新增
 
 namespace RPG
 {
@@ -32,6 +33,10 @@ namespace RPG
         public LineRenderer areaRing;      // 同上，用於 AoE 閃圈
         public int areaSegments = 48;
 
+        // ★ 新輸入系統鍵位
+        [Header("Input (New)")]
+        public Key castKey = Key.Space;
+
         private float[] cooldownTimers; private bool isCasting;
 
         void OnValidate() { EnsureOwnerAndFirePoint(); EnsureCooldownArray(); }
@@ -52,7 +57,10 @@ namespace RPG
                 for (int i = 0; i < cooldownTimers.Length; i++)
                     if (cooldownTimers[i] > 0f) cooldownTimers[i] = Mathf.Max(0f, cooldownTimers[i] - Time.deltaTime);
 
-            if (Input.GetKeyDown(KeyCode.Space)) TryCastCurrentSkill();
+            // ★ 以新系統偵測施放鍵
+            var kb = Keyboard.current;
+            if (kb != null && kb[castKey].wasPressedThisFrame)
+                TryCastCurrentSkill();
         }
 
         void EnsureCooldownArray()
@@ -92,7 +100,6 @@ namespace RPG
 
             if (data.UseProjectile && data.ProjectilePrefab)
             {
-                // 生成時沿方向微內縮，避免一出生就與自身 Collider 重疊
                 var spawnPos = origin + (Vector3)(dir * spawnInset);
                 var proj = Instantiate(data.ProjectilePrefab, spawnPos, Quaternion.identity);
                 proj.Init(Owner, dir, data, comp, enemyMask, obstacleMask);
@@ -103,7 +110,7 @@ namespace RPG
             }
         }
 
-        // 備援：舊射線命中（牆擋、Body/Feet 過濾）
+        // 備援：舊射線命中（不牽涉輸入系統，保留）
         void DoSingle2D_LegacyRay(SkillData data, SkillComputed comp)
         {
             Vector3 origin3 = firePoint ? firePoint.position : Owner.position;
@@ -113,7 +120,7 @@ namespace RPG
             if (hit2D.collider != null)
             {
                 FlashLine(origin3, hit2D.point);
-                if (((1 << hit2D.collider.gameObject.layer) & obstacleMask.value) != 0) return; // 被牆擋住
+                if (((1 << hit2D.collider.gameObject.layer) & obstacleMask.value) != 0) return;
 
                 if (EffectApplier.TryResolveOwner(hit2D.collider, out var ownerApplier, out var hitLayer))
                 { if (data.TargetLayer == hitLayer) ownerApplier.ApplyIncomingRaw(comp.Damage); return; }

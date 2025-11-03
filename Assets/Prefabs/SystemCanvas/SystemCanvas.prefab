@@ -746,7 +746,7 @@ MonoBehaviour:
   pageMain: {fileID: 3823270746945515632}
   pageOptions: {fileID: 191595717919026731}
   enableToggleHotkey: 1
-  toggleKey: 114
+  toggleKey: 32
   mainMenuSceneName: MainMenuScene
   ignoreHotkeyInMainMenu: 1
   autoFindOnAwake: 1
