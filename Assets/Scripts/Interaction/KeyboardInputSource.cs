@@ -3,13 +3,24 @@ using UnityEngine.InputSystem;
 
 public class KeyboardInputSource : MonoBehaviour, IInputSource
 {
-    [Header("Interact Key (Input System)")]
-    public Key interactKey = Key.E;
+    [Header("KEYE (Input Action)")]
+    public InputActionReference keyE;  // 指到你在 InputActions 裡的 KEYE
+
+    private void OnEnable()
+    {
+        if (keyE?.action != null && !keyE.action.enabled)
+            keyE.action.Enable();
+    }
+
+    private void OnDisable()
+    {
+        if (keyE?.action != null && keyE.action.enabled)
+            keyE.action.Disable();
+    }
 
     public bool InteractPressedThisFrame()
     {
-        var kb = Keyboard.current;
-        if (kb == null) return false;
-        return kb[interactKey].wasPressedThisFrame;
+        // 回傳這幀是否觸發 KEYE（需在 Input Actions 設為 Press）
+        return keyE != null && keyE.action.WasPerformedThisFrame();
     }
 }

@@ -1,4 +1,7 @@
 ﻿using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -30,9 +33,16 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("輸入提供者（可放同物件上）")]
     public MonoBehaviour inputProviderBehaviour; // 需實作 IMoveInputProvider
-    private IMoveInputProvider inputProvider;
+
+    [Header("輸入選項")]
+    public bool useDynamicTouchJoystick = false;
+    public MonoBehaviour dynamicTouchJoystickBehaviour; // 指到場景上的 DynamicTouchJoystick
+#if ENABLE_INPUT_SYSTEM
+    public InputActionReference moveAction; // 指到你設定好的 InputAction (Vector2)
+#endif
 
     // ====== 內部 ======
+    private IMoveInputProvider inputProvider;
     private Rigidbody2D rb;
     private Animator animDownWalk, animUp, animDownIdle, currentAnim;
     private Vector2 input;
@@ -59,9 +69,44 @@ public class PlayerMovement : MonoBehaviour
         if (!rb) lastPos = transform.position;
         else lastPos = rb.position;
 
-        // 綁定輸入提供者
-        if (inputProviderBehaviour is IMoveInputProvider p) inputProvider = p;
-        else inputProvider = GetComponent<IMoveInputProvider>();
+        // 1) 明確指定的 inputProviderBehaviour（最高優先）
+        if (inputProviderBehaviour is IMoveInputProvider p)
+        {
+            inputProvider = p;
+        }
+        else
+        {
+            // 2) 自動依勾選建立提供者
+            if (useDynamicTouchJoystick && dynamicTouchJoystickBehaviour != null)
+            {
+                inputProvider = new DynJoyProvider(dynamicTouchJoystickBehaviour);
+            }
+#if ENABLE_INPUT_SYSTEM
+            else if (!useDynamicTouchJoystick && moveAction != null)
+            {
+                inputProvider = new InputActionProvider(moveAction);
+            }
+#endif
+            else
+            {
+                // 3) 嘗試抓同物件上任何 IMoveInputProvider
+                inputProvider = GetComponent<IMoveInputProvider>();
+            }
+        }
+    }
+
+    void OnEnable()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (inputProvider is InputActionProvider ap) ap.Enable();
+#endif
+    }
+
+    void OnDisable()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (inputProvider is InputActionProvider ap) ap.Disable();
+#endif
     }
 
     void Update()
@@ -206,6 +251,66 @@ public class PlayerMovement : MonoBehaviour
         if (modelDownWalk) modelDownWalk.SetActive(go == modelDownWalk);
         if (modelUp) modelUp.SetActive(go == modelUp);
         if (modelDownIdle) modelDownIdle.SetActive(go == modelDownIdle);
+    }
+
+    // ====== 內部輸入提供者（避免新增檔案，直接放這隻） ======
+
+#if ENABLE_INPUT_SYSTEM
+    /// <summary>使用 Input System 的 InputActionReference（Vector2）。</summary>
+    private class InputActionProvider : IMoveInputProvider
+    {
+        private readonly InputAction _action;
+        public InputActionProvider(InputActionReference reference)
+        {
+            _action = reference != null ? reference.action : null;
+        }
+        public void Enable() { _action?.Enable(); }
+        public void Disable() { _action?.Disable(); }
+        public Vector2 ReadMove() => _action != null ? _action.ReadValue<Vector2>() : Vector2.zero;
+    }
+#endif
+
+    /// <summary>用反射包一層 DynamicTouchJoystick，避免 API 名稱差異造成編譯錯。</summary>
+    private class DynJoyProvider : IMoveInputProvider
+    {
+        private readonly object _joystick;
+        private readonly System.Func<Vector2> _getter;
+
+        public DynJoyProvider(MonoBehaviour joystickBehaviour)
+        {
+            _joystick = joystickBehaviour;
+            _getter = BuildGetter(joystickBehaviour);
+        }
+
+        public Vector2 ReadMove() => _getter != null ? _getter() : Vector2.zero;
+
+        private static System.Func<Vector2> BuildGetter(MonoBehaviour b)
+        {
+            if (b == null) return null;
+            var t = b.GetType();
+
+            // 常見 Vector2 屬性
+            string[] props = { "Value", "Direction", "Input", "Delta", "Axis", "Current", "Vector" };
+            foreach (var name in props)
+            {
+                var p = t.GetProperty(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (p != null && p.PropertyType == typeof(Vector2) && p.CanRead)
+                    return () => (Vector2)p.GetValue(b, null);
+            }
+
+            // 常見 Vector2 方法
+            string[] methods = { "Read", "GetValue", "GetDirection", "GetVector", "GetAxis" };
+            foreach (var mname in methods)
+            {
+                var m = t.GetMethod(mname, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance, null, System.Type.EmptyTypes, null);
+                if (m != null && m.ReturnType == typeof(Vector2))
+                    return () => (Vector2)m.Invoke(b, null);
+            }
+
+            // 找不到就回零，避免噴錯
+            Debug.LogWarning($"[PlayerMovement] 無法在 {t.Name} 上找到可讀取 Vector2 的屬性/方法，請確認 DynamicTouchJoystick 暴露的 API。");
+            return null;
+        }
     }
 }
 
