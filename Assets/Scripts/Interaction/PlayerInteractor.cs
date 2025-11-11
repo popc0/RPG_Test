@@ -1,67 +1,95 @@
+using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
 
+[RequireComponent(typeof(Collider2D))]
 public class PlayerInteractor : MonoBehaviour
 {
-    [Header("搜尋")]
-    public float radius = 1.2f;
-    public LayerMask interactableMask;
-    public Transform origin; // 如未指定，預設用自身 transform
+    [Header("Input (UnifiedInputSource)")]
+    [SerializeField] private UnifiedInputSource inputSource; // 若沒指定會自動往上找一次
 
-    [Header("輸入來源")]
-    public MonoBehaviour inputSourceBehaviour; // 指向一個實作 IInputSource 的元件
-    IInputSource inputSource;
+    [Header("Selection")]
+    [SerializeField] private bool pickNearestInOverlap = true; // 同時多個時挑最近
+    [SerializeField] private Transform playerRoot;             // 以這個點算距離，預設用最上層 Player
 
-    [Header("提示 UI（可選）")]
-    public TMP_Text promptText;
+    private readonly List<IInteractable> candidates = new();
+    private IInteractable currentTarget;
 
-    IInteractable current;
+    void Reset()
+    {
+        // 確保是 Trigger：Player 走進互動區才會被收集
+        var col = GetComponent<Collider2D>();
+        if (col) col.isTrigger = true;
+    }
 
     void Awake()
     {
-        inputSource = inputSourceBehaviour as IInputSource;
-        if (origin == null) origin = transform;
+        if (playerRoot == null) playerRoot = transform.root;
+        if (inputSource == null)
+        {
+            // 只自動找同樹上的一次，避免抓到場上其他來源
+            inputSource = GetComponentInParent<UnifiedInputSource>();
+        }
     }
 
     void Update()
     {
-        FindBest();
-        UpdatePrompt();
+        // 每幀選出有效目標
+        currentTarget = SelectTarget();
 
-        if (current != null && current.CanInteract() && inputSource != null && inputSource.InteractPressedThisFrame())
+        // 互動鍵按下：轉呼叫到目標
+        if (currentTarget != null &&
+            inputSource != null &&
+            inputSource.InteractPressedThisFrame())
         {
-            current.Interact(gameObject);
+            currentTarget.Interact(playerRoot != null ? playerRoot.gameObject : gameObject);
         }
     }
 
-    void FindBest()
+    private IInteractable SelectTarget()
     {
-        current = null;
-        var hits = Physics2D.OverlapCircleAll(origin.position, radius, interactableMask);
-        float best = float.MaxValue;
+        IInteractable best = null;
+        float bestSqr = float.PositiveInfinity;
 
-        foreach (var h in hits)
+        // 清掉已被刪除的引用
+        for (int i = candidates.Count - 1; i >= 0; --i)
         {
-            if (!h) continue;
-            var it = h.GetComponentInParent<IInteractable>();
-            if (it == null || !it.CanInteract()) continue;
+            var c = candidates[i];
+            if (c == null) { candidates.RemoveAt(i); continue; }
 
-            float d = (h.transform.position - origin.position).sqrMagnitude;
-            if (d < best) { best = d; current = it; }
+            if (!c.CanInteract()) continue;
+
+            if (!pickNearestInOverlap)
+                return c; // 第一個有效就用
+
+            var mb = c as MonoBehaviour;
+            if (mb == null) continue;
+
+            Vector2 p = (playerRoot ? playerRoot.position : transform.position);
+            float sqr = (mb.transform.position - (Vector3)p).sqrMagnitude;
+            if (sqr < bestSqr)
+            {
+                best = c;
+                bestSqr = sqr;
+            }
         }
+
+        return best;
     }
 
-    void UpdatePrompt()
+    void OnTriggerEnter2D(Collider2D other)
     {
-        if (promptText == null) return;
-        if (current != null && current.CanInteract()) promptText.text = current.GetPrompt();
-        else promptText.text = string.Empty;
+        var interactable = other.GetComponentInParent<IInteractable>();
+        if (interactable != null && !candidates.Contains(interactable))
+            candidates.Add(interactable);
     }
 
-    void OnDrawGizmosSelected()
+    void OnTriggerExit2D(Collider2D other)
     {
-        Gizmos.color = Color.yellow;
-        var p = origin != null ? origin.position : transform.position;
-        Gizmos.DrawWireSphere(p, radius);
+        var interactable = other.GetComponentInParent<IInteractable>();
+        if (interactable != null)
+        {
+            candidates.Remove(interactable);
+            if (currentTarget == interactable) currentTarget = null;
+        }
     }
 }

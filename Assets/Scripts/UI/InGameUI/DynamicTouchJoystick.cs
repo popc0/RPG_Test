@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.EnhancedTouch;
-using UnityEngine.InputSystem.Utilities;
 using UnityEngine.UI;
+
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Utilities;
+using UnityEngine.InputSystem.EnhancedTouch;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
@@ -22,24 +23,31 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
     [SerializeField] private bool normalize = true;
 
     [Header("行為")]
+    [Tooltip("只在 Editor 允許用滑鼠模擬觸控")]
     [SerializeField] private bool allowMouseInEditor = true;
+    [Tooltip("綁定第幾根手指，0=第一根")]
     [SerializeField] private int useFingerIndex = 0;
+
+    // 供 UnifiedInputSource 開關使用（避免停用 GameObject 仍殘留輸入）
+    public void EnableJoystick(bool on)
+    {
+        enabled = on;
+        if (!on) EndJoystick();
+    }
 
     private bool active;
     private Vector2 startPosCanvas;
-    private Vector2 output;
-
-    // ★ 修正：用 touchId 追蹤手指（null 表示目前未綁定）
+    private Vector2 output;            // [-1,1] Vec
     private int? currentTouchId = null;
 
     private PointerEventData ped;
-    private readonly List<RaycastResult> rayResults = new List<RaycastResult>();
+    private readonly List<RaycastResult> rayResults = new();
 
     void Reset()
     {
         canvas = GetComponentInParent<Canvas>();
-        raycaster = canvas ? canvas.GetComponent<GraphicRaycaster>() : null;
-        eventSystem = EventSystem.current;
+        if (canvas) raycaster = canvas.GetComponent<GraphicRaycaster>();
+        if (!eventSystem) eventSystem = EventSystem.current;
     }
 
     void Awake()
@@ -52,10 +60,15 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
 
     void OnEnable()
     {
+        // 沒安裝 EnhancedTouch 也不會報錯
         EnhancedTouchSupport.Enable();
 #if UNITY_EDITOR
         TouchSimulation.Enable();
 #endif
+        output = Vector2.zero;
+        currentTouchId = null;
+        active = false;
+        SetVisible(false);
     }
 
     void OnDisable()
@@ -63,14 +76,20 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
 #if UNITY_EDITOR
         TouchSimulation.Disable();
 #endif
-        currentTouchId = null;
-        active = false;
-        output = Vector2.zero;
-        SetVisible(false);
+        EnhancedTouchSupport.Disable();
+        EndJoystick();
     }
 
     void Update()
     {
+        // 若少了必要組件就直接輸出零向量
+        if (!canvas || (!raycaster && canvas) || eventSystem == null)
+        {
+            output = Vector2.zero;
+            SetVisible(false);
+            return;
+        }
+
         var touches = Touch.activeTouches;
 
 #if UNITY_EDITOR
@@ -85,60 +104,41 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
 
     void HandleTouches(ReadOnlyArray<Touch> touches)
     {
-        // 沒觸控 → 結束搖桿
-        if (touches.Count == 0)
-        {
-            EndJoystick();
-            return;
-        }
+        if (touches.Count == 0) { EndJoystick(); return; }
 
-        // 嘗試找到我們正在追蹤的那根手指
-        Touch? targetTouch = null;
+        Touch? target = null;
 
         if (currentTouchId.HasValue)
         {
-            // ★ 修正：用 touchId（int）比對
             int id = currentTouchId.Value;
             for (int i = 0; i < touches.Count; i++)
-            {
-                if (touches[i].touchId == id)
-                {
-                    targetTouch = touches[i];
-                    break;
-                }
-            }
+                if (touches[i].touchId == id) { target = touches[i]; break; }
         }
         else
         {
-            // 尚未綁定 → 取指定 index 的手指（若不存在就取第一根）
-            targetTouch = touches.Count > useFingerIndex ? touches[useFingerIndex] : touches[0];
+            target = touches.Count > useFingerIndex ? touches[useFingerIndex] : touches[0];
         }
 
-        if (targetTouch == null)
+        if (target == null) { EndJoystick(); return; }
+        var t = target.Value;
+
+        // Begin
+        if (!active && t.phase == UnityEngine.InputSystem.TouchPhase.Began)
         {
-            EndJoystick();
-            return;
+            if (IsOverBlockingUI(t.screenPosition)) return;
+            BeginJoystick(t);
         }
 
-        var touch = targetTouch.Value;
-
-        // Begin：若在可點擊 UI 上就讓 UI 吃
-        if (!active && touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
+        // Move/Stay
+        if (active && (t.phase == UnityEngine.InputSystem.TouchPhase.Moved ||
+                       t.phase == UnityEngine.InputSystem.TouchPhase.Stationary))
         {
-            if (IsOverBlockingUI(touch.screenPosition)) return;
-            BeginJoystick(touch);
+            UpdateJoystick(t);
         }
 
-        // Move/Stationary：更新向量
-        if (active && (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved ||
-                       touch.phase == UnityEngine.InputSystem.TouchPhase.Stationary))
-        {
-            UpdateJoystick(touch);
-        }
-
-        // End/Canceled：關閉
-        if (active && (touch.phase == UnityEngine.InputSystem.TouchPhase.Ended ||
-                       touch.phase == UnityEngine.InputSystem.TouchPhase.Canceled))
+        // End/Cancel
+        if (active && (t.phase == UnityEngine.InputSystem.TouchPhase.Ended ||
+                       t.phase == UnityEngine.InputSystem.TouchPhase.Canceled))
         {
             EndJoystick();
         }
@@ -148,8 +148,6 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
     void HandleMouseInEditor()
     {
         var mouse = Mouse.current;
-        if (mouse == null) return;
-
         Vector2 screen = mouse.position.ReadValue();
         bool down = mouse.leftButton.wasPressedThisFrame;
         bool held = mouse.leftButton.isPressed;
@@ -158,40 +156,32 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
         if (!active && down)
         {
             if (IsOverBlockingUI(screen)) return;
-            Vector2 canvasPos; ScreenToCanvas(screen, out canvasPos);
-            startPosCanvas = canvasPos;
+            ScreenToCanvas(screen, out startPosCanvas);
             SetVisible(true);
-            SetBasePosition(canvasPos);
-            SetKnobPosition(canvasPos);
+            SetBasePosition(startPosCanvas);
+            SetKnobPosition(startPosCanvas);
             output = Vector2.zero;
             active = true;
-            currentTouchId = -1; // 編輯器滑鼠模式的臨時 id
+            currentTouchId = -1; // 編輯器臨時 id
         }
         else if (active && held)
         {
             Vector2 canvasPos; ScreenToCanvas(screen, out canvasPos);
-            Vector2 delta = canvasPos - startPosCanvas;
-            UpdateKnobAndOutput(delta);
+            UpdateKnobAndOutput(canvasPos - startPosCanvas);
         }
-        else if (active && up)
-        {
-            EndJoystick();
-        }
+        else if (active && up) EndJoystick();
     }
 #endif
 
     // ---------- Joystick life cycle ----------
     void BeginJoystick(Touch touch)
     {
-        // ★ 修正：記住 touchId（int），不再用 TouchControl
         currentTouchId = touch.touchId;
-
-        Vector2 canvasPos; ScreenToCanvas(touch.screenPosition, out canvasPos);
-        startPosCanvas = canvasPos;
+        ScreenToCanvas(touch.screenPosition, out startPosCanvas);
 
         SetVisible(true);
-        SetBasePosition(canvasPos);
-        SetKnobPosition(canvasPos);
+        SetBasePosition(startPosCanvas);
+        SetKnobPosition(startPosCanvas);
         output = Vector2.zero;
         active = true;
     }
@@ -199,8 +189,7 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
     void UpdateJoystick(Touch touch)
     {
         Vector2 canvasPos; ScreenToCanvas(touch.screenPosition, out canvasPos);
-        Vector2 delta = canvasPos - startPosCanvas;
-        UpdateKnobAndOutput(delta);
+        UpdateKnobAndOutput(canvasPos - startPosCanvas);
     }
 
     void EndJoystick()
@@ -216,7 +205,7 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
     {
         if (raycaster == null || eventSystem == null) return false;
 
-        if (ped == null) ped = new PointerEventData(eventSystem);
+        ped ??= new PointerEventData(eventSystem);
         ped.Reset();
         ped.position = screenPos;
 
@@ -227,7 +216,6 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
         {
             var go = rayResults[i].gameObject;
             if (!go || !go.activeInHierarchy) continue;
-
             if (go.GetComponent<Selectable>() != null) return true;
             if (go.GetComponent<IJoystickBlocker>() != null) return true;
         }
@@ -239,17 +227,11 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
         canvasPos = screen;
         if (!canvas) return;
 
-        if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
-        {
-            // 直接使用螢幕座標（UI 元素用 position）
-            return;
-        }
-        else
-        {
-            var rt = canvas.transform as RectTransform;
-            Camera cam = canvas.worldCamera;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, screen, cam, out canvasPos);
-        }
+        if (canvas.renderMode == RenderMode.ScreenSpaceOverlay) return;
+
+        var rt = canvas.transform as RectTransform;
+        var cam = canvas.worldCamera;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, screen, cam, out canvasPos);
     }
 
     void SetBasePosition(Vector2 posCanvas)
@@ -302,3 +284,9 @@ public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
 
 public class JoystickBlocker : MonoBehaviour, IJoystickBlocker { }
 public interface IJoystickBlocker { }
+// 放在檔案最底部（不改其他東西）
+public interface IMoveInputProvider
+{
+    Vector2 ReadMove();
+}
+
