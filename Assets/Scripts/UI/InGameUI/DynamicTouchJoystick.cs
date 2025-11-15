@@ -1,292 +1,138 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Utilities;
-using UnityEngine.InputSystem.EnhancedTouch;
-using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
-
-public class DynamicTouchJoystick : MonoBehaviour, IMoveInputProvider
+/// <summary>
+/// 動態觸控搖桿：
+/// - 按下時才顯示
+/// - 搖桿底座會移到第一次按下的位置
+/// - Value 為 -1~1 的向量，給 UnifiedInputSource 使用
+/// </summary>
+public class DynamicTouchJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler
 {
-    [Header("Canvas 與影響範圍")]
-    [SerializeField] private Canvas canvas;
-    [SerializeField] private GraphicRaycaster raycaster;
-    [SerializeField] private EventSystem eventSystem;
+    [Header("UI 參照")]
+    public RectTransform background; // 搖桿底座
+    public RectTransform handle;     // 搖桿頭
 
-    [Header("搖桿 UI")]
-    [SerializeField] private RectTransform baseRect;
-    [SerializeField] private RectTransform knobRect;
-    [SerializeField] private float knobRange = 90f;
-    [SerializeField, Range(0f, 1f)] private float deadZone = 0.06f;
-    [SerializeField] private bool normalize = true;
+    [Header("設定")]
+    [Tooltip("搖桿可以偏移的最大半徑（單位：背景父物件的座標）")]
+    public float maxRadius = 80f;
 
-    [Header("行為")]
-    [Tooltip("只在 Editor 允許用滑鼠模擬觸控")]
-    [SerializeField] private bool allowMouseInEditor = true;
-    [Tooltip("綁定第幾根手指，0=第一根")]
-    [SerializeField] private int useFingerIndex = 0;
+    [Tooltip("這個裝置是否啟用觸控搖桿（可以用來做平台切換）")]
+    public bool enabledOnThisPlatform = true;
 
-    // 供 UnifiedInputSource 開關使用（避免停用 GameObject 仍殘留輸入）
-    public void EnableJoystick(bool on)
-    {
-        enabled = on;
-        if (!on) EndJoystick();
-    }
+    /// <summary>給外面讀的搖桿輸出，-1..1</summary>
+    public Vector2 Value { get; private set; }
 
-    private bool active;
-    private Vector2 startPosCanvas;
-    private Vector2 output;            // [-1,1] Vec
-    private int? currentTouchId = null;
-
-    private PointerEventData ped;
-    private readonly List<RaycastResult> rayResults = new();
-
-    void Reset()
-    {
-        canvas = GetComponentInParent<Canvas>();
-        if (canvas) raycaster = canvas.GetComponent<GraphicRaycaster>();
-        if (!eventSystem) eventSystem = EventSystem.current;
-    }
+    Canvas _canvas;
+    Camera _uiCamera;
 
     void Awake()
     {
-        if (!canvas) canvas = GetComponentInParent<Canvas>();
-        if (!raycaster && canvas) raycaster = canvas.GetComponent<GraphicRaycaster>();
-        if (!eventSystem) eventSystem = EventSystem.current;
-        SetVisible(false);
-    }
-
-    void OnEnable()
-    {
-        // 沒安裝 EnhancedTouch 也不會報錯
-        EnhancedTouchSupport.Enable();
-#if UNITY_EDITOR
-        TouchSimulation.Enable();
-#endif
-        output = Vector2.zero;
-        currentTouchId = null;
-        active = false;
-        SetVisible(false);
-    }
-
-    void OnDisable()
-    {
-#if UNITY_EDITOR
-        TouchSimulation.Disable();
-#endif
-        EnhancedTouchSupport.Disable();
-        EndJoystick();
-    }
-
-    void Update()
-    {
-        // 若少了必要組件就直接輸出零向量
-        if (!canvas || (!raycaster && canvas) || eventSystem == null)
+        _canvas = GetComponentInParent<Canvas>();
+        if (_canvas != null &&
+            (_canvas.renderMode == RenderMode.ScreenSpaceCamera ||
+             _canvas.renderMode == RenderMode.WorldSpace))
         {
-            output = Vector2.zero;
-            SetVisible(false);
-            return;
-        }
-
-        var touches = Touch.activeTouches;
-
-#if UNITY_EDITOR
-        if (allowMouseInEditor && touches.Count == 0 && Mouse.current != null)
-        {
-            HandleMouseInEditor();
-            return;
-        }
-#endif
-        HandleTouches(touches);
-    }
-
-    void HandleTouches(ReadOnlyArray<Touch> touches)
-    {
-        if (touches.Count == 0) { EndJoystick(); return; }
-
-        Touch? target = null;
-
-        if (currentTouchId.HasValue)
-        {
-            int id = currentTouchId.Value;
-            for (int i = 0; i < touches.Count; i++)
-                if (touches[i].touchId == id) { target = touches[i]; break; }
+            _uiCamera = _canvas.worldCamera;
         }
         else
         {
-            target = touches.Count > useFingerIndex ? touches[useFingerIndex] : touches[0];
+            _uiCamera = null; // ScreenSpaceOverlay
         }
 
-        if (target == null) { EndJoystick(); return; }
-        var t = target.Value;
-
-        // Begin
-        if (!active && t.phase == UnityEngine.InputSystem.TouchPhase.Began)
-        {
-            if (IsOverBlockingUI(t.screenPosition)) return;
-            BeginJoystick(t);
-        }
-
-        // Move/Stay
-        if (active && (t.phase == UnityEngine.InputSystem.TouchPhase.Moved ||
-                       t.phase == UnityEngine.InputSystem.TouchPhase.Stationary))
-        {
-            UpdateJoystick(t);
-        }
-
-        // End/Cancel
-        if (active && (t.phase == UnityEngine.InputSystem.TouchPhase.Ended ||
-                       t.phase == UnityEngine.InputSystem.TouchPhase.Canceled))
-        {
-            EndJoystick();
-        }
+        SetVisible(false);
+        Value = Vector2.zero;
     }
 
-#if UNITY_EDITOR
-    void HandleMouseInEditor()
+    void SetVisible(bool visible)
     {
-        var mouse = Mouse.current;
-        Vector2 screen = mouse.position.ReadValue();
-        bool down = mouse.leftButton.wasPressedThisFrame;
-        bool held = mouse.leftButton.isPressed;
-        bool up = mouse.leftButton.wasReleasedThisFrame;
-
-        if (!active && down)
-        {
-            if (IsOverBlockingUI(screen)) return;
-            ScreenToCanvas(screen, out startPosCanvas);
-            SetVisible(true);
-            SetBasePosition(startPosCanvas);
-            SetKnobPosition(startPosCanvas);
-            output = Vector2.zero;
-            active = true;
-            currentTouchId = -1; // 編輯器臨時 id
-        }
-        else if (active && held)
-        {
-            Vector2 canvasPos; ScreenToCanvas(screen, out canvasPos);
-            UpdateKnobAndOutput(canvasPos - startPosCanvas);
-        }
-        else if (active && up) EndJoystick();
+        if (background != null) background.gameObject.SetActive(visible);
+        if (handle != null) handle.gameObject.SetActive(visible);
     }
-#endif
 
-    // ---------- Joystick life cycle ----------
-    void BeginJoystick(Touch touch)
+    public void OnPointerDown(PointerEventData eventData)
     {
-        currentTouchId = touch.touchId;
-        ScreenToCanvas(touch.screenPosition, out startPosCanvas);
+        if (!enabledOnThisPlatform)
+            return;
 
+        if (background == null || handle == null)
+            return;
+
+        // 把底座移到點擊位置（以父 Rect 為座標系）
+        RectTransform parent = background.parent as RectTransform;
+        if (parent != null)
+        {
+            Vector2 localPos;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                parent,
+                eventData.position,
+                _uiCamera,
+                out localPos
+            );
+            background.anchoredPosition = localPos;
+        }
+
+        // 顯示搖桿
         SetVisible(true);
-        SetBasePosition(startPosCanvas);
-        SetKnobPosition(startPosCanvas);
-        output = Vector2.zero;
-        active = true;
+
+        // 一開始 knob 先在中心
+        handle.anchoredPosition = Vector2.zero;
+        Value = Vector2.zero;
+
+        // 如果按下時手指不是剛好在中心，立刻更新一次
+        UpdateJoystick(eventData.position);
     }
 
-    void UpdateJoystick(Touch touch)
+    public void OnDrag(PointerEventData eventData)
     {
-        Vector2 canvasPos; ScreenToCanvas(touch.screenPosition, out canvasPos);
-        UpdateKnobAndOutput(canvasPos - startPosCanvas);
+        if (background == null || handle == null)
+            return;
+
+        UpdateJoystick(eventData.position);
     }
 
-    void EndJoystick()
+    public void OnPointerUp(PointerEventData eventData)
     {
-        currentTouchId = null;
-        active = false;
-        output = Vector2.zero;
+        // 放開：值歸零，搖桿隱藏
+        Value = Vector2.zero;
+        if (handle != null)
+            handle.anchoredPosition = Vector2.zero;
         SetVisible(false);
     }
 
-    // ---------- UI helpers ----------
-    bool IsOverBlockingUI(Vector2 screenPos)
+    /// <summary>
+    /// 依據螢幕座標更新 knob 位置與 Value
+    /// </summary>
+    void UpdateJoystick(Vector2 screenPos)
     {
-        if (raycaster == null || eventSystem == null) return false;
+        RectTransform parent = background.parent as RectTransform;
+        if (parent == null)
+            return;
 
-        ped ??= new PointerEventData(eventSystem);
-        ped.Reset();
-        ped.position = screenPos;
+        // 先把手指的位置轉成「父物件 local 座標」
+        Vector2 localInParent;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            parent,
+            screenPos,
+            _uiCamera,
+            out localInParent
+        );
 
-        rayResults.Clear();
-        raycaster.Raycast(ped, rayResults);
+        // 再用「手指位置 - 底座中心位置」當作位移量
+        Vector2 center = background.anchoredPosition;
+        Vector2 delta = localInParent - center;
 
-        for (int i = 0; i < rayResults.Count; i++)
-        {
-            var go = rayResults[i].gameObject;
-            if (!go || !go.activeInHierarchy) continue;
-            if (go.GetComponent<Selectable>() != null) return true;
-            if (go.GetComponent<IJoystickBlocker>() != null) return true;
-        }
-        return false;
+        // 限制在圓形範圍內
+        Vector2 clamped = Vector2.ClampMagnitude(delta, maxRadius);
+        handle.anchoredPosition = clamped;
+
+        // 正規化成 -1..1
+        Vector2 v = clamped / Mathf.Max(maxRadius, 0.0001f);
+
+        // 太小當成 0，避免角色微抖
+        if (v.sqrMagnitude < 0.001f)
+            v = Vector2.zero;
+
+        Value = v;
     }
-
-    void ScreenToCanvas(Vector2 screen, out Vector2 canvasPos)
-    {
-        canvasPos = screen;
-        if (!canvas) return;
-
-        if (canvas.renderMode == RenderMode.ScreenSpaceOverlay) return;
-
-        var rt = canvas.transform as RectTransform;
-        var cam = canvas.worldCamera;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, screen, cam, out canvasPos);
-    }
-
-    void SetBasePosition(Vector2 posCanvas)
-    {
-        if (!baseRect) return;
-        if (canvas && canvas.renderMode == RenderMode.ScreenSpaceOverlay)
-            baseRect.position = posCanvas;
-        else
-            baseRect.anchoredPosition = posCanvas;
-    }
-
-    void SetKnobPosition(Vector2 posCanvas)
-    {
-        if (!knobRect) return;
-        if (canvas && canvas.renderMode == RenderMode.ScreenSpaceOverlay)
-            knobRect.position = posCanvas;
-        else
-            knobRect.anchoredPosition = posCanvas;
-    }
-
-    void UpdateKnobAndOutput(Vector2 deltaCanvas)
-    {
-        float range = Mathf.Max(1f, knobRange);
-        Vector2 clamped = Vector2.ClampMagnitude(deltaCanvas, range);
-
-        if (knobRect)
-        {
-            if (canvas && canvas.renderMode == RenderMode.ScreenSpaceOverlay)
-                knobRect.position = (Vector2)baseRect.position + clamped;
-            else
-                knobRect.anchoredPosition = baseRect.anchoredPosition + clamped;
-        }
-
-        Vector2 raw = clamped / range;
-        float mag = raw.magnitude;
-
-        if (mag < deadZone) { output = Vector2.zero; return; }
-        output = normalize ? raw.normalized : raw;
-    }
-
-    void SetVisible(bool on)
-    {
-        if (baseRect) baseRect.gameObject.SetActive(on);
-        if (knobRect) knobRect.gameObject.SetActive(on);
-    }
-
-    // ---------- IMoveInputProvider ----------
-    public Vector2 ReadMove() => output;
 }
-
-public class JoystickBlocker : MonoBehaviour, IJoystickBlocker { }
-public interface IJoystickBlocker { }
-// 放在檔案最底部（不改其他東西）
-public interface IMoveInputProvider
-{
-    Vector2 ReadMove();
-}
-

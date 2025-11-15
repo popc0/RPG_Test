@@ -9,6 +9,9 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class AimSource2D : MonoBehaviour
 {
+    [Header("輸入來源 (拖 Player/Input 上的 UnifiedInputSource)")]
+    public UnifiedInputSource input;
+
     [Header("參考點（不設則用自身）")]
     public Transform origin;
 
@@ -43,9 +46,9 @@ public class AimSource2D : MonoBehaviour
 
     void Update()
     {
-        Vector2 dir = ReadMouseDir();
-        if (dir.sqrMagnitude < mouseDeadRadius * mouseDeadRadius)
-            dir = allowKeyboardAim ? ReadKeyboardDir() : Vector2.zero;
+        Vector2 dir = (input != null) ? input.GetMoveVector() : Vector2.zero;
+        //if (dir.sqrMagnitude < mouseDeadRadius * mouseDeadRadius)
+        //dir = allowKeyboardAim ? ReadKeyboardDir() : Vector2.zero;
 
         if (dir.sqrMagnitude >= 1e-6f)
         {
@@ -57,7 +60,7 @@ public class AimSource2D : MonoBehaviour
             AimDir = _lastDir; // 維持最後方向
         }
     }
-
+    /*
     Vector2 ReadMouseDir()
     {
         if (_cam == null) _cam = Camera.main;
@@ -89,4 +92,5 @@ public class AimSource2D : MonoBehaviour
         if (v.magnitude <= keyDeadZone) return Vector2.zero;
         return normalizeOutput && v != Vector2.zero ? v.normalized : v;
     }
+      */
 }

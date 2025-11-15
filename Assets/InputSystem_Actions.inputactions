@@ -685,6 +685,17 @@
             ],
             "bindings": [
                 {
+                    "name": "",
+                    "id": "fb78c77b-a1fa-4219-9432-3e77bd43da7f",
+                    "path": "<YuPadGamepadHID16>/leftStick",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Gamepad",
+                    "action": "Navigate",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
                     "name": "Gamepad",
                     "id": "809f371f-c5e2-4e7a-83a1-d867598f40dd",
                     "path": "2DVector",

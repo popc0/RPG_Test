@@ -445,7 +445,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5612da1a2b79e6409066295d12b8dd5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  manualTargets: []
+  manualTargets:
+  - {fileID: 8912933863758431039}
   autoIncludeTypeNames:
   - PlayerMovement
   - PlayerInteractor
@@ -703,8 +704,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   move: {fileID: -1680190386980627800, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
-  useDynamicTouchJoystick: 0
-  dynamicTouchJoystick: {fileID: 7970017780207178691, guid: 27a87ce1ba9bb724c998de6ce5eb7075, type: 3}
+  dynamicTouchJoystick: {fileID: 0}
   interact: {fileID: -3867853852466016547, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
   menu: {fileID: 4557582356189728844, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
   attack: {fileID: 4310761020611396234, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
@@ -1218,6 +1218,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e0a3fde2d44f754ba2229cc8ed8ce76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  input: {fileID: 8912933863758431039}
   origin: {fileID: 5812291194592223921}
   allowKeyboardAim: 1
   invertY: 0
