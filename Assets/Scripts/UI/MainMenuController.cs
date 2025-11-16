@@ -45,9 +45,22 @@ public class MainMenuController : MonoBehaviour
 
     void OnEnable()
     {
-        UIEvents.RaiseOpenCanvas("mainmenu");
-        RefocusMainButton();
+        // 先訂閱事件
         UIEvents.OnCloseActiveCanvas += OnOuterClosed;
+
+        // 下一幀再要求切到 mainmenu，確保 UIRootCanvasController 已經啟動並訂閱完畢
+        StartCoroutine(CoOpenMainMenuNextFrame());
+
+        // 聚焦按鈕一樣做，但放在 coroutine 後面也無妨
+        RefocusMainButton();
+    }
+
+    IEnumerator CoOpenMainMenuNextFrame()
+    {
+        // 等 1 frame，讓所有 UIRoot / Anchor 都 OnEnable + Start 完
+        yield return null;
+
+        UIEvents.RaiseOpenCanvas("mainmenu");
     }
 
     void OnDisable()

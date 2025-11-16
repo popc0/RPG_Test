@@ -1,10 +1,10 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDManager : MonoBehaviour
 {
-    [Header("¥D¿ï³æ³õ´º¦WºÙ")]
+    [Header("ä¸»é¸å–®å ´æ™¯åç¨±")]
     [SerializeField] private string mainMenuSceneName = "MainMenuScene";
 
     private CanvasGroup hudGroup;
@@ -16,16 +16,20 @@ public class HUDManager : MonoBehaviour
         if (!hudGroup) hudGroup = gameObject.AddComponent<CanvasGroup>();
 
         initialAlpha = hudGroup.alpha;
-
-        // ¨Ì·í«e³õ´º¥ı®M¤@¦¸³W«h
-        ApplyByScene(SceneManager.GetActiveScene());
-
-        // ¥uÅ¥³õ´º¤Á´«¡F¤£¦A­q¾\ UIEvents¡]¤¬°Ê¥æµ¹ SystemLayerMux¡^
-        SceneManager.activeSceneChanged += OnActiveSceneChanged;
     }
 
-    void OnDestroy()
+    void OnEnable()
     {
+        // ä¸€å•Ÿç”¨å°±è¨‚é–±äº‹ä»¶
+        SceneManager.activeSceneChanged += OnActiveSceneChanged;
+
+        // âœ… æ¯æ¬¡å•Ÿç”¨éƒ½ç”¨ã€Œç›®å‰ active sceneã€å¥—ä¸€æ¬¡è¦å‰‡
+        ApplyByScene(SceneManager.GetActiveScene());
+    }
+
+    void OnDisable()
+    {
+        // é—œé–‰æ™‚å°±é€€è¨‚ï¼Œé¿å…å ´æ™¯åˆ‡æ›æ™‚é‚„åœ¨æ”¶äº‹ä»¶
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
     }
 
@@ -40,16 +44,16 @@ public class HUDManager : MonoBehaviour
 
         if (isMainMenu)
         {
-            // ¥D¿ï³æ¡GÁôÂÃ¥BÃö¤¬°Ê¡]°ß¤@·|°Ê¯à¨£«×ªº¦a¤è¡^
+            // ä¸»é¸å–®ï¼šéš±è—ä¸”é—œäº’å‹•
             hudGroup.alpha = 0f;
             hudGroup.interactable = false;
             hudGroup.blocksRaycasts = false;
         }
         else
         {
-            // Â÷¶}¥D¿ï³æ¡G«ì´_Åã¥Ü¡F¤¬°Êª¬ºA¥æ¥Ñ SystemLayerMux ±±¨î
+            // é›¢é–‹ä¸»é¸å–®ï¼šæ¢å¾©é¡¯ç¤ºï¼›äº’å‹•ç‹€æ…‹äº¤ç”±åˆ¥çš„ç³»çµ±å»æ§
             hudGroup.alpha = initialAlpha;
-            // ¤£°Ê interactable / blocksRaycasts
+            // ä¸å‹• interactable / blocksRaycasts
         }
     }
 }

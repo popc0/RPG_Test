@@ -49,9 +49,18 @@ public class UIRootCanvasController : MonoBehaviour
         }
 
         if (!string.IsNullOrEmpty(pendingOpenKey))
+        {
             TryApplyTop(pendingOpenKey);
+        }
+        else if (Get(keyMain) != null)
+        {
+            // ✅ 如果沒有指定要開誰，但場景裡有 mainmenu，就當作預設打開 MainMenu
+            SetTopIndex(TopIndex.MainMenu);
+        }
         else
+        {
             SetTopIndex(TopIndex.None);
+        }
     }
 
     void OnRegister(string key, CanvasGroup cg)
