@@ -39,7 +39,8 @@ public class PlayerPauseAgent : MonoBehaviour
     public void Pause()
     {
         pauseCount++;
-        if (pauseCount > 1) return; // 已暫停，不重複執行
+        Debug.Log($"[PlayerPauseAgent] Pause, count = {pauseCount}");
+        if (pauseCount > 1) return;
 
         snapshot.Clear();
         foreach (var mb in manualTargets)
@@ -47,19 +48,32 @@ public class PlayerPauseAgent : MonoBehaviour
             if (mb == null) continue;
             snapshot.Add((mb, mb.enabled));
             mb.enabled = false;
+            Debug.Log($"[PlayerPauseAgent] Disable {mb.GetType().Name}");
         }
     }
 
     public void Resume()
     {
-        if (pauseCount == 0) return;
+        if (pauseCount == 0)
+        {
+            Debug.LogWarning("[PlayerPauseAgent] Resume 被叫但 pauseCount 已經是 0 了");
+            return;
+        }
+
         pauseCount--;
-        if (pauseCount > 0) return; // 還有其他暫停來源，先不恢復
+        Debug.Log($"[PlayerPauseAgent] Resume, count = {pauseCount}");
+
+        if (pauseCount > 0) return;
 
         foreach (var s in snapshot)
         {
-            if (s.mb != null) s.mb.enabled = s.wasEnabled;
+            if (s.mb != null)
+            {
+                s.mb.enabled = s.wasEnabled;
+                Debug.Log($"[PlayerPauseAgent] Restore {s.mb.GetType().Name} → {s.wasEnabled}");
+            }
         }
         snapshot.Clear();
     }
+
 }

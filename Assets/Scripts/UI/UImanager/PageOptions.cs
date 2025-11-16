@@ -1,21 +1,23 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections;
+using UnityEngine.InputSystem;   // âœ… æ–° Input System
 
 [RequireComponent(typeof(RectTransform))]
 [RequireComponent(typeof(CanvasGroup))]
 public class PageOptions : MonoBehaviour
 {
-    [Header("¤J³õ¥X³õ°Êµe")]
+    [Header("å…¥å ´å‡ºå ´å‹•ç•«")]
     [SerializeField] float duration = 0.25f;
     [SerializeField] AnimationCurve ease = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-    [Header("¹w³]»EµJ«ö¶s")]
+    [Header("é è¨­èšç„¦æŒ‰éˆ•")]
     [SerializeField] Selectable defaultFocus;
 
-    [Header("Ãö³¬§Ö±¶Áä")]
-    [SerializeField] KeyCode closeKey = KeyCode.B;
+    [Header("é—œé–‰å‹•ä½œ (Input System)")]
+    // åœ¨ Inspector æŠŠé€™å€‹æ‹‰æˆä½  MAP è£¡çš„ KEYR å‹•ä½œ
+    [SerializeField] private InputActionReference closeAction;
 
     RectTransform rt;
     CanvasGroup cg;
@@ -24,7 +26,7 @@ public class PageOptions : MonoBehaviour
     Vector2 startPosShown;
     bool isOpen;
 
-    GameObject callerPageRoot; // ±q½Ö¶}ªº
+    GameObject callerPageRoot; // å¾èª°é–‹çš„
 
     SystemCanvasController scc;
 
@@ -36,9 +38,9 @@ public class PageOptions : MonoBehaviour
         cg = GetComponent<CanvasGroup>();
 
         startPosShown = Vector2.zero;
-        startPosHidden = new Vector2(rt.rect.width, 0); // ±q¥k·Æ¤J
+        startPosHidden = new Vector2(rt.rect.width, 0); // å¾å³æ»‘å…¥
 
-        // ªì©l¬°Ãö³¬ª¬ºA¡A¦ı¤£Ãöª«¥ó
+        // åˆå§‹ç‚ºé—œé–‰ç‹€æ…‹ï¼Œä½†ä¸é—œç‰©ä»¶
         cg.alpha = 0f;
         cg.interactable = false;
         cg.blocksRaycasts = false;
@@ -47,10 +49,31 @@ public class PageOptions : MonoBehaviour
         TryFindSCC();
     }
 
+    void OnEnable()
+    {
+        // å•Ÿç”¨é—œé–‰ç”¨çš„ action
+        if (closeAction != null && closeAction.action != null)
+        {
+            closeAction.action.Enable();
+        }
+    }
+
+    void OnDisable()
+    {
+        // è¨˜å¾—é—œæ‰ï¼Œä¸ç„¶é›¢é–‹å ´æ™¯é‚„åœ¨åƒè¼¸å…¥
+        if (closeAction != null && closeAction.action != null)
+        {
+            closeAction.action.Disable();
+        }
+    }
+
     void Update()
     {
         if (!isOpen) return;
-        if (Input.GetKeyDown(closeKey))
+
+        // âœ… ç”¨æ–°ç³»çµ±çš„ KEYR å‹•ä½œä¾†é—œé–‰
+        if (closeAction != null && closeAction.action != null &&
+            closeAction.action.WasPerformedThisFrame())
         {
             CloseRequested();
         }
@@ -74,12 +97,12 @@ public class PageOptions : MonoBehaviour
 
         StopTween();
 
-        // Åã¥Ü¨Ã¥i¤¬°Ê¡]¤£¨Ï¥Î SetActive¡^
+        // é¡¯ç¤ºä¸¦å¯äº’å‹•ï¼ˆä¸ä½¿ç”¨ SetActiveï¼‰
         cg.alpha = 1f;
         cg.blocksRaycasts = true;
         cg.interactable = true;
 
-        // ¥ı²MµJÂI¡A¤U¤@´V¦A³]
+        // å…ˆæ¸…ç„¦é»ï¼Œä¸‹ä¸€å¹€å†è¨­
         if (EventSystem.current != null)
         {
             EventSystem.current.SetSelectedGameObject(null);
@@ -96,14 +119,14 @@ public class PageOptions : MonoBehaviour
         isOpen = false;
         StopTween();
 
-        // ¥ß¨èÃö¤¬°Ê¡A¶}©l·Æ¥X
+        // ç«‹åˆ»é—œäº’å‹•ï¼Œé–‹å§‹æ»‘å‡º
         cg.blocksRaycasts = false;
         cg.interactable = false;
 
         tweenCo = StartCoroutine(TweenPos(rt.anchoredPosition, startPosHidden, false, NotifyControllerClosed));
     }
 
-    // Back «ö¶s½Ğª½±µ¸j³o­Ó
+    // Back æŒ‰éˆ•è«‹ç›´æ¥ç¶é€™å€‹
     public void OnClick_Back()
     {
         CloseRequested();
@@ -121,7 +144,7 @@ public class PageOptions : MonoBehaviour
         }
         rt.anchoredPosition = to;
 
-        // Ãö³¬«á«O«ù alpha 0¡B¤£¥i¤¬°Ê¡F¤£°µ SetActive(false)
+        // é—œé–‰å¾Œä¿æŒ alpha 0ã€ä¸å¯äº’å‹•ï¼›ä¸åš SetActive(false)
         if (!opening)
         {
             cg.alpha = 0f;
@@ -154,6 +177,6 @@ public class PageOptions : MonoBehaviour
         if (scc != null) return;
         scc = FindObjectOfType<SystemCanvasController>();
         if (scc == null)
-            Debug.LogWarning("[PageOptions] §ä¤£¨ì SystemCanvasController¡C½Ğ½T»{¥¦±¾¦b SystemCanvas¡C");
+            Debug.LogWarning("[PageOptions] æ‰¾ä¸åˆ° SystemCanvasControllerã€‚è«‹ç¢ºèªå®ƒæ›åœ¨ SystemCanvasã€‚");
     }
 }

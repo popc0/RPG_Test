@@ -1,12 +1,5 @@
 ﻿using UnityEngine;
-using UnityEngine.InputSystem;
 
-/// <summary>
-/// 2D 瞄準輸入來源（新 Input System）：
-///  - 滑鼠優先：由 origin 到滑鼠世界座標的向量；距離太近視為無效。
-///  - 備援：鍵盤方向（WASD / 方向鍵），以新系統讀取。
-///  - 無有效輸入時維持最後一次方向。
-/// </summary>
 public class AimSource2D : MonoBehaviour
 {
     [Header("輸入來源 (拖 Player/Input 上的 UnifiedInputSource)")]
@@ -14,10 +7,6 @@ public class AimSource2D : MonoBehaviour
 
     [Header("參考點（不設則用自身）")]
     public Transform origin;
-
-    [Header("鍵盤方向鍵 (New)")]
-    public bool allowKeyboardAim = true;
-    public bool invertY = false;
 
     [Header("靈敏度")]
     [Tooltip("滑鼠相對 origin 的最小有效距離")]

@@ -16,28 +16,49 @@ public class PlayerMoveControl : MonoBehaviour
     public float moveSpeed = 4.5f;
     public float runMultiplier = 1.0f; // 保留未來擴充
 
+    [Header("方向死區（只看方向，不看力度）")]
+    [Range(0f, 1f)]
+    public float moveDeadzone = 0.15f;   // 小於這個長度就當成完全不動
+
     public Vector2 LastMove { get; private set; } // 上一幀的實際位移（世界座標）
 
-    Rigidbody2D _rb; Transform _root;
+    Rigidbody2D _rb;
+    Transform _root;
 
     void Awake()
     {
         _root = targetRoot != null ? targetRoot : transform.root;
         _rb = _root.GetComponent<Rigidbody2D>();
-        if (_rb == null) Debug.LogWarning("[PlayerMoveControl] 目標上沒有 Rigidbody2D，將改用 Transform 移動。");
+        if (_rb == null)
+            Debug.LogWarning("[PlayerMoveControl] 目標上沒有 Rigidbody2D，將改用 Transform 移動。");
     }
 
     void FixedUpdate()
     {
+        // 1. 從 UnifiedInputSource 讀值（鍵盤 / 手把 / DynamicTouchJoystick 都會經過這裡）
         Vector2 dir = (input != null) ? input.GetMoveVector() : Vector2.zero;
+
+        // 2. 只保留「方向」：
+        //    - 長度太小 → 當成 0，避免微抖
+        //    - 長度大於死區 → 正規化成單位向量（固定速度）
+        if (dir.sqrMagnitude < moveDeadzone * moveDeadzone)
+        {
+            dir = Vector2.zero;
+        }
+        else
+        {
+            dir = dir.normalized; // 不管搖桿推多遠，速度都一樣
+        }
+
         float spd = moveSpeed * runMultiplier;
 
         if (_rb != null)
         {
-            Vector2 next = _rb.position + dir * spd * Time.fixedDeltaTime;
+            Vector2 before = _rb.position;
+            Vector2 next = before + dir * spd * Time.fixedDeltaTime;
             _rb.MovePosition(next);
-            LastMove = next - _rb.position; // 注意：MovePosition 之後 _rb.position 仍是上一幀值，此行等同於 dir*...
-            // 為了給動畫更準，直接用 dir*spd*dt：
+
+            // 這邊直接用計算值當 LastMove，給動畫用
             LastMove = dir * spd * Time.fixedDeltaTime;
         }
         else if (_root != null)

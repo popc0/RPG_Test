@@ -19,7 +19,7 @@ public class ScreenDimService : MonoBehaviour
     IEnumerator Fade(bool on)
     {
         float start = overlay.color.a;
-        float target = on ? 0.6f : 0f;
+        float target = on ? 0.6f : 0.15f;
         float t = 0f;
         while (t < 1f)
         {

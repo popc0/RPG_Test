@@ -130,7 +130,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   defaultFocus: {fileID: 5806239179898770113}
-  closeKey: 98
+  closeAction: {fileID: 4557582356189728844, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
 --- !u!1 &191623979791873439
 GameObject:
   m_ObjectHideFlags: 0
@@ -746,7 +746,8 @@ MonoBehaviour:
   pageMain: {fileID: 3823270746945515632}
   pageOptions: {fileID: 191595717919026731}
   enableToggleHotkey: 1
-  toggleKey: 32
+  toggleMenuAction: {fileID: 4557582356189728844, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  fallbackKey: 32
   mainMenuSceneName: MainMenuScene
   ignoreHotkeyInMainMenu: 1
   autoFindOnAwake: 1

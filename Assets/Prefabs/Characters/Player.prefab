@@ -1179,7 +1179,8 @@ MonoBehaviour:
   tracer: {fileID: 603340719181522081}
   areaRing: {fileID: 20884650059301842}
   areaSegments: 48
-  castKey: 1
+  castAction: {fileID: 4310761020611396234, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  hudSkillStats: {fileID: 0}
 --- !u!114 &6070265569996618236
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1192,9 +1193,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 971ecc3c9d5f18f4eb9efb1f30bb80a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  caster: {fileID: 0}
+  caster: {fileID: 6777907045571849376}
   main: {fileID: 6863493812143999194}
-  aimSource: {fileID: 0}
+  aimSource: {fileID: 6127803504258366139}
   useObstacleBlock: 1
   obstacleMask:
     serializedVersion: 2
@@ -1220,8 +1221,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   input: {fileID: 8912933863758431039}
   origin: {fileID: 5812291194592223921}
-  allowKeyboardAim: 1
-  invertY: 0
   mouseDeadRadius: 0.05
   keyDeadZone: 0
   normalizeOutput: 1
@@ -1479,6 +1478,7 @@ MonoBehaviour:
   targetRoot: {fileID: 5812291194592223921}
   moveSpeed: 4.5
   runMultiplier: 1
+  moveDeadzone: 0.15
 --- !u!114 &4223875680958490281
 MonoBehaviour:
   m_ObjectHideFlags: 0

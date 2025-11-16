@@ -1,6 +1,6 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.InputSystem; // �� �s�W
+using UnityEngine.InputSystem; // ★ 新增 Input System
 
 public class SystemCanvasController : MonoBehaviour
 {
@@ -14,7 +14,13 @@ public class SystemCanvasController : MonoBehaviour
 
     [Header("Hotkey (Input System)")]
     [SerializeField] private bool enableToggleHotkey = true;
-    [SerializeField] private Key toggleKey = Key.R; // �� ��� Input System �� Key
+
+    // ★ 用 Input Action 來當 R 鍵（KEYR），在 Inspector 指到你的「KEYR」動作
+    [SerializeField] private InputActionReference toggleMenuAction;
+
+    // ★ 備用：如果沒有設定 InputAction，就用鍵盤 R 當後備
+    [SerializeField] private Key fallbackKey = Key.R;
+
     [SerializeField] private string mainMenuSceneName = "MainMenuScene";
     [SerializeField] private bool ignoreHotkeyInMainMenu = true;
 
@@ -41,14 +47,53 @@ public class SystemCanvasController : MonoBehaviour
         SetRootActive(false);
     }
 
+    // ★ 啟用時順便 Enable InputAction
+    void OnEnable()
+    {
+        if (toggleMenuAction != null)
+        {
+            try { toggleMenuAction.action.Enable(); }
+            catch { /* 避免編輯器 domain reload 時噴例外 */ }
+        }
+    }
+
+    void OnDisable()
+    {
+        if (toggleMenuAction != null)
+        {
+            try { toggleMenuAction.action.Disable(); }
+            catch { }
+        }
+    }
+
     void Update()
     {
         if (!enableToggleHotkey) return;
 
-        var kb = Keyboard.current;
-        if (kb == null) return;
+        bool pressed = false;
 
-        if (kb[toggleKey].wasPressedThisFrame && ShouldHandleHotkey(out _))
+        // 1️⃣ 優先用 Input Action (KEYR)
+        if (toggleMenuAction != null)
+        {
+            var act = toggleMenuAction.action;
+            if (act != null)
+            {
+                if (!act.enabled)
+                    act.Enable();
+
+                if (act.WasPressedThisFrame())
+                    pressed = true;
+            }
+        }
+        // 2️⃣ 沒有配 Action 的話，退回用鍵盤 R
+        else
+        {
+            var kb = Keyboard.current;
+            if (kb != null && kb[fallbackKey].wasPressedThisFrame)
+                pressed = true;
+        }
+
+        if (pressed && ShouldHandleHotkey(out _))
             ToggleIngameMenu();
     }
 
@@ -61,6 +106,7 @@ public class SystemCanvasController : MonoBehaviour
         if (ignoreHotkeyInMainMenu && scene == mainMenuSceneName) { whyNot = "mainmenu"; return false; }
         if (!groupIngameMenu || !pageMain) { whyNot = "missing"; return false; }
 
+        // Options 開著時暫時不處理 R
         if (pageOptions && pageOptions.isActiveAndEnabled && pageOptions.IsOpen)
         {
             whyNot = "optionsOpen";
