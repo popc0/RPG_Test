@@ -1245,7 +1245,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   skillButtons:
-  - {fileID: 0}
+  - {fileID: 894023028843719216}
+  - {fileID: 894619168723458080}
   skillSetLabel: {fileID: 0}
   skillSetNames: []
   currentSetIndex: 0
@@ -1692,6 +1693,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7ab3a9df42540aa4c98a8838d8b39c43, type: 3}
+--- !u!114 &894619168723458080 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 173213236931036206, guid: 7ab3a9df42540aa4c98a8838d8b39c43, type: 3}
+  m_PrefabInstance: {fileID: 1012522535116332046}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bc032e89ffe8d34a8bc51ea406a7b40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &7469613571429742995 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7612303923695478173, guid: 7ab3a9df42540aa4c98a8838d8b39c43, type: 3}
@@ -1794,6 +1806,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7ab3a9df42540aa4c98a8838d8b39c43, type: 3}
+--- !u!114 &894023028843719216 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 173213236931036206, guid: 7ab3a9df42540aa4c98a8838d8b39c43, type: 3}
+  m_PrefabInstance: {fileID: 1013122656902589982}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bc032e89ffe8d34a8bc51ea406a7b40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &7470068420314811267 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7612303923695478173, guid: 7ab3a9df42540aa4c98a8838d8b39c43, type: 3}

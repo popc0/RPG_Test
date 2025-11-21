@@ -11,6 +11,9 @@ namespace RPG
         public float BaseMpCost = 20f;
         public float CastTime = 0.3f;
 
+        [Tooltip("技能圖示")]
+        public Sprite Icon;
+
         [Header("命中與目標")]
         public TargetType Target = TargetType.Enemy;
         public HitType HitType = HitType.Single;
