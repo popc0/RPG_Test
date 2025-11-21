@@ -41,6 +41,9 @@ public class MainMenuController : MonoBehaviour
         Bind(optionsButton, OnClickOtherOptions);
         Bind(quitButton, OnClickQuit);
         Bind(deleteSaveButton, OnClickDeleteSave);
+
+        //註冊自訂手把的layout
+        YuPadLayoutJson.ForceRegister();
     }
 
     void OnEnable()
@@ -155,6 +158,7 @@ public class MainMenuController : MonoBehaviour
 
     public void OnClickOtherOptions()
     {
+
         Debug.Log("[MainMenu] Options clicked. Open system then open options page.");
         // 留在主選單，不設 isLeavingMainMenu，這樣 Options 關閉後仍會回主選單
         UIEvents.RaiseOpenCanvas("system");

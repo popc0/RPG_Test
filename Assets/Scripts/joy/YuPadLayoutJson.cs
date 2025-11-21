@@ -1,10 +1,17 @@
-﻿#if ENABLE_INPUT_SYSTEM && UNITY_INPUT_SYSTEM
+﻿
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Layouts;
 
 public static class YuPadLayoutJson
 {
+    private static bool s_done;
+
+    public static void ForceRegister()
+    {
+        s_done = false;
+        TryRegister("force");
+    }
     // 依你的量測：
     // X 中心大約在 0xF5xx → 有號為 -2700 左右
     // Y 中心大約在 0x0Axx → 有號為 +2720 左右
@@ -51,8 +58,6 @@ public static class YuPadLayoutJson
 }";
 
 
-    private static bool s_done;
-
 #if UNITY_EDITOR
     // 讓「一開專案/編譯重載」就註冊（不需要按 Play）
     [UnityEditor.InitializeOnLoadMethod]
@@ -76,14 +81,16 @@ public static class YuPadLayoutJson
 
         var matcher = new InputDeviceMatcher()
             .WithInterface("HID")
-            .WithCapability("vendorId", 58626)   // 0xE502
-            .WithCapability("productId", 48043)  // 0xBBAB
-            .WithCapability("usagePage", 0x01)   // Generic Desktop
-            .WithCapability("usage", 0x05);      // Gamepad
+            .WithCapability("vendorId", 58626)
+            .WithCapability("productId", 48043)
+            .WithCapability("usagePage", 0x01)
+            .WithCapability("usage", 0x05);
 
-        // 註冊 JSON 版型
-        InputSystem.RegisterLayout(json: Json, name: "YuPadGamepadHID16", matches: matcher);
+        InputSystem.RegisterLayout(json: Json,
+            name: "YuPadGamepadHID16",
+            matches: matcher);
+
         Debug.Log($"[YuPad] JSON layout 'YuPadGamepadHID16' registered at {tag}.");
     }
+
 }
-#endif
