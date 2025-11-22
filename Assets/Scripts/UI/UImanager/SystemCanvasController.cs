@@ -27,6 +27,9 @@ public class SystemCanvasController : MonoBehaviour
     [Header("Auto bind on Awake")]
     [SerializeField] private bool autoFindOnAwake = true;
 
+    private PlayerPauseAgent pauseAgent;
+    private GameObject player;
+
     private enum UiGroup { None, IngameMenu, Options }
     private UiGroup current = UiGroup.None;
     private CanvasGroup rootCanvasGroup;
@@ -46,7 +49,6 @@ public class SystemCanvasController : MonoBehaviour
         EnsureGameResumed();
         SetRootActive(false);
     }
-
     // ★ 啟用時順便 Enable InputAction
     void OnEnable()
     {
@@ -152,8 +154,8 @@ public class SystemCanvasController : MonoBehaviour
             OpenSystemOnTop();
             SetRootActive(true);
             SetGroupIndex(UiGroup.IngameMenu);
-            pageMain.Open();
             EnsureGamePaused();
+            pageMain.Open();
         }
         else
         {
@@ -224,6 +226,7 @@ public class SystemCanvasController : MonoBehaviour
         {
             SetGroupIndex(UiGroup.IngameMenu);
             SetRootActive(true);
+            EnsureGameResumed();
         }
         else
         {
@@ -250,9 +253,40 @@ public class SystemCanvasController : MonoBehaviour
         cg.blocksRaycasts = visible;
     }
 
-    void EnsureGamePaused() => Time.timeScale = 0f;
-    void EnsureGameResumedIfNone() { if (!HasAnyUiOpen()) Time.timeScale = 1f; }
-    void EnsureGameResumed() => Time.timeScale = 1f;
+    void EnsureGamePaused()
+    {
+
+        // 自動找目前場上的玩家（跨場景安全）
+        if (player == null)
+        {
+            var found = GameObject.FindGameObjectWithTag("Player");
+            if (found != null) player = found;
+        }
+
+        if (player != null)
+            pauseAgent = player.GetComponent<PlayerPauseAgent>();
+
+        if (pauseAgent != null)
+            pauseAgent.Pause();
+        // 2. 暫停遊戲時間
+        Time.timeScale = 0f;
+    }
+    void EnsureGameResumedIfNone()
+    {
+        if (!HasAnyUiOpen())
+        {
+            // 1. 恢復遊戲時間
+            Time.timeScale = 1f;
+            if (pauseAgent != null)
+                pauseAgent.Resume();
+        }
+    }
+    void EnsureGameResumed()
+    {
+        Time.timeScale = 1f;
+        if (pauseAgent != null)
+            pauseAgent.Resume();
+    }
 
     void AutoBindIfMissing()
     {

@@ -2,14 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEngine.Events;
+//  [新增] 必須引用 SkillData 所在的命名空間
+using RPG;
 
-/// <summary>
-/// HUD 上專門管理技能顯示的腳本：
-/// - 持有一組 SkillButton
-/// - 提供 SetSkillCooldown / SetSkillIcon 給 Player / HUDStatsBinder 呼叫
-/// - 提供「切換技能組」按鈕可以呼叫的 RequestNextSkillSet()
-///   真正的切換邏輯交給 Player 實作
-/// </summary>
 [DisallowMultipleComponent]
 public class HUDSkillStats : MonoBehaviour
 {
@@ -17,17 +12,18 @@ public class HUDSkillStats : MonoBehaviour
     public List<SkillButton> skillButtons = new List<SkillButton>();
 
     [Header("技能組顯示（純視覺，可選）")]
-    public TMP_Text skillSetLabel;   // 顯示「技能組 1 / 2 / 3…」之類
-    public string[] skillSetNames;   // 每組的名字（可空）
+    public TMP_Text skillSetLabel;
+    public string[] skillSetNames;
     public int currentSetIndex = 0;
 
     [Header("事件：請 Player 切換技能組")]
     public UnityEvent onRequestNextSkillSet;
-    // 之後你在 Player 或 HUDStatsBinder 那邊，把這個 event 接起來就好
+
+    // 用於儲存當前技能組的 SkillData 列表，方便後續查詢（例如：懸停提示）
+    private List<SkillData> _currentSkillDatas = new List<SkillData>();
 
     /// <summary>
     /// 設定某一個技能槽的冷卻
-    /// 例如 slotIndex=0 代表第一顆技能
     /// </summary>
     public void SetSkillCooldown(int slotIndex, float current, float max)
     {
@@ -45,14 +41,52 @@ public class HUDSkillStats : MonoBehaviour
         if (btn != null)
             btn.SetIcon(sprite);
     }
+    /// <summary>
+    /// 接收 SkillCaster 傳來的當前技能組數據
+    /// </summary>
+    public void SetSkillSetData(int index, List<SkillData> skillsList)
+    {
+        // 1. 更新索引 (可選，但保持數據同步)
+        SetSkillSetIndex(index);
+
+        // 2. 儲存數據清單
+        _currentSkillDatas = skillsList;
+
+        // 3. 遍歷 UI 上的技能按鈕並更新圖示 (View 讀取 Model)
+        for (int i = 0; i < skillButtons.Count; i++)
+        {
+            // 獲取當前技能槽位 i 應對應的 SkillData
+            if (i < skillsList.Count)
+            {
+                var data = skillsList[i]; // 獲取 SkillData 實例
+
+                //  核心：HUD 直接讀取 SkillData 內部的 Icon
+                SetSkillIcon(skillButtons[i].slotIndex, data.Icon);
+            }
+            else
+            {
+                // 超出技能數量，隱藏圖示
+                SetSkillIcon(skillButtons[i].slotIndex, null);
+            }
+        }
+    }
 
     /// <summary>
-    /// 給 Player / HUDStatsBinder 叫的：更新目前在第幾組技能
+    /// ★ NEW：設定某一個技能是否正在施放中
+    /// </summary>
+    public void SetSkillCasting(int slotIndex, bool isCasting)
+    {
+        var btn = FindSkillButton(slotIndex);
+        if (btn != null)
+            btn.SetCasting(isCasting);
+    }
+
+    /// <summary>
+    /// 更新目前在第幾組技能
     /// </summary>
     public void SetSkillSetIndex(int index)
     {
         currentSetIndex = index;
-
         if (skillSetLabel != null)
         {
             string name;
@@ -60,22 +94,17 @@ public class HUDSkillStats : MonoBehaviour
                 name = skillSetNames[index];
             else
                 name = $"Set {index + 1}";
-
             skillSetLabel.text = name;
         }
     }
 
     /// <summary>
-    /// 給 UI 按鈕 OnClick() 用：
-    /// 按下「切換技能組」時，只發一個 event，
-    /// 真正切哪一組由 Player 來決定。
+    /// 給 UI 按鈕 OnClick() 用
     /// </summary>
     public void RequestNextSkillSet()
     {
         onRequestNextSkillSet?.Invoke();
     }
-
-    // ====== 內部工具 ======
 
     SkillButton FindSkillButton(int slotIndex)
     {

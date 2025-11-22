@@ -16,7 +16,8 @@ MonoBehaviour:
   BaseCooldown: 8
   BaseMpCost: 20
   CastTime: 0
-  Target: 2
+  Icon: {fileID: 0}
+  Target: 0
   HitType: 1
   TargetLayer: 0
   BaseDamage: 100

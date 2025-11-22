@@ -1,3 +1,4 @@
+using RPG;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -26,6 +27,7 @@ public class UnifiedInputSource : MonoBehaviour, IInputSource
     [Header("Attack / Attack2 例：K / O / 手把按鍵")]
     public InputActionReference attack;
     public InputActionReference attack2;
+    public InputActionReference switchSkillGroup; // 切換技能組
 
     // ===== lifecycle =====
 
@@ -41,23 +43,53 @@ public class UnifiedInputSource : MonoBehaviour, IInputSource
             }
         }
     }
-
+    public void ResetAllInputStates()
+    {
+        // 對所有輸入 Action 呼叫 .Reset()
+        if (move?.action != null) move.action.Reset();
+        if (interact?.action != null) interact.action.Reset();
+        if (attack?.action != null) attack.action.Reset();
+        if (attack2?.action != null) attack2.action.Reset();
+        if (switchSkillGroup?.action != null) switchSkillGroup.action.Reset();
+    }
     private void OnEnable()
     {
-        Enable(move);
-        Enable(interact);
-        Enable(menu);
-        Enable(attack);
-        Enable(attack2);
+        //Enable(move);
+        //Enable(interact);
+        //Enable(menu);
+        //Enable(attack);
+        //Enable(attack2);
+        //Enable(switchSkillGroup);
     }
 
     private void OnDisable()
     {
+        //Disable(move);
+        //Disable(interact);
+        //Disable(menu);
+        //Disable(attack);
+        //Disable(attack2);
+        //Disable(switchSkillGroup);
+    }
+    public void DisableAllInputActions()
+    {
+        // 呼叫原本的 Disable 靜態方法，禁用所有相關動作
         Disable(move);
         Disable(interact);
-        Disable(menu);
         Disable(attack);
         Disable(attack2);
+        Disable(switchSkillGroup);
+        // ... 確保所有您在 OnEnable 中啟用的動作都被禁用
+    }
+    public void EnableAllInputActions()
+    {
+        // 重新啟用所有動作
+        Enable(move);
+        Enable(interact);
+        Enable(attack);
+        Enable(attack2);
+        Enable(switchSkillGroup);
+        // ...
     }
 
     private static void Enable(InputActionReference r)
@@ -107,11 +139,13 @@ public class UnifiedInputSource : MonoBehaviour, IInputSource
     public bool MenuPressedThisFrame()
         => menu != null && menu.action != null && menu.action.WasPerformedThisFrame();
 
-    public bool AttackIsPressedThisFrame()
-        => attack != null && attack.action != null && attack.action.IsPressed();
+    public bool AttackPressedThisFrame()
+        => attack != null && attack.action != null && attack.action.WasPerformedThisFrame();
+    public bool Attack2PressedThisFrame()
+       => attack2 != null && attack2.action != null && attack2.action.WasPerformedThisFrame();
 
-    public bool Attack2IsPressedThisFrame()
-        => attack2 != null && attack2.action != null && attack2.action.IsPressed();
+    public bool SwitchSkillGroupPressedThisFrame()
+    => switchSkillGroup != null && switchSkillGroup.action != null && switchSkillGroup.action.WasPerformedThisFrame();
 }
 
 /// <summary>
@@ -122,6 +156,9 @@ public interface IInputSource
     Vector2 GetMoveVector();
     bool InteractPressedThisFrame();
     bool MenuPressedThisFrame();
-    bool AttackIsPressedThisFrame();
-    bool Attack2IsPressedThisFrame();
+    bool AttackPressedThisFrame();
+    bool Attack2PressedThisFrame();
+    bool SwitchSkillGroupPressedThisFrame();
 }
+
+

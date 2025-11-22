@@ -13,10 +13,11 @@ MonoBehaviour:
   m_Name: SkillData_001
   m_EditorClassIdentifier: 
   SkillName: "\u6280\u80FD"
-  BaseCooldown: 3
+  BaseCooldown: 1
   BaseMpCost: 0
-  CastTime: 0
-  Target: 2
+  CastTime: 0.1
+  Icon: {fileID: 21300000, guid: fab43c7d01e1ff349a197798fcc175a4, type: 3}
+  Target: 0
   HitType: 0
   TargetLayer: 0
   BaseDamage: 100
