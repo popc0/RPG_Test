@@ -159,7 +159,11 @@ public class SystemCanvasController : MonoBehaviour
         }
         else
         {
-            pageMain.Close();
+            if (pageMain)
+            {
+                pageMain.SaveAndClose(); // 執行存檔和 PageMain 的關閉動畫
+            }
+
             SetGroupIndex(UiGroup.None);
             EnsureGameResumedIfNone();
             if (!HasAnyUiOpen()) SetRootActive(false);

@@ -13,6 +13,8 @@ public class SaveData
     public float playerMP;
     public float playerMaxHP;
     public float playerMaxMP;
+    //  新增：用於儲存 PageMain 的上次開啟頁面索引
+    public int pageMainLastPageIndex = 0;
 
     public SaveData() { }
 

@@ -130,6 +130,60 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "GroyZ",
+                    "type": "Value",
+                    "id": "47f6dd13-0a59-4a97-9ae6-c3c4ae16b846",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "GroyY",
+                    "type": "Value",
+                    "id": "921f79da-ac9b-4c60-9bbe-60f2ba18f727",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "GroyX",
+                    "type": "Value",
+                    "id": "13015069-25b5-46dd-b5f2-28147b8b71cf",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "AccX",
+                    "type": "Value",
+                    "id": "aed6d9af-c804-49a0-84e6-d858f6ff04f5",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "AccY",
+                    "type": "Value",
+                    "id": "88f5af8f-30fe-4b51-bdb2-ca600262745d",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "AccZ",
+                    "type": "Value",
+                    "id": "af362d71-2b97-41f3-8c4e-cb0b674234e1",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [
@@ -565,10 +619,10 @@
                 {
                     "name": "",
                     "id": "e8e57810-1ec8-4dc9-8450-0871ca74f6fd",
-                    "path": "",
+                    "path": "<YuPadGamepadHID16>/button1",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";Gamepad",
                     "action": "KEYK",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -587,7 +641,7 @@
                 {
                     "name": "",
                     "id": "88ff2c1d-ffa3-4344-a7fd-df63d3aa4de9",
-                    "path": "",
+                    "path": "<YuPadGamepadHID16>/button3",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -609,11 +663,77 @@
                 {
                     "name": "",
                     "id": "1db7ecf5-29aa-476f-aa1b-f04406811262",
-                    "path": "",
+                    "path": "<YuPadGamepadHID16>/button2",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
                     "action": "KEYI",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "ba336ef2-de06-4f37-bd6a-f95d97f60f6c",
+                    "path": "<YuPadGamepadHID16>/groyZ",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "GroyZ",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c884aef9-e1d2-440c-b7ed-be7d4c8f5d19",
+                    "path": "<YuPadGamepadHID16>/groyY",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "GroyY",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "26feebdd-b13a-45b0-b3de-fe14cb6b78a7",
+                    "path": "<YuPadGamepadHID16>/groyZ",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "GroyX",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "9e52a71d-9674-4a8e-8a78-c47747ef3ba4",
+                    "path": "<YuPadGamepadHID16>/realAccX",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "AccX",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "d4a97bfc-6378-4a11-8223-5b7b17e21617",
+                    "path": "<YuPadGamepadHID16>/realAccY",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "AccY",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "2e444508-c4ba-4ca4-a126-2b731232a752",
+                    "path": "<YuPadGamepadHID16>/realAccZ",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "AccZ",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

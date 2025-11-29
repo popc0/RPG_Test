@@ -4,6 +4,8 @@ using UnityEngine.InputSystem; // ★ 改用新輸入系統
 
 public class SaveManager : MonoBehaviour
 {
+
+    public static SaveData CurrentData { get; private set; } = new SaveData();
     public static SaveManager Instance { get; private set; }
 
     [Header("Player 尋找設定")]
@@ -62,6 +64,8 @@ public class SaveManager : MonoBehaviour
 
         var stats = player.GetComponent<PlayerStats>();
         var data = new SaveData(SceneManager.GetActiveScene().name, p.x, p.y, vol);
+        // 將靜態資料中的頁面索引拷貝到要儲存的新資料中
+        data.pageMainLastPageIndex = CurrentData.pageMainLastPageIndex;
         if (stats != null)
         {
             data.playerHP = stats.CurrentHP;
@@ -80,7 +84,8 @@ public class SaveManager : MonoBehaviour
             Debug.LogWarning("[SaveManager] No save file to load.");
             return;
         }
-
+        // 載入成功時，更新靜態資料 (讓 PageMain 可以存取)
+        CurrentData = data;
         AudioListener.volume = (data.masterVolume > 0f) ? data.masterVolume : 1f;
 
         var current = SceneManager.GetActiveScene().name;

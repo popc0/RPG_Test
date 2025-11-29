@@ -65,7 +65,19 @@ public class SystemLayerMux : MonoBehaviour
     public void OpenTPHint() { Open(LayerKey.TPHint); }
 
     // Called by SystemCanvasController when its pages are all closed (None)
-    public void NotifyChildClosed() { /* decision deferred to Update() */ }
+    public void NotifyChildClosed()
+    { //  修正：確保在收到子介面關閉的通知後，觸發一次檢查。
+      // 如果當前是主選單場景，且所有 UI 都關閉，則呼叫 OnAllLayersClosed()
+      // OnAllLayersClosed() 裡面包含事件廣播邏輯 UIEvents.RaiseCloseActiveCanvas()
+
+        // 雖然原邏輯是將決策延遲到 Update()，但我們可以立即執行一次檢查，確保即時反應。
+        // 讓 OnAllLayersClosed() 邏輯能夠在 Update() 之外被執行。
+        if (IsInteractive(canvasSystem)) return; // 如果 SystemCanvas 仍然是可交互的，則跳過
+
+        // 呼叫主要檢查邏輯
+        OnAllLayersClosed();
+        /* decision deferred to Update() */
+    }
 
     // --- Internal logic ------------------------------------------------------
 

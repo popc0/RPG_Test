@@ -670,6 +670,7 @@ GameObject:
   - component: {fileID: 3773516687904087717}
   - component: {fileID: 6788199170261833864}
   - component: {fileID: 6187399050047475599}
+  - component: {fileID: 1994368470651018903}
   m_Layer: 5
   m_Name: Test_Canva
   m_TagString: Untagged
@@ -760,6 +761,31 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &1994368470651018903
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4129314481076489050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9da0dd5a53a94754ca2a0aea63749bd1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  accXAction: {fileID: -3580929662468041548, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  accYAction: {fileID: -769216738558133732, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  accZAction: {fileID: -2716817959485801485, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  gyroXAction: {fileID: -7803190277434477980, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  gyroYAction: {fileID: -8923856086482831299, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  gyroZAction: {fileID: 8249943814077283715, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+  gravityMagnitude: 0.134
+  gyroSensitivity: 1
+  filterCoeff: 0.98
+  linearAcceleration: {x: 0, y: 0, z: 0}
+  estimatedGravity: {x: 0, y: 0, z: 0}
+  deadzone: 0.05
+  smoothing: 0
 --- !u!1 &4136016653928480702
 GameObject:
   m_ObjectHideFlags: 0
