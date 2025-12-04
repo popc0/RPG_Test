@@ -26,6 +26,9 @@ namespace RPG
             // AoE 半徑（可受敏捷微幅縮放）
             c.AreaRadius = Balance.AreaRadiusScale(data.BaseAreaRadius, mp.Agility);
 
+            // ★ 新增：扇形角度
+            c.ConeAngle = Mathf.Max(0f, data.BaseConeAngle); // 目前只取基礎值
+
             return c;
         }
     }

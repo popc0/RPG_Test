@@ -13,22 +13,23 @@ MonoBehaviour:
   m_Name: SkillData_001
   m_EditorClassIdentifier: 
   SkillName: "\u6280\u80FD"
-  BaseCooldown: 1
+  BaseCooldown: 0
   BaseMpCost: 0
-  CastTime: 0.1
+  CastTime: 0
   Icon: {fileID: 21300000, guid: fab43c7d01e1ff349a197798fcc175a4, type: 3}
   Target: 0
   HitType: 0
   TargetLayer: 0
   BaseDamage: 100
-  BaseRange: 12
-  BaseAreaRadius: 2
+  BaseRange: 6
+  BaseAreaRadius: 0
+  BaseConeAngle: 60
   UseProjectile: 1
   ProjectilePrefab: {fileID: 3133480608834982146, guid: c33d42b0446f7504d8f536f28ecf07ba, type: 3}
   ProjectileSpeed: 18
   ProjectileRadius: 0.1
   UseAttackReq: 1
-  ReqAttack: 60
+  ReqAttack: 10
   UseDefenseReq: 0
   ReqDefense: 0
   UseAgilityReq: 0

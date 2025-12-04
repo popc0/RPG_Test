@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System.Collections.Generic;
 
 namespace RPG
@@ -9,7 +9,7 @@ namespace RPG
     {
         public enum FacingAxis { Right, Up }
 
-        [Header("°õ¦æ°Ñ¼Æ¡]¥Ñ SkillCaster ªì©l¤Æ¡^")]
+        [Header("åŸ·è¡Œåƒæ•¸ï¼ˆç”± SkillCaster åˆå§‹åŒ–ï¼‰")]
         public Transform owner;
         public float speed;                 // from SkillData.ProjectileSpeed
         public float maxDistance;           // from SkillData.BaseRange
@@ -18,17 +18,17 @@ namespace RPG
         public LayerMask enemyMask;
         public LayerMask obstacleMask;
 
-        [Header("´Â¦V»P¨B¶i")]
+        [Header("æœå‘èˆ‡æ­¥é€²")]
         public bool alignRotation = true;
         public FacingAxis modelForward = FacingAxis.Right;
         public float rotationOffsetDeg = 0f;
-        [Tooltip("©R¤¤ÂI¦V«e·L²¾¥HÁ×§K­«½Æ©R¤¤¡]¤½¤Ø¡^")]
+        [Tooltip("å‘½ä¸­é»å‘å‰å¾®ç§»ä»¥é¿å…é‡è¤‡å‘½ä¸­ï¼ˆå…¬å°ºï¼‰")]
         public float skin = 0.01f;
-        [Tooltip("¨C´V³Ì¦h³sÄò Cast ¦¸¼Æ")]
+        [Tooltip("æ¯å¹€æœ€å¤šé€£çºŒ Cast æ¬¡æ•¸")]
         public int maxCastsPerStep = 4;
 
-        // ¤º³¡
-        Collider2D _col;                    // ¤¹³\¦b¤lª«¥ó¤W
+        // å…§éƒ¨
+        Collider2D _col;                    // å…è¨±åœ¨å­ç‰©ä»¶ä¸Š
         Vector2 _dir = Vector2.right;
         float _traveled;
         bool _stopped;
@@ -78,7 +78,7 @@ namespace RPG
             {
                 int count = _col.Cast(_dir, _filter, _hitsBuf, remaining);
 
-                // ¨ú³Ìªñ¡A¦ı¥u¦Ò¼{¡u»ÙÃªª«¡v»P¡u¥¿½T¥Ø¼Ğ³¡¦ì¡v
+                // å–æœ€è¿‘ï¼Œä½†åªè€ƒæ…®ã€Œéšœç¤™ç‰©ã€èˆ‡ã€Œæ­£ç¢ºç›®æ¨™éƒ¨ä½ã€
                 int best = -1;
                 float bestDist = float.PositiveInfinity;
 
@@ -92,20 +92,20 @@ namespace RPG
                     bool isObstacle = (obstacleMask.value & maskBitHit) != 0;
                     bool isEnemy = (enemyMask.value & maskBitHit) != 0;
 
-                    // ¥u³B²z»ÙÃªª«»P¼Ä¤H¡A¨ä¾l©¿²¤
+                    // åªè™•ç†éšœç¤™ç‰©èˆ‡æ•µäººï¼Œå…¶é¤˜å¿½ç•¥
                     if (!isObstacle && !isEnemy) continue;
 
                     if (isEnemy)
                     {
-                        // ¥ıÀË¬d¬O¤£¬O¥¿½T³¡¦ì¡A¤£¬Oªº¸Ü¾ã­Ó·í³z©ú©¿²¤
+                        // å…ˆæª¢æŸ¥æ˜¯ä¸æ˜¯æ­£ç¢ºéƒ¨ä½ï¼Œä¸æ˜¯çš„è©±æ•´å€‹ç•¶é€æ˜å¿½ç•¥
                         if (EffectApplier.TryResolveOwner(h.collider, out var tmpTarget, out var tmpLayer))
                         {
                             if (tmpLayer != targetLayer)
-                                continue; // ¿ù»~³¡¦ì ¡÷ µø¬°¤£¦s¦b
+                                continue; // éŒ¯èª¤éƒ¨ä½ â†’ è¦–ç‚ºä¸å­˜åœ¨
                         }
                         else
                         {
-                            // §ä¤£¨ì¾Ö¦³ªÌ®É¡A«O¦u°_¨£¥æµ¹«á­±ªº¬yµ{¥h¨M©w¡]µø¬°¥i©R¤¤¡^
+                            // æ‰¾ä¸åˆ°æ“æœ‰è€…æ™‚ï¼Œä¿å®ˆèµ·è¦‹äº¤çµ¦å¾Œé¢çš„æµç¨‹å»æ±ºå®šï¼ˆè¦–ç‚ºå¯å‘½ä¸­ï¼‰
                         }
                     }
 
@@ -118,7 +118,7 @@ namespace RPG
 
                 if (best == -1)
                 {
-                    // µL©R¤¤ ¡÷ «e¶i§¹¾ã remaining
+                    // ç„¡å‘½ä¸­ â†’ å‰é€²å®Œæ•´ remaining
                     transform.position += (Vector3)(_dir * remaining);
                     _traveled += remaining;
                     remaining = 0f;
@@ -133,14 +133,14 @@ namespace RPG
 
                 int maskBit = 1 << hit.collider.gameObject.layer;
 
-                // »ÙÃªª« ¡÷ ª½±µ°±
+                // éšœç¤™ç‰© â†’ ç›´æ¥åœ
                 if ((obstacleMask.value & maskBit) != 0)
                 {
                     StopProjectile();
                     return;
                 }
 
-                // ¼Ä¤H ¡÷ ÀË¬d³¡¦ì¡]³o¸Ì²z½×¤W¥u·|³Ñ¤U¡u¥¿½T³¡¦ì¡v¡^
+                // æ•µäºº â†’ æª¢æŸ¥éƒ¨ä½ï¼ˆé€™è£¡ç†è«–ä¸Šåªæœƒå‰©ä¸‹ã€Œæ­£ç¢ºéƒ¨ä½ã€ï¼‰
                 if ((enemyMask.value & maskBit) != 0)
                 {
                     if (EffectApplier.TryResolveOwner(hit.collider, out var target, out var hitLayer)
@@ -152,14 +152,14 @@ namespace RPG
                     }
                     else
                     {
-                        // ²z½×¤W¤£·|µo¥Í¡]¿ù»~³¡¦ì¤w¦b Cast ¹LÂo±¼¡^¡A
-                        // «O¦u°_¨£±N¨äµø¬°»ÙÃªª«¨Ã²×¤î­¸¦æ¡A¥HÁ×§KµL­­¬ï¼Ò¡C
+                        // ç†è«–ä¸Šä¸æœƒç™¼ç”Ÿï¼ˆéŒ¯èª¤éƒ¨ä½å·²åœ¨ Cast éæ¿¾æ‰ï¼‰ï¼Œ
+                        // ä¿å®ˆèµ·è¦‹å°‡å…¶è¦–ç‚ºéšœç¤™ç‰©ä¸¦çµ‚æ­¢é£›è¡Œï¼Œä»¥é¿å…ç„¡é™ç©¿æ¨¡ã€‚
                         StopProjectile();
                         return;
                     }
                 }
 
-                // ¨ä¥L ¡÷ ·L²¾Ä~Äò¡]²z½×¤W¤£·|¶i¨Ó¡A«OÀI¯dµÛ¡^
+                // å…¶ä»– â†’ å¾®ç§»ç¹¼çºŒï¼ˆç†è«–ä¸Šä¸æœƒé€²ä¾†ï¼Œä¿éšªç•™è‘—ï¼‰
                 float advance = Mathf.Min(remaining, skin);
                 transform.position += (Vector3)(_dir * advance);
                 _traveled += advance;
@@ -180,7 +180,7 @@ namespace RPG
         {
             if (_dir.sqrMagnitude < 1e-6f) return;
 
-            float deg = Mathf.Atan2(_dir.y, _dir.x) * Mathf.Rad2Deg; // ¥H +X ¬°«e
+            float deg = Mathf.Atan2(_dir.y, _dir.x) * Mathf.Rad2Deg; // ä»¥ +X ç‚ºå‰
             if (modelForward == FacingAxis.Up) deg -= 90f;
             deg += rotationOffsetDeg;
             transform.rotation = Quaternion.AngleAxis(deg, Vector3.forward);
@@ -190,10 +190,26 @@ namespace RPG
         {
             if (_stopped) return;
             _stopped = true;
-            Destroy(gameObject); // ¤§«á¥i§ïª«¥ó¦À
+
+            // å°‡åŸæœ‰çš„ Destroy(gameObject);
+            // æ”¹ç‚ºå‘¼å«ç‰©ä»¶æ± çš„å›æ”¶æ–¹æ³•
+
+            // â­ æ–°çš„ç‰©ä»¶æ± å›æ”¶é‚è¼¯ â­
+            if (ObjectPool.Instance != null)
+            {
+                ObjectPool.Instance.Despawn(gameObject);
+            }
+            else
+            {
+                // ä½œç‚ºå‚™ç”¨ï¼ˆå¦‚æœæ²’æœ‰ç‰©ä»¶æ± å¯¦ä¾‹ï¼Œå°±ä½¿ç”¨å‚³çµ±éŠ·æ¯€ï¼‰
+                Destroy(gameObject);
+            }
+
+            // æ³¨æ„ï¼šé€™è£¡ä¸éœ€è¦é¡å¤–è¨­ç½® _stopped=falseï¼Œå› ç‚ºç•¶ç‰©ä»¶è¢«å›æ”¶ä¸¦å†æ¬¡ Spawn æ™‚ï¼Œ
+            // Init() æ–¹æ³•æœƒè¢«èª¿ç”¨ä¸¦é‡ç½®æ‰€æœ‰å…§éƒ¨ç‹€æ…‹ã€‚
         }
 
-        // === Åv«Â¼e«×¡G¥Ñ§ë®gª«¦^³ø¦Û¨­ Collider ¼e«×¡]ªu­¸¦æ¤è¦Vªº««ª½«p«×¡^ ===
+        // === æ¬Šå¨å¯¬åº¦ï¼šç”±æŠ•å°„ç‰©å›å ±è‡ªèº« Collider å¯¬åº¦ï¼ˆæ²¿é£›è¡Œæ–¹å‘çš„å‚ç›´åšåº¦ï¼‰ ===
         public bool TryGetColliderDiameter(Vector2 dir, out float diameter)
         {
             diameter = 0f;
@@ -202,7 +218,7 @@ namespace RPG
             if (!_col) return false;
 
             dir = (dir.sqrMagnitude > 0.0001f) ? dir.normalized : Vector2.right;
-            Vector2 n = new Vector2(Mathf.Abs(-dir.y), Mathf.Abs(dir.x)); // ªk¦V
+            Vector2 n = new Vector2(Mathf.Abs(-dir.y), Mathf.Abs(dir.x)); // æ³•å‘
             Transform t = _col.transform;
             Vector3 s = t.lossyScale;
 

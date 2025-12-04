@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
+using TMPro; // ★ 引用 TMPro 以便修改按鈕文字
 
 public class MainMenuController : MonoBehaviour
 {
@@ -14,9 +15,15 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private string firstSpawnId = "Start";
     [SerializeField] private GameObject playerPrefab;
 
-    [Header("五個按鈕")]
-    [SerializeField] private Button startbutton;
-    [SerializeField] private Button continueButton;
+    [Header("整合後的按鈕")]
+    [SerializeField] private Button playButton;      // ★ 請將原本的開始按鈕拖到這裡
+    [SerializeField] private TMP_Text playButtonText; // ★ (可選) 拖入按鈕上的文字元件
+    [SerializeField] private string textNewGame = "開始遊戲";
+    [SerializeField] private string textContinue = "繼續遊戲";
+
+    [Header("其他按鈕")]
+    // [SerializeField] private Button startbutton;    // (已移除)
+    // [SerializeField] private Button continueButton; // (已移除)
     [SerializeField] private Button optionsButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private Button deleteSaveButton;
@@ -36,8 +43,12 @@ public class MainMenuController : MonoBehaviour
 
         if (!mainMenuCanvasGroup) mainMenuCanvasGroup = GetComponentInParent<CanvasGroup>();
 
-        Bind(startbutton, OnClickStart);
-        Bind(continueButton, OnClickContinue);
+        // ★ 綁定新的整合按鈕事件
+        Bind(playButton, OnClickPlay);
+
+        // Bind(startbutton, OnClickStart);       // (已移除)
+        // Bind(continueButton, OnClickContinue); // (已移除)
+
         Bind(optionsButton, OnClickOtherOptions);
         Bind(quitButton, OnClickQuit);
         Bind(deleteSaveButton, OnClickDeleteSave);
@@ -56,6 +67,9 @@ public class MainMenuController : MonoBehaviour
 
         // 聚焦按鈕一樣做，但放在 coroutine 後面也無妨
         RefocusMainButton();
+
+        // ★ 每次啟用時檢查按鈕狀態
+        UpdatePlayButtonState();
     }
 
     IEnumerator CoOpenMainMenuNextFrame()
@@ -73,9 +87,27 @@ public class MainMenuController : MonoBehaviour
 
     void Start()
     {
-        if (continueButton) continueButton.interactable = SaveSystem.Exists();
+        // ★ 啟動時更新按鈕文字
+        UpdatePlayButtonState();
+
         RefocusMainButton();
-        Debug.Log("[MainMenu] Start. Continue interactable=" + (continueButton ? continueButton.interactable : false));
+    }
+
+    // ★ 新增：根據存檔是否存在，更新按鈕文字
+    void UpdatePlayButtonState()
+    {
+        if (playButton == null) return;
+
+        bool hasSave = SaveSystem.Exists();
+
+        // 如果有綁定文字元件，就切換顯示內容
+        if (playButtonText != null)
+        {
+            playButtonText.text = hasSave ? textContinue : textNewGame;
+        }
+
+        // 確保按鈕是可互動的
+        playButton.interactable = true;
     }
 
     // 收到外層關閉（例如 Options 關閉回主選單）
@@ -121,44 +153,50 @@ public class MainMenuController : MonoBehaviour
         refocusCo = null;
     }
 
-    // 按鈕事件
-    public void OnClickStart()
+    // ★ 整合後的按鈕邏輯
+    public void OnClickPlay()
     {
-        Debug.Log("[MainMenu] Start clicked.");
-        isLeavingMainMenu = true;                          // 進入離開流程
-        UIEvents.RaiseOpenCanvas("system");                // 外層直接切到 system
-
-        EnsurePlayer();
-        TeleportRequest.hasPending = true;
-        TeleportRequest.sceneName = firstSceneName;
-        TeleportRequest.spawnId = firstSpawnId;
-
-        Time.timeScale = 1f;
-        SceneManager.LoadScene(firstSceneName, LoadSceneMode.Single);
-    }
-
-    public void OnClickContinue()
-    {
-        Debug.Log("[MainMenu] Continue clicked.");
-        isLeavingMainMenu = true;                          // 進入離開流程
-        UIEvents.RaiseOpenCanvas("system");                // 外層直接切到 system
-
-        EnsurePlayer();
-
-        if (SaveSystem.Exists() && SaveManager.Instance != null)
+        // 判斷是否有存檔
+        if (SaveSystem.Exists())
         {
-            Time.timeScale = 1f;
-            SaveManager.Instance.LoadNow();
+            // === 繼續遊戲邏輯 ===
+            Debug.Log("[MainMenu] Play (Continue) clicked.");
+            isLeavingMainMenu = true;
+            UIEvents.RaiseOpenCanvas("system");
+
+            EnsurePlayer();
+
+            if (SaveManager.Instance != null)
+            {
+                Time.timeScale = 1f;
+                SaveManager.Instance.LoadNow();
+            }
         }
         else
         {
-            OnClickStart();
+            // === 新遊戲邏輯 ===
+            Debug.Log("[MainMenu] Play (NewGame) clicked.");
+            isLeavingMainMenu = true;
+            UIEvents.RaiseOpenCanvas("system");
+
+            // 呼叫 SaveManager 準備初始檔案 (使用我們剛才討論的新方法)
+            if (SaveManager.Instance != null)
+            {
+                SaveManager.Instance.PrepareNewGame();
+            }
+
+            EnsurePlayer();
+            TeleportRequest.hasPending = true;
+            TeleportRequest.sceneName = firstSceneName;
+            TeleportRequest.spawnId = firstSpawnId;
+
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(firstSceneName, LoadSceneMode.Single);
         }
     }
 
     public void OnClickOtherOptions()
     {
-
         Debug.Log("[MainMenu] Options clicked. Open system then open options page.");
         // 留在主選單，不設 isLeavingMainMenu，這樣 Options 關閉後仍會回主選單
         UIEvents.RaiseOpenCanvas("system");
@@ -183,8 +221,11 @@ public class MainMenuController : MonoBehaviour
     {
         Debug.Log("[MainMenu] DeleteSave clicked.");
         if (!SaveSystem.Exists()) return;
+
         SaveSystem.Delete();
-        if (continueButton) continueButton.interactable = false;
+
+        // ★ 刪除後，立即更新 Play 按鈕的文字回「開始遊戲」
+        UpdatePlayButtonState();
     }
 
     // 工具

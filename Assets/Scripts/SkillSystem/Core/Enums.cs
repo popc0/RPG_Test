@@ -12,7 +12,8 @@ namespace RPG
     public enum HitType
     {
         Single,   // 直線/單體
-        Area      // AoE（不理牆）
+        Area,      // AoE（不理牆）
+        Cone      // 扇形/錐形 (新增)
     }
 
     // 角色互動層：技能可指定命中 Body 或 Feet

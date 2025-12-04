@@ -16,6 +16,20 @@ public class SaveData
     //  新增：用於儲存 PageMain 的上次開啟頁面索引
     public int pageMainLastPageIndex = 0;
 
+    // [新增] 等級系統資料
+    public int playerLevel = 1;         // 等級
+    public float playerCurrentExp = 0f;  // 當前經驗值
+    public int playerUnspentPoints = 0;  // 未分配屬性點
+
+    // -----------------------------------------------------------
+    // [新增] 儲存已分配的屬性點 (只存加點值，不含基礎值)
+    // -----------------------------------------------------------
+    public float statAttack;
+    public float statDefense;
+    public float statAgility;
+    public float statTechnique;
+    public float statHPStat;
+    public float statMPStat;
     public SaveData() { }
 
     public SaveData(string scene, float x, float y)

@@ -102,20 +102,52 @@ namespace RPG
                 }
             }
 
-            // ===== 中段 Mesh（無端帽）=====
+            // ===== 中段 Mesh（無端帽）或 AoE Mesh =====
             bool drewMesh = false;
-            if (mf && mr && data.HitType == HitType.Single && data.UseProjectile && data.ProjectilePrefab)
+            if (mf && mr)
             {
                 var mft = mf.transform;
-                Vector3 aLocal = mft.InverseTransformPoint(origin);
-                Vector3 bLocal = mft.InverseTransformPoint(end);
 
-                BuildFlatStrip(mesh, aLocal, bLocal, previewRadius);
-                mf.sharedMesh = mesh;
-                drewMesh = true;
+                if (data.HitType == HitType.Single && data.UseProjectile && data.ProjectilePrefab)
+                {
+                    // 情況 A: 單體投射物 (長條膠囊 Mesh)
+                    Vector3 aLocal = mft.InverseTransformPoint(origin);
+                    Vector3 bLocal = mft.InverseTransformPoint(end);
+
+                    BuildFlatStrip(mesh, aLocal, bLocal, previewRadius);
+                    drewMesh = true;
+                }
+                else if (data.HitType == HitType.Area)
+                {
+                    // 情況 B: 範圍技能 (AoE 圓形 Mesh)
+                    // 注意：這裡我們將圓心轉換為 MeshFilter 的本地座標
+                    Vector3 centerLocal = mft.InverseTransformPoint(end);
+                    float r = Mathf.Max(0.05f, comp.AreaRadius);
+
+                    BuildCircleMesh(mesh, centerLocal, r);
+                    drewMesh = true;
+                }
+                else if (data.HitType == HitType.Cone) // ★ 新增：扇形 Mesh
+                {
+                    // 情況 C: 扇形技能 (Cone Mesh)
+                    // 扇形中心永遠是施法者 (origin)
+                    Vector3 centerLocal = mft.InverseTransformPoint(origin);
+                    float r = dist; // 範圍就是射程 (dist 已經考慮障礙物截斷)
+                    float angle = comp.ConeAngle;
+
+                    BuildConeMesh(mesh, centerLocal, dir, r, angle);
+                    drewMesh = true;
+                }
             }
-            if (!drewMesh && mf) mf.sharedMesh = null;
 
+            if (drewMesh)
+            {
+                mf.sharedMesh = mesh; // 只有在生成 Mesh 時才設置
+            }
+            else if (mf)
+            {
+                mf.sharedMesh = null; // 如果不畫 Mesh，則清除
+            }
             // ===== 主線條預覽 =====
             /*
             if (lr_line) // <--- 使用傳入的 lr_line
@@ -136,9 +168,8 @@ namespace RPG
             {
                 if (data.HitType == HitType.Area)
                 {
-                    // 範圍技能 → 畫 AoE 圓圈
-                    float r = Mathf.Max(0.05f, comp.AreaRadius);
-                    DrawCircle(lr_circle, end, r); // <--- 使用傳入的 lr_circle
+                    // 範圍技能 → Mesh 已經畫了，所以 LineRenderer 應該被關閉
+                    lr_circle.enabled = false;
                 }
                 else if (data.HitType == HitType.Single && data.UseProjectile)
                 {
@@ -234,6 +265,103 @@ namespace RPG
 
             var vertices = new List<Vector3> { p0, p1, p2, p3 };
             var triangles = new List<int> { 0, 1, 2, 0, 2, 3 };
+
+            m.SetVertices(vertices);
+            m.SetTriangles(triangles, 0);
+            m.RecalculateNormals();
+            m.RecalculateBounds();
+        }
+        // 在 BuildFlatStrip 之後新增此方法
+        // ===================================
+
+        /// <summary>
+        /// 建立中心點為圓心，由多邊形組成的圓形 Mesh
+        /// </summary>
+        void BuildCircleMesh(Mesh m, Vector3 center, float radius)
+        {
+            if (m == null) return; m.Clear();
+            if (radius <= 1e-6f) return;
+
+            int segs = Mathf.Max(12, circleSegments);
+
+            // 頂點：中心點 + segs 個邊緣點
+            var vertices = new List<Vector3>(segs + 1);
+            // 三角形：segs * 3 個索引
+            var triangles = new List<int>(segs * 3);
+
+            // 0 號頂點：圓心
+            vertices.Add(center);
+
+            float step = 2f * Mathf.PI / segs;
+
+            // 邊緣頂點
+            for (int i = 0; i < segs; i++)
+            {
+                float a = i * step;
+                Vector3 p = new Vector3(center.x + Mathf.Cos(a) * radius, center.y + Mathf.Sin(a) * radius, center.z);
+                vertices.Add(p);
+            }
+
+            // 三角形（連接中心點到每條邊）
+            // i 範圍從 1 到 segs
+            for (int i = 1; i <= segs; i++)
+            {
+                // 頂點索引：
+                // 0 (中心)
+                // i (當前邊緣點)
+                // (i % segs) + 1 (下一個邊緣點，最後一個點連回第一個邊緣點)
+
+                triangles.Add(0); // 中心點
+                triangles.Add(i); // 當前邊緣點
+                triangles.Add((i % segs) + 1); // 下一個邊緣點
+            }
+
+            m.SetVertices(vertices);
+            m.SetTriangles(triangles, 0);
+            m.RecalculateNormals();
+            m.RecalculateBounds();
+        }
+        void BuildConeMesh(Mesh m, Vector3 center, Vector2 direction, float range, float angle)
+        {
+            if (m == null) return; m.Clear();
+            if (range <= 1e-6f || angle <= 1e-6f) return;
+
+            int segs = Mathf.Max(3, Mathf.RoundToInt(angle / 5f)); // 每 5 度一個分割點
+
+            // 頂點：中心點 (0) + segs + 1 個邊緣點
+            var vertices = new List<Vector3>(segs + 2);
+            var triangles = new List<int>(segs * 3);
+
+            // 0 號頂點：扇形中心點
+            vertices.Add(center);
+
+            // 1. 計算起始角度 (以 Direction 為中心線)
+            float baseAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            float startAngle = baseAngle - angle * 0.5f;
+
+            // 2. 邊緣頂點
+            for (int i = 0; i <= segs; i++)
+            {
+                float currentAngle = startAngle + (angle / segs) * i;
+                float rad = currentAngle * Mathf.Deg2Rad;
+
+                Vector3 p = new Vector3(
+                    center.x + Mathf.Cos(rad) * range,
+                    center.y + Mathf.Sin(rad) * range,
+                    center.z
+                );
+                vertices.Add(p);
+            }
+
+            // 3. 三角形（連接中心點到每條邊）
+            // i 範圍從 1 到 segs
+            for (int i = 1; i <= segs; i++)
+            {
+                // 索引：0 (中心點) -> i (當前邊緣點) -> i+1 (下一個邊緣點)
+                triangles.Add(0);
+                triangles.Add(i);
+                triangles.Add(i + 1);
+            }
 
             m.SetVertices(vertices);
             m.SetTriangles(triangles, 0);

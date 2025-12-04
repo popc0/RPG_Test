@@ -21,8 +21,11 @@ namespace RPG
 
         [Header("基礎數值（公式計算使用）")]
         public float BaseDamage = 100f;
-        public float BaseRange = 12f;
+        public float BaseRange = 8f;
         public float BaseAreaRadius = 2f;
+
+        [Tooltip("扇形角度 (度)")]
+        public float BaseConeAngle = 60f; // ★ 新增參數：扇形角度
 
         [Header("投射物（單體可選）")]
         public bool UseProjectile = true;

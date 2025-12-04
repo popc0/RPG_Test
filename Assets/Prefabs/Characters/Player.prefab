@@ -160,6 +160,50 @@ MonoBehaviour:
   main: {fileID: 6863493812143999194}
   layer: 0
   displayName: 
+--- !u!1 &1016494810401599224
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3515063590500446800}
+  - component: {fileID: 8755586910614441110}
+  m_Layer: 0
+  m_Name: ObjectPoolManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3515063590500446800
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016494810401599224}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.20250297, y: -1.4643701, z: 0}
+  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5812291194592223921}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8755586910614441110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016494810401599224}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe49a782c8b45be429ae14799d471d51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1233599281039529457
 GameObject:
   m_ObjectHideFlags: 0
@@ -179,6 +223,7 @@ GameObject:
   - component: {fileID: 7017005957277385581}
   - component: {fileID: 827946202408085236}
   - component: {fileID: 8099890903090533167}
+  - component: {fileID: 6221310901640758096}
   m_Layer: 10
   m_Name: Player
   m_TagString: Player
@@ -205,6 +250,7 @@ Transform:
   - {fileID: 4760272136886032937}
   - {fileID: 6788663771712352419}
   - {fileID: 5211986859676481243}
+  - {fileID: 3515063590500446800}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &674366375114439697
@@ -466,12 +512,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3514bf8d2c1a01146901f6345a623730, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Attack: 100
-  Defense: 100
-  Agility: 100
-  Technique: 100
-  HPStat: 100
-  MPStat: 100
+  Attack: 0
+  Defense: 0
+  Agility: 0
+  Technique: 0
+  HPStat: 0
+  MPStat: 0
 --- !u!114 &7017005957277385581
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -526,6 +572,23 @@ MonoBehaviour:
   yToOrderMultiplier: 100
   offset: 0
   invert: 1
+--- !u!114 &6221310901640758096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1233599281039529457}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e48ee2fa2e97564b83cb88bb5e9f065, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainPoint: {fileID: 6863493812143999194}
+  level: 1
+  currentExp: 0
+  unspentStatPoints: 0
+  pointsPerLevel: 5
 --- !u!1 &1396069349325001329
 GameObject:
   m_ObjectHideFlags: 0
@@ -1428,6 +1491,10 @@ MonoBehaviour:
     skills:
     - {fileID: 11400000, guid: 462fd9ac8deaad2459bab26d54891512, type: 2}
     - {fileID: 11400000, guid: efd4b77025af096458cb726c2eae8960, type: 2}
+  - groupName: 003
+    skills:
+    - {fileID: 11400000, guid: fe2822ca7dc29004889bedc50e5a97d1, type: 2}
+    - {fileID: 11400000, guid: 4db2840d38df5d744bee2e7f63b5a1bc, type: 2}
   currentSkillGroupIndex: 0
   skillSlotIndex1: 0
   skillSlotIndex2: 1

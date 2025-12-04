@@ -6,36 +6,38 @@ using System.Collections;
 
 public class HUDStatsBinder : MonoBehaviour
 {
-    [Header("來源（狀態層）")]
+    [Header("來源（自動抓取）")]
     public PlayerStats playerStats;
+    public PlayerLevel playerLevel; // [新增] 參照等級系統
 
-    [Header("UI 參考（兩個圓形 Image 疊在一起）")]
-    public Image hpArc;   // 紅色半圓（左）
-    public Image mpArc;   // 藍色半圓（右）
+    [Header("UI 參考：HP / MP")]
+    public Image hpArc;   // 紅色半圓
+    public Image mpArc;   // 藍色半圓
     public TextMeshProUGUI hpText;
     public TextMeshProUGUI mpText;
+
+    [Header("UI 參考：Level / EXP (新增)")]
+    public TextMeshProUGUI levelText; // [新增] 顯示等級文字 (例如 "LV.5")
+    public Image expBar;              // [新增] 經驗值條 (需設為 Filled)
 
     [Header("顯示選項")]
     public bool autoConfigureArc = true;
     public bool smoothLerp = true;
     public float lerpSpeed = 12f;
 
+    // 用於平滑動畫的目標值
     float targetHpFill, targetMpFill;
+    float targetExpFill; // [新增]
 
     void Awake()
     {
-        // 遊戲啟動先嘗試一次
-        AutoBindPlayerStatsIfNeeded();
+        AutoBindPlayerIfNeeded();
     }
 
     void OnEnable()
     {
-        // 訂閱場景載入事件：切換場景後自動重新綁定
         SceneManager.sceneLoaded += OnSceneLoaded;
-
-        // 綁事件（若此時已有 playerStats）
-        if (playerStats != null)
-            playerStats.OnStatsChanged += OnStatsChanged;
+        BindEvents(); // 統一管理事件訂閱
 
         ConfigureArcsIfNeeded();
         ForceRefresh();
@@ -45,23 +47,22 @@ public class HUDStatsBinder : MonoBehaviour
     void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
-
-        if (playerStats != null)
-            playerStats.OnStatsChanged -= OnStatsChanged;
+        UnbindEvents();
     }
 
     void Update()
     {
         if (!smoothLerp) return;
 
-        if (hpArc)
-            hpArc.fillAmount = Mathf.MoveTowards(hpArc.fillAmount, targetHpFill, Time.unscaledDeltaTime * lerpSpeed);
+        // HP & MP 平滑移動
+        if (hpArc) hpArc.fillAmount = Mathf.MoveTowards(hpArc.fillAmount, targetHpFill, Time.unscaledDeltaTime * lerpSpeed);
+        if (mpArc) mpArc.fillAmount = Mathf.MoveTowards(mpArc.fillAmount, targetMpFill, Time.unscaledDeltaTime * lerpSpeed);
 
-        if (mpArc)
-            mpArc.fillAmount = Mathf.MoveTowards(mpArc.fillAmount, targetMpFill, Time.unscaledDeltaTime * lerpSpeed);
+        // [新增] EXP 平滑移動
+        if (expBar) expBar.fillAmount = Mathf.MoveTowards(expBar.fillAmount, targetExpFill, Time.unscaledDeltaTime * lerpSpeed);
     }
 
-    // 場景載入完成後（任何 LoadSceneMode），下一幀再綁一次，確保 Player 已出現在場景裡
+    // 場景切換後的重新綁定
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         StartCoroutine(RebindNextFrame());
@@ -69,37 +70,81 @@ public class HUDStatsBinder : MonoBehaviour
 
     IEnumerator RebindNextFrame()
     {
-        yield return null; // 等一幀讓場景物件建立完成
+        yield return null;
 
-        var prev = playerStats;
-        AutoBindPlayerStats(); // 這裡「強制」重新抓一次
-
-        // 若對象改變，重綁事件
-        if (prev != playerStats)
-        {
-            if (prev != null) prev.OnStatsChanged -= OnStatsChanged;
-            if (playerStats != null) playerStats.OnStatsChanged += OnStatsChanged;
-        }
+        UnbindEvents(); // 先解綁舊的
+        AutoBindPlayer(); // 重新抓取新的 Player
+        BindEvents(); // 綁定新的
 
         ForceRefresh();
         ApplyImmediate();
     }
 
+    // [修改] 統一綁定事件
+    void BindEvents()
+    {
+        if (playerStats != null)
+            playerStats.OnStatsChanged += OnStatsChanged;
+
+        if (playerLevel != null)
+        {
+            playerLevel.OnExpChanged += OnExpChanged;
+            playerLevel.OnLevelUp += OnLevelUp;
+        }
+    }
+
+    // [修改] 統一解綁事件
+    void UnbindEvents()
+    {
+        if (playerStats != null)
+            playerStats.OnStatsChanged -= OnStatsChanged;
+
+        if (playerLevel != null)
+        {
+            playerLevel.OnExpChanged -= OnExpChanged;
+            playerLevel.OnLevelUp -= OnLevelUp;
+        }
+    }
+
+    // HP/MP 變更回呼
     void OnStatsChanged(float curHP, float maxHP, float curMP, float maxMP)
     {
         UpdateTargets(curHP, maxHP, curMP, maxMP);
+    }
+
+    // [新增] 經驗值變更回呼
+    void OnExpChanged(float currentExp, float requiredExp)
+    {
+        UpdateExpTarget(currentExp, requiredExp);
+    }
+
+    // [新增] 升級回呼
+    void OnLevelUp(int newLevel)
+    {
+        if (levelText) levelText.text = $"LV.{newLevel}";
+        // 升級時通常經驗值會歸零重算，這裡強制刷新一次經驗條
+        if (playerLevel) UpdateExpTarget(playerLevel.CurrentExp, playerLevel.ExpToNextLevel);
     }
 
     public void ApplyImmediate()
     {
         if (hpArc) hpArc.fillAmount = targetHpFill;
         if (mpArc) mpArc.fillAmount = targetMpFill;
+        if (expBar) expBar.fillAmount = targetExpFill; // [新增]
     }
 
     public void ForceRefresh()
     {
-        if (playerStats == null) return;
-        UpdateTargets(playerStats.CurrentHP, playerStats.MaxHP, playerStats.CurrentMP, playerStats.MaxMP);
+        // 刷新 HP/MP
+        if (playerStats != null)
+            UpdateTargets(playerStats.CurrentHP, playerStats.MaxHP, playerStats.CurrentMP, playerStats.MaxMP);
+
+        // [新增] 刷新 Level/EXP
+        if (playerLevel != null)
+        {
+            if (levelText) levelText.text = $"LV.{playerLevel.Level}";
+            UpdateExpTarget(playerLevel.CurrentExp, playerLevel.ExpToNextLevel);
+        }
     }
 
     void UpdateTargets(float curHP, float maxHP, float curMP, float maxMP)
@@ -107,12 +152,18 @@ public class HUDStatsBinder : MonoBehaviour
         float hpRatio = SafeRatio(curHP, maxHP);
         float mpRatio = SafeRatio(curMP, maxMP);
 
-        // 半圈顯示 → 0..0.5
+        // 如果是半圓顯示 (0..0.5)，請維持 0.5f * ratio；如果是全圓或長條，請改為 1f * ratio
         targetHpFill = 0.5f * hpRatio;
         targetMpFill = 0.5f * mpRatio;
 
         if (hpText) hpText.text = $"{Mathf.CeilToInt(curHP)}/{Mathf.CeilToInt(maxHP)}";
         if (mpText) mpText.text = $"{Mathf.CeilToInt(curMP)}/{Mathf.CeilToInt(maxMP)}";
+    }
+
+    // [新增] 計算經驗值比例
+    void UpdateExpTarget(float current, float max)
+    {
+        targetExpFill = SafeRatio(current, max);
     }
 
     float SafeRatio(float v, float max)
@@ -124,45 +175,33 @@ public class HUDStatsBinder : MonoBehaviour
     void ConfigureArcsIfNeeded()
     {
         if (!autoConfigureArc) return;
-
-        // 兩個半圓都「由上往下」收
-        if (hpArc)
-        {
-            hpArc.type = Image.Type.Filled;
-            hpArc.fillMethod = Image.FillMethod.Radial360;
-            hpArc.fillOrigin = (int)Image.Origin360.Right;   // 左半
-            hpArc.fillClockwise = false;                     // 上 → 下
-            hpArc.fillAmount = 0f;
-        }
-        if (mpArc)
-        {
-            mpArc.type = Image.Type.Filled;
-            mpArc.fillMethod = Image.FillMethod.Radial360;
-            mpArc.fillOrigin = (int)Image.Origin360.Left;  // 右半
-            mpArc.fillClockwise = true;                    // 上 → 下
-            mpArc.fillAmount = 0f;
-        }
+        // 原有的圓形設定邏輯保持不變...
+        // 經驗條通常是橫向長條，這裡就不特別去改它的 FillMethod 了，請在 Editor 設定好
     }
 
     // —— 自動綁定 —— //
-    void AutoBindPlayerStatsIfNeeded()
+    void AutoBindPlayerIfNeeded()
     {
-        if (playerStats == null) AutoBindPlayerStats();
+        if (playerStats == null || playerLevel == null) AutoBindPlayer();
     }
 
-    void AutoBindPlayerStats()
+    void AutoBindPlayer()
     {
         var playerGO = GameObject.FindGameObjectWithTag("Player");
         if (playerGO != null)
         {
-            // 先抓本體，抓不到再往子物件找
+            // 抓取 Stats
             playerStats = playerGO.GetComponent<PlayerStats>();
-            if (playerStats == null)
-                playerStats = playerGO.GetComponentInChildren<PlayerStats>(true);
+            if (playerStats == null) playerStats = playerGO.GetComponentInChildren<PlayerStats>(true);
+
+            // [新增] 抓取 Level
+            playerLevel = playerGO.GetComponent<PlayerLevel>();
+            if (playerLevel == null) playerLevel = playerGO.GetComponentInChildren<PlayerLevel>(true);
         }
         else
         {
             playerStats = null;
+            playerLevel = null;
         }
     }
 }

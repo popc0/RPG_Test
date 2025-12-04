@@ -9,5 +9,6 @@ namespace RPG
         public float MpCost;
         public float CastTime;
         public float AreaRadius;
+        public float ConeAngle; // ¡¹ ·s¼WÄæ¦ì
     }
 }

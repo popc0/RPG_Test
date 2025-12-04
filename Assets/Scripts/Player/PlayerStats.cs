@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using RPG; // <-- [新增] 引用 RPG 命名空間
 
 /// <summary>
 /// 玩家數值（事件驅動 + UnityEvent 版本）
@@ -33,12 +34,45 @@ public class PlayerStats : MonoBehaviour
     public float CurrentHP;
     public float CurrentMP;
 
+    private MainPointComponent _mainPoint; // [新增] 內部變數儲存 MainPointComponent 的引用
+
     void Awake()
     {
+        // [修改] 將尋找 MainPointComponent 的邏輯提前並存起來
+        _mainPoint = GetComponentInParent<MainPointComponent>();
+
+        // [新增] 如果有 MainPointComponent，立刻訂閱它的屬性變更事件
+        if (_mainPoint != null)
+        {
+            // [修改] 改用 TotalHPStat / TotalMPStat 來獲取 (基礎10 + 加點) 的總值
+            SetMax(_mainPoint.TotalHPStat, _mainPoint.TotalMPStat, refillCurrent: true);
+
+            // 訂閱變更事件
+            _mainPoint.OnStatChanged += OnMainPointStatChanged;
+        }
         // 若尚未初始化則滿血滿魔
         if (CurrentHP <= 0f) CurrentHP = MaxHP;
         if (CurrentMP <= 0f) CurrentMP = MaxMP;
         NotifyChange();
+    }
+    void OnDestroy()
+    {
+        // [新增] 記得在銷毀時取消訂閱
+        if (_mainPoint != null)
+        {
+            _mainPoint.OnStatChanged -= OnMainPointStatChanged;
+        }
+    }
+    // [新增] 處理 MainPointComponent 屬性變更的方法
+    void OnMainPointStatChanged()
+    {
+        // 當主屬性（例如 HPStat/MPStat）改變時，重新應用最大值
+        if (_mainPoint != null)
+        {
+            // [修改] 同樣改用 TotalHPStat / TotalMPStat
+            SetMax(_mainPoint.TotalHPStat, _mainPoint.TotalMPStat, refillCurrent: false);
+            // 設為 false，避免屬性點分配後，玩家當前的血量被強制補滿
+        }
     }
 
     void OnValidate()

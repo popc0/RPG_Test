@@ -5,7 +5,8 @@ using UnityEngine.EventSystems;
 [RequireComponent(typeof(Button))]
 public class UniversalMenuButton : MonoBehaviour, ISelectHandler, IDeselectHandler
 {
-    public enum ActionType { Start, Continue, Options, Quit, DeleteSave }
+    // [修改] 新增 Play 類型
+    public enum ActionType { Start, Continue, Options, Quit, DeleteSave, Play }
 
     [Header("行為類型")]
     public ActionType action;
@@ -42,8 +43,8 @@ public class UniversalMenuButton : MonoBehaviour, ISelectHandler, IDeselectHandl
         {
             switch (action)
             {
-                case ActionType.Start: btn.onClick.AddListener(controller.OnClickStart); break;
-                case ActionType.Continue: btn.onClick.AddListener(controller.OnClickContinue); break;
+                // [新增] Play 類型對應到 OnClickPlay
+                case ActionType.Play:btn.onClick.AddListener(controller.OnClickPlay);break;
                 case ActionType.Options: btn.onClick.AddListener(controller.OnClickOtherOptions); break;
                 case ActionType.Quit: btn.onClick.AddListener(controller.OnClickQuit); break;
                 case ActionType.DeleteSave: btn.onClick.AddListener(controller.OnClickDeleteSave); break;

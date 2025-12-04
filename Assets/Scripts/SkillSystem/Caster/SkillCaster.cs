@@ -306,6 +306,17 @@ namespace RPG
             var data = skills[skillIndex]; // <--- 使用 skillIndex
             if (!data) return;
 
+            // ---------------------------------------------------------
+            // [新增] 檢查屬性門檻 (只看加點值，不含基礎值)
+            // ---------------------------------------------------------
+            // 使用 main.AddedPoints (我們上一輪加的屬性)
+            if (!data.MeetsRequirement(main.AddedPoints))
+            {
+                Debug.Log($"[SkillCaster] 屬性不足，無法施放 {data.SkillName}");
+                return;
+            }
+            // ---------------------------------------------------------
+
             EnsureCooldownArrayForCurrentGroup();
             var timers = cooldownTimersPerGroup[currentSkillGroupIndex];
 
@@ -369,8 +380,11 @@ namespace RPG
             // [資料應用] 根據 SkillData 的 HitType 決定執行哪種物理判定
             if (data.HitType == HitType.Area)
                 DoArea2D(data, comp);
+            else if (data.HitType == HitType.Cone) // ★ 新增：扇形
+                DoCone2D(data, comp);
             else
                 DoSingle2D(data, comp);
+
 
             isCasting = false;
         }
@@ -384,10 +398,29 @@ namespace RPG
             // [資料應用] 判斷是否使用投射物 Prefab
             if (data.UseProjectile && data.ProjectilePrefab)
             {
-                // 生成投射物，並將 SkillData 和計算結果 (comp) 傳給投射物
                 var spawnPos = origin + (Vector3)(dir * spawnInset);
-                var proj = Instantiate(data.ProjectilePrefab, spawnPos, Quaternion.identity);
-                proj.Init(Owner, dir, data, comp, enemyMask, obstacleMask);
+
+                // ⭐ 將 Instantiate 替換為 ObjectPool.Instance.Spawn ⭐
+                GameObject obj;
+                if (ObjectPool.Instance != null)
+                {
+                    // 使用物件池生成
+                    obj = ObjectPool.Instance.Spawn(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
+                }
+                else
+                {
+                    // 備用：如果沒有物件池，則傳統生成
+                    obj = Instantiate(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
+                }
+
+                // 獲取 Projectile2D 組件
+                var proj = obj.GetComponent<Projectile2D>();
+
+                // 初始化投射物，將 SkillData 和計算結果 (comp) 傳給投射物
+                if (proj != null)
+                {
+                    proj.Init(Owner, dir, data, comp, enemyMask, obstacleMask);
+                }
             }
             else
             {
@@ -445,6 +478,44 @@ namespace RPG
             // 顯示圓圈特效
             if (areaRing)
                 StartCoroutine(FlashCircle(areaRing, center, radius, tracerDuration));
+        }
+
+        // 扇形攻擊邏輯 (Cone)
+        void DoCone2D(SkillData data, SkillComputed comp)
+        {
+            Vector3 origin3 = firePoint ? firePoint.position : Owner.position;
+            Vector2 dir = GetDir();
+            float dist = Mathf.Max(0.1f, data.BaseRange); // 扇形半徑
+            float angle = comp.ConeAngle; // 扇形角度
+
+            // 1. 執行 AoE 圓形檢測，獲取所有潛在目標
+            Collider2D[] hits = Physics2D.OverlapCircleAll(origin3, dist, enemyMask);
+
+            // 2. 遍歷目標，檢查是否落在扇形角度內
+            foreach (var c in hits)
+            {
+                if (c.transform.IsChildOf(Owner)) continue;
+
+                Vector2 targetDir = (c.bounds.center - origin3); // 目標中心點到原點的方向
+                if (targetDir.sqrMagnitude < 0.001f) continue; // 忽略太近的目標
+
+                // 計算目標方向與施法方向之間的夾角
+                float angleToTarget = Vector2.Angle(dir, targetDir);
+
+                // 如果目標在扇形角度的一半範圍內，則命中
+                if (angleToTarget <= angle * 0.5f)
+                {
+                    // 傷害處理邏輯 (使用計算後的 comp.Damage)
+                    if (EffectApplier.TryResolveOwner(c, out var ownerApplier, out var hitLayer))
+                    {
+                        if (data.TargetLayer == hitLayer) // 檢查目標圖層
+                            ownerApplier.ApplyIncomingRaw(comp.Damage);
+                    }
+                }
+            }
+
+            // 視覺效果（如果需要，可以在這裡加入臨時特效，例如粒子系統）
+            // 由於 AimPreview2D 負責預覽，執行時我們通常使用一次性特效。
         }
 
         // 獲取瞄準方向
