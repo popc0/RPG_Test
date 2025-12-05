@@ -135,7 +135,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 973fcf259211db049b580af15ea6487d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  hotkey: 13
+  hotkey: 0
   highlightScale: 1.1
   highlightColor: {r: 0.68490565, g: 0.878028, b: 1, a: 1}
 --- !u!114 &4329564775221789387

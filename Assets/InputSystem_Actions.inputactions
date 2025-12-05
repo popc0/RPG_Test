@@ -597,7 +597,7 @@
                 {
                     "name": "",
                     "id": "5078db76-5fd2-434e-871c-652195cf8ede",
-                    "path": "",
+                    "path": "<YuPadGamepadHID16>/button4",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

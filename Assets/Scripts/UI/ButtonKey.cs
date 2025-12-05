@@ -33,7 +33,8 @@ public class ButtonKey : MonoBehaviour, ISelectHandler, IDeselectHandler
     {
         // ★ 新系統：以 Keyboard.current 讀取
         var kb = Keyboard.current;
-        if (isFocused && kb != null && kb[hotkey].wasPressedThisFrame)
+        // 修改處：在 kb[hotkey] 之前加入 && hotkey != Key.None
+        if (isFocused && kb != null && hotkey != Key.None && kb[hotkey].wasPressedThisFrame)
         {
             btn.onClick.Invoke();
         }

@@ -1482,22 +1482,19 @@ MonoBehaviour:
   main: {fileID: 6863493812143999194}
   playerStats: {fileID: 7017005957277385581}
   aimSource: {fileID: 6127803504258366139}
+  fixedNormalSkill: {fileID: 0}
+  fixedUltimateSkill: {fileID: 0}
   skillGroups:
   - groupName: 001
-    skills:
-    - {fileID: 11400000, guid: efd4b77025af096458cb726c2eae8960, type: 2}
-    - {fileID: 11400000, guid: 462fd9ac8deaad2459bab26d54891512, type: 2}
+    switchableNormal: {fileID: 0}
+    switchableUltimate: {fileID: 0}
   - groupName: 002
-    skills:
-    - {fileID: 11400000, guid: 462fd9ac8deaad2459bab26d54891512, type: 2}
-    - {fileID: 11400000, guid: efd4b77025af096458cb726c2eae8960, type: 2}
+    switchableNormal: {fileID: 0}
+    switchableUltimate: {fileID: 0}
   - groupName: 003
-    skills:
-    - {fileID: 11400000, guid: fe2822ca7dc29004889bedc50e5a97d1, type: 2}
-    - {fileID: 11400000, guid: 4db2840d38df5d744bee2e7f63b5a1bc, type: 2}
+    switchableNormal: {fileID: 0}
+    switchableUltimate: {fileID: 0}
   currentSkillGroupIndex: 0
-  skillSlotIndex1: 0
-  skillSlotIndex2: 1
   firePoint: {fileID: 5812291194592223921}
   enemyMask:
     serializedVersion: 2
