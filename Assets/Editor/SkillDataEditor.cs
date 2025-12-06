@@ -1,0 +1,242 @@
+using UnityEngine;
+using UnityEditor;
+using RPG;
+
+[CustomEditor(typeof(SkillData))]
+[CanEditMultipleObjects]
+public class SkillDataEditor : Editor
+{
+    // --- 屬性變數 ---
+    SerializedProperty type, rank, familySerial, skillID;
+    SerializedProperty nextEvolution, sequence;
+    SerializedProperty skillName, icon, baseCooldown, baseMpCost, castTime;
+
+    // 門檻
+    SerializedProperty useAttackReq, reqAttackMin, useAttackCap, reqAttackMax;
+    // 門檻 - 防禦
+    SerializedProperty useDefenseReq, reqDefenseMin, useDefenseCap, reqDefenseMax;
+    // 門檻 - 敏捷
+    SerializedProperty useAgilityReq, reqAgilityMin, useAgilityCap, reqAgilityMax;
+    // 門檻 - 技巧
+    SerializedProperty useTechniqueReq, reqTechniqueMin, useTechniqueCap, reqTechniqueMax;
+    // 門檻 - HP
+    SerializedProperty useHPReq, reqHPMin, useHPCap, reqHPMax;
+    // 門檻 - MP
+    SerializedProperty useMPReq, reqMPMin, useMPCap, reqMPMax;
+
+    // 戰鬥
+    SerializedProperty targetProp, hitType, targetLayer, baseDamage, baseRange;
+    SerializedProperty baseAreaRadius, baseConeAngle;
+
+    // 投射物
+    SerializedProperty useProjectile, projectilePrefab, projectileSpeed, projectileRadius;
+
+    void OnEnable()
+    {
+        // 綁定資料欄位
+        type = serializedObject.FindProperty("type");
+        rank = serializedObject.FindProperty("rank");
+        familySerial = serializedObject.FindProperty("familySerial");
+        skillID = serializedObject.FindProperty("skillID");
+        nextEvolution = serializedObject.FindProperty("nextEvolution");
+        sequence = serializedObject.FindProperty("sequence");
+
+        skillName = serializedObject.FindProperty("SkillName");
+        icon = serializedObject.FindProperty("Icon");
+        baseCooldown = serializedObject.FindProperty("BaseCooldown");
+        baseMpCost = serializedObject.FindProperty("BaseMpCost");
+        castTime = serializedObject.FindProperty("CastTime");
+
+        // 攻擊
+        useAttackReq = serializedObject.FindProperty("UseAttackReq");
+        reqAttackMin = serializedObject.FindProperty("ReqAttackMin");
+        useAttackCap = serializedObject.FindProperty("UseAttackCap");
+        reqAttackMax = serializedObject.FindProperty("ReqAttackMax");
+        // 防禦
+        useDefenseReq = serializedObject.FindProperty("UseDefenseReq");
+        reqDefenseMin = serializedObject.FindProperty("ReqDefenseMin");
+        useDefenseCap = serializedObject.FindProperty("UseDefenseCap");
+        reqDefenseMax = serializedObject.FindProperty("ReqDefenseMax");
+        // 敏捷
+        useAgilityReq = serializedObject.FindProperty("UseAgilityReq");
+        reqAgilityMin = serializedObject.FindProperty("ReqAgilityMin");
+        useAgilityCap = serializedObject.FindProperty("UseAgilityCap");
+        reqAgilityMax = serializedObject.FindProperty("ReqAgilityMax");
+        // 技巧
+        useTechniqueReq = serializedObject.FindProperty("UseTechniqueReq");
+        reqTechniqueMin = serializedObject.FindProperty("ReqTechniqueMin");
+        useTechniqueCap = serializedObject.FindProperty("UseTechniqueCap");
+        reqTechniqueMax = serializedObject.FindProperty("ReqTechniqueMax");
+        // HP
+        useHPReq = serializedObject.FindProperty("UseHPReq");
+        reqHPMin = serializedObject.FindProperty("ReqHPMin");
+        useHPCap = serializedObject.FindProperty("UseHPCap");
+        reqHPMax = serializedObject.FindProperty("ReqHPMax");
+        // MP
+        useMPReq = serializedObject.FindProperty("UseMPReq");
+        reqMPMin = serializedObject.FindProperty("ReqMPMin");
+        useMPCap = serializedObject.FindProperty("UseMPCap");
+        reqMPMax = serializedObject.FindProperty("ReqMPMax");
+
+        targetProp = serializedObject.FindProperty("Target");
+        hitType = serializedObject.FindProperty("HitType");
+        targetLayer = serializedObject.FindProperty("TargetLayer");
+        baseDamage = serializedObject.FindProperty("BaseDamage");
+        baseRange = serializedObject.FindProperty("BaseRange");
+        baseAreaRadius = serializedObject.FindProperty("BaseAreaRadius");
+        baseConeAngle = serializedObject.FindProperty("BaseConeAngle");
+
+        useProjectile = serializedObject.FindProperty("UseProjectile");
+        projectilePrefab = serializedObject.FindProperty("ProjectilePrefab");
+        projectileSpeed = serializedObject.FindProperty("ProjectileSpeed");
+        projectileRadius = serializedObject.FindProperty("ProjectileRadius");
+    }
+
+    public override void OnInspectorGUI()
+    {
+        serializedObject.Update(); // 開始更新
+
+        // ========================================================
+        // 1. 識別區塊 (樣式美化)
+        // ========================================================
+        EditorGUILayout.LabelField("【 識別與 ID 】", EditorStyles.boldLabel);
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            EditorGUILayout.PropertyField(type, new GUIContent("技能類型"));
+
+            EditorGUILayout.PropertyField(rank, new GUIContent("階級"));
+            EditorGUILayout.PropertyField(familySerial, new GUIContent("流水號"));
+
+            GUI.enabled = false; // 唯讀
+            EditorGUILayout.PropertyField(skillID, new GUIContent("Unique ID"));
+            GUI.enabled = true;
+
+            EditorGUILayout.PropertyField(nextEvolution, new GUIContent("下一階進化"));
+        }
+        EditorGUILayout.Space();
+
+        // ========================================================
+        // 2. 基本參數
+        // ========================================================
+        EditorGUILayout.LabelField("【 基本參數 】", EditorStyles.boldLabel);
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            EditorGUILayout.PropertyField(skillName);
+            EditorGUILayout.PropertyField(icon);
+
+            // 被動技通常不需要 CD/MP，可選隱藏
+            SkillType st = (SkillType)type.enumValueIndex;
+            if (st != SkillType.Passive)
+            {
+                EditorGUILayout.PropertyField(baseCooldown, new GUIContent("冷卻 (秒)"));
+                EditorGUILayout.PropertyField(baseMpCost, new GUIContent("MP 消耗"));
+
+                EditorGUILayout.PropertyField(castTime, new GUIContent("詠唱時間 (Cast Time)"));
+            }
+        }
+        EditorGUILayout.Space();
+
+        // ========================================================
+        // 3. 學習門檻 (條件式顯示)
+        // ========================================================
+        EditorGUILayout.LabelField("【 學習門檻 】", EditorStyles.boldLabel);
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            DrawRequirement("攻擊力 (Attack)", useAttackReq, reqAttackMin, useAttackCap, reqAttackMax);
+            DrawRequirement("防禦力 (Defense)", useDefenseReq, reqDefenseMin, useDefenseCap, reqDefenseMax);
+            DrawRequirement("敏捷 (Agility)", useAgilityReq, reqAgilityMin, useAgilityCap, reqAgilityMax);
+            DrawRequirement("技巧 (Technique)", useTechniqueReq, reqTechniqueMin, useTechniqueCap, reqTechniqueMax);
+            DrawRequirement("HP (Health)", useHPReq, reqHPMin, useHPCap, reqHPMax);
+            DrawRequirement("MP (Mana)", useMPReq, reqMPMin, useMPCap, reqMPMax);
+            // 若有其他屬性，在這裡呼叫 DrawRequirement 即可
+        }
+        EditorGUILayout.Space();
+
+        // ========================================================
+        // 4. 戰鬥參數 (根據 HitType 變換)
+        // ========================================================
+        EditorGUILayout.LabelField("【 戰鬥執行 】", EditorStyles.boldLabel);
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            EditorGUILayout.PropertyField(targetProp);
+            EditorGUILayout.PropertyField(targetLayer);
+            EditorGUILayout.PropertyField(baseDamage);
+
+            EditorGUILayout.Space(5);
+            EditorGUILayout.PropertyField(hitType);
+
+            HitType hit = (HitType)hitType.enumValueIndex;
+
+            // 根據類型顯示不同欄位
+            if (hit == HitType.Single)
+            {
+                EditorGUILayout.PropertyField(baseRange, new GUIContent("最大射程"));
+            }
+            else if (hit == HitType.Area)
+            {
+                EditorGUILayout.PropertyField(baseRange, new GUIContent("施法距離"));
+                EditorGUILayout.PropertyField(baseAreaRadius, new GUIContent("爆炸半徑 (Radius)"));
+            }
+            else if (hit == HitType.Cone)
+            {
+                EditorGUILayout.PropertyField(baseRange, new GUIContent("扇形長度"));
+                EditorGUILayout.PropertyField(baseConeAngle, new GUIContent("扇形角度 (Angle)"));
+            }
+        }
+        EditorGUILayout.Space();
+
+        // ========================================================
+        // 5. 投射物 (條件式)
+        // ========================================================
+        EditorGUILayout.PropertyField(useProjectile);
+        if (useProjectile.boolValue)
+        {
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.PropertyField(projectilePrefab);
+                EditorGUILayout.PropertyField(projectileSpeed);
+                EditorGUILayout.PropertyField(projectileRadius);
+            }
+        }
+        EditorGUILayout.Space();
+
+        // ========================================================
+        // 6. 技能排程 (Sequence)
+        // ========================================================
+        EditorGUILayout.LabelField("【 後續排程 】", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("設定技能施放後的接續動作 (Delay + Skill)", MessageType.Info);
+
+        // 使用預設的 List 繪製方式
+        EditorGUILayout.PropertyField(sequence, true);
+
+        serializedObject.ApplyModifiedProperties(); // 應用所有更動
+    }
+
+    // 輔助繪製方法：畫出一整組門檻設定 (啟用勾選 + 數值 + 上限勾選 + 上限數值)
+    void DrawRequirement(string label, SerializedProperty use, SerializedProperty min, SerializedProperty useCap, SerializedProperty max)
+    {
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.PropertyField(use, GUIContent.none, GUILayout.Width(20)); // 勾選框
+        EditorGUILayout.LabelField(label, GUILayout.Width(100)); // 標籤名
+        EditorGUILayout.EndHorizontal();
+        if (use.boolValue)
+        {
+            // 顯示最小值輸入框
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Min:", GUILayout.Width(30));
+            EditorGUILayout.PropertyField(min, GUIContent.none);
+            EditorGUILayout.EndHorizontal();
+            // 顯示上限勾選
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("上限", GUILayout.Width(35));
+            EditorGUILayout.PropertyField(useCap, GUIContent.none, GUILayout.Width(20));
+
+            if (useCap.boolValue)
+            {
+                // 顯示最大值輸入框
+                EditorGUILayout.PropertyField(max, GUIContent.none);
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+    }
+}

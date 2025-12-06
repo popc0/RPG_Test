@@ -1482,16 +1482,10 @@ MonoBehaviour:
   main: {fileID: 6863493812143999194}
   playerStats: {fileID: 7017005957277385581}
   aimSource: {fileID: 6127803504258366139}
-  fixedNormalSkill: {fileID: 0}
+  fixedNormalSkill: {fileID: 11400000, guid: 67d57a09f03dc2f45819ef5c55a4b10a, type: 2}
   fixedUltimateSkill: {fileID: 0}
   skillGroups:
   - groupName: 001
-    switchableNormal: {fileID: 0}
-    switchableUltimate: {fileID: 0}
-  - groupName: 002
-    switchableNormal: {fileID: 0}
-    switchableUltimate: {fileID: 0}
-  - groupName: 003
     switchableNormal: {fileID: 0}
     switchableUltimate: {fileID: 0}
   currentSkillGroupIndex: 0

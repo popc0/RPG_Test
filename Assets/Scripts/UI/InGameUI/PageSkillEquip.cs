@@ -45,6 +45,8 @@ public class PageSkillEquip : MonoBehaviour
     [Header("技能組控制")]
     public Button btnSwitchGroup;          // SW 切換按鈕
     public TextMeshProUGUI groupNameText;  // 顯示目前是哪一組 (例如: "技能組 1")
+    // [新增] 顯示總數的文字 (例如 "3" 或 "/ 3")
+    public TextMeshProUGUI groupTotalCountText;
 
     // ============================================================
     // 內部狀態
@@ -54,6 +56,13 @@ public class PageSkillEquip : MonoBehaviour
 
     private List<UISkillSlot> _allLibSlots = new List<UISkillSlot>();
     private int _editingGroupIndex = 0;
+
+    // ============================================================
+    // [新增] 技能組管理按鈕
+    // ============================================================
+    [Header("技能組管理")]
+    public Button btnAddGroup;     // 新增 (+) 按鈕
+    public Button btnRemoveGroup;  // 刪除 (-) 按鈕
 
     void Start()
     {
@@ -65,6 +74,9 @@ public class PageSkillEquip : MonoBehaviour
         {
             btnSwitchGroup.onClick.AddListener(OnClickSwitchGroup);
         }
+        // [新增] 綁定增刪按鈕
+        if (btnAddGroup) btnAddGroup.onClick.AddListener(OnClickAddGroup);
+        if (btnRemoveGroup) btnRemoveGroup.onClick.AddListener(OnClickRemoveGroup);
 
         // 3. 啟動自動搜尋協程
         StartCoroutine(AutoBindPlayerRoutine());
@@ -132,6 +144,40 @@ public class PageSkillEquip : MonoBehaviour
         RefreshEquippedView();
     }
 
+    // [新增] 點擊新增按鈕
+    void OnClickAddGroup()
+    {
+        if (!skillCaster) return;
+
+        // 1. 呼叫 Caster 建立新組
+        skillCaster.AddNewSkillGroup();
+
+        // 2. 更新本地索引 (因為 Caster 會自動切換到新組)
+        _editingGroupIndex = skillCaster.currentSkillGroupIndex;
+
+        // 3. 刷新介面
+        RefreshEquippedView();
+
+        Debug.Log("已新增技能組");
+    }
+
+    // [新增] 點擊刪除按鈕
+    void OnClickRemoveGroup()
+    {
+        if (!skillCaster) return;
+
+        // 1. 呼叫 Caster 刪除當前組
+        skillCaster.RemoveCurrentSkillGroup();
+
+        // 2. 更新本地索引 (可能因刪除而改變)
+        _editingGroupIndex = skillCaster.currentSkillGroupIndex;
+
+        // 3. 刷新介面
+        RefreshEquippedView();
+
+        Debug.Log("已刪除技能組");
+    }
+
     // --- 1. 生成技能庫 ---
     void GenerateLibraries()
     {
@@ -175,10 +221,15 @@ public class PageSkillEquip : MonoBehaviour
 
         var group = skillCaster.skillGroups[_editingGroupIndex];
 
-        // 更新標題顯示 (顯示 Group Name)
-        if (groupNameText)
-            groupNameText.text = string.IsNullOrEmpty(group.groupName) ? $"Group {_editingGroupIndex + 1}" : group.groupName;
+        // 更新標題
+        if (groupNameText) groupNameText.text = group.groupName;
 
+        // [新增] 更新總數顯示
+        if (groupTotalCountText)
+        {
+            // 顯示 "1 / 3" 這種格式
+            groupTotalCountText.text = $"{_editingGroupIndex + 1} / {skillCaster.skillGroups.Count}";
+        }
         // 填入 4 個槽位
         slotFixedNormal.Setup(skillCaster.fixedNormalSkill);
         slotFixedNormal.OnClick = (s) => OnEquipSlotClicked(0);

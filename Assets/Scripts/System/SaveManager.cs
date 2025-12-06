@@ -1,6 +1,8 @@
 using RPG;
 using UnityEngine;
+using System.Collections.Generic;
 using UnityEngine.InputSystem; // ★ 改用新輸入系統
+using System.Linq; // 引用 Linq 方便查詢
 using UnityEngine.SceneManagement;
 
 public class SaveManager : MonoBehaviour
@@ -8,6 +10,9 @@ public class SaveManager : MonoBehaviour
 
     public static SaveData CurrentData { get; private set; } = new SaveData();
     public static SaveManager Instance { get; private set; }
+
+    [Header("技能資料庫 (必須包含遊戲內所有技能)")]
+    public List<SkillData> allSkillsLibrary;
 
     [Header("Player 尋找設定")]
     public string playerTag = "Player";
@@ -68,6 +73,7 @@ public class SaveManager : MonoBehaviour
         var stats = player.GetComponent<PlayerStats>();
         var levelAgent = player.GetComponent<PlayerLevel>(); // [新增] 獲取 PlayerLevel
         var mainPoint = player.GetComponent<MainPointComponent>(); // [新增] 抓取主屬性組件
+        var caster = player.GetComponentInChildren<SkillCaster>(true); // [新增] 抓 SkillCaster
 
         var data = new SaveData(SceneManager.GetActiveScene().name, p.x, p.y, vol);
         // 將靜態資料中的頁面索引拷貝到要儲存的新資料中
@@ -95,6 +101,30 @@ public class SaveManager : MonoBehaviour
             data.statHPStat = mainPoint.HPStat;
             data.statMPStat = mainPoint.MPStat;
         }
+
+        // [新增] 儲存技能組
+        if (caster != null)
+        {
+            // 1. 存固定技能 ID (注意 null 檢查)
+            data.fixedNormalSkillID = caster.fixedNormalSkill ? caster.fixedNormalSkill.skillID : "";
+            data.fixedUltimateSkillID = caster.fixedUltimateSkill ? caster.fixedUltimateSkill.skillID : "";
+
+            data.currentSkillGroupIndex = caster.currentSkillGroupIndex;
+
+            // 2. 存技能組清單 (存 ID)
+            data.skillGroups = new List<SaveData.SavedSkillGroup>();
+            foreach (var group in caster.skillGroups)
+            {
+                var saveGroup = new SaveData.SavedSkillGroup
+                {
+                    groupName = group.groupName,
+                    normalSkillID = group.switchableNormal ? group.switchableNormal.skillID : "",
+                    ultimateSkillID = group.switchableUltimate ? group.switchableUltimate.skillID : ""
+                };
+                data.skillGroups.Add(saveGroup);
+            }
+        }
+
         SaveSystem.Save(data);
     }
 
@@ -199,8 +229,43 @@ public class SaveManager : MonoBehaviour
                 Mathf.Clamp(dataToApply.playerMP, 0f, stats.MaxMP)
             );
         }
+        // [新增] 載入技能組
+        var caster = player.GetComponentInChildren<SkillCaster>(true);
+        if (caster != null)
+        {
+            // 1. 還原固定技能 (用 FindSkillByID)
+            caster.fixedNormalSkill = FindSkillByID(dataToApply.fixedNormalSkillID);
+            caster.fixedUltimateSkill = FindSkillByID(dataToApply.fixedUltimateSkillID);
+
+            // 2. 還原技能組
+            if (dataToApply.skillGroups != null && dataToApply.skillGroups.Count > 0)
+            {
+                caster.skillGroups.Clear();
+
+                foreach (var savedGroup in dataToApply.skillGroups)
+                {
+                    var newGroup = new SkillGroup
+                    {
+                        groupName = savedGroup.groupName,
+                        switchableNormal = FindSkillByID(savedGroup.normalSkillID),
+                        switchableUltimate = FindSkillByID(savedGroup.ultimateSkillID)
+                    };
+                    caster.skillGroups.Add(newGroup);
+                }
+            }
+            caster.SetSkillGroupIndex(dataToApply.currentSkillGroupIndex);
+        }
     }
 
+    // [修改] 搜尋方法改為比對 ID
+    SkillData FindSkillByID(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+
+        // 使用 Linq 搜尋 (需引用 System.Linq)
+        // 確保您的 allSkillsLibrary 已經在 Inspector 裡填滿了所有技能
+        return allSkillsLibrary.FirstOrDefault(s => s.skillID == id);
+    }
     void PlacePlayerAt(Vector2 pos)
     {
         var player = GameObject.FindGameObjectWithTag(playerTag);
@@ -235,6 +300,15 @@ public class SaveManager : MonoBehaviour
         initData.playerMP = 99999f;
         initData.playerMaxHP = 0; // 0 代表使用角色預設的最大血量
         initData.playerMaxMP = 0;
+
+        // [新增] 設定初始技能組 (如果不設定，讀檔時會保留 Prefab 上的設定，這也可以)
+        // 如果您希望新遊戲是「乾淨」的或有特定初始招，可以在這裡 new List<SavedSkillGroup> 並填入
+        // 這裡示範：不特別設定，讓它讀取時發現是空清單，進而使用 Player Prefab 上的預設技能
+
+        initData.skillGroups = new List<SaveData.SavedSkillGroup>();
+        // 這樣 Apply 時會發現 count=0，就會跳過 skillGroups.Clear()，保留 Prefab 設定
+        // 詳見 ApplyLoadedStatsIfPossible 中的判斷
+
 
         // 3. 關鍵步驟：把它存入 _loadedData
         // 這樣等到場景載入完成 (OnSceneLoaded) 時，

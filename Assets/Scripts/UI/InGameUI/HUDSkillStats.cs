@@ -46,27 +46,35 @@ public class HUDSkillStats : MonoBehaviour
     /// </summary>
     public void SetSkillSetData(int index, List<SkillData> skillsList)
     {
-        // 1. 更新索引 (可選，但保持數據同步)
+        // 1. 更新索引
         SetSkillSetIndex(index);
 
         // 2. 儲存數據清單
         _currentSkillDatas = skillsList;
 
-        // 3. 遍歷 UI 上的技能按鈕並更新圖示 (View 讀取 Model)
-        for (int i = 0; i < skillButtons.Count; i++)
-        {
-            // 獲取當前技能槽位 i 應對應的 SkillData
-            if (i < skillsList.Count)
-            {
-                var data = skillsList[i]; // 獲取 SkillData 實例
+        if (skillsList == null) return;
 
-                //  核心：HUD 直接讀取 SkillData 內部的 Icon
-                SetSkillIcon(skillButtons[i].slotIndex, data.Icon);
+        // 3. [核心修改] 改用 foreach 遍歷按鈕，並依據按鈕的 slotIndex 去清單裡找資料
+        foreach (var btn in skillButtons)
+        {
+            if (btn == null) continue;
+
+            int slot = btn.slotIndex; // 讀取按鈕上設定的 Slot (0, 1, 2, 3)
+
+            // 檢查這個 Slot 是否在資料範圍內 (0~3)
+            if (slot >= 0 && slot < skillsList.Count)
+            {
+                SkillData data = skillsList[slot];
+
+                // 如果該槽位有裝技能 (data != null) 則顯示 Icon，否則傳 null (隱藏)
+                Sprite icon = (data != null) ? data.Icon : null;
+
+                btn.SetIcon(icon);
             }
             else
             {
-                // 超出技能數量，隱藏圖示
-                SetSkillIcon(skillButtons[i].slotIndex, null);
+                // 如果按鈕設定的 Slot 超出範圍 (例如設了 4)，就清空
+                btn.SetIcon(null);
             }
         }
     }

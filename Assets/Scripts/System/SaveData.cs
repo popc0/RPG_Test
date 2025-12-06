@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 [Serializable]
 public class SaveData
@@ -30,6 +31,28 @@ public class SaveData
     public float statTechnique;
     public float statHPStat;
     public float statMPStat;
+
+    // ============================================================
+    // [新增] 技能系統存檔
+    // ============================================================
+
+    // 1. 固定技能 (存 skillID)
+    public string fixedNormalSkillID;   
+    public string fixedUltimateSkillID; 
+
+    // 2. 技能組結構 (純資料版)
+    [Serializable]
+    public struct SavedSkillGroup
+    {
+        public string groupName;
+        public string normalSkillID;   // Slot 1
+        public string ultimateSkillID; // Slot 3
+    }
+
+    // 3. 技能組清單
+    public List<SavedSkillGroup> skillGroups = new List<SavedSkillGroup>();
+    public int currentSkillGroupIndex = 0;
+
     public SaveData() { }
 
     public SaveData(string scene, float x, float y)

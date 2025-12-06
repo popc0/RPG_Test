@@ -2,6 +2,12 @@ using System;
 
 namespace RPG
 {
+    public enum SkillType
+    {
+        Normal,   // N
+        Ultimate, // U
+        Passive   // P
+    }
     public enum TargetType
     {
         Enemy,

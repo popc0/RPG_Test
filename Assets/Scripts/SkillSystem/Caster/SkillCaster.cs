@@ -1,7 +1,8 @@
-﻿using UnityEngine;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace RPG
 {
@@ -213,6 +214,82 @@ namespace RPG
             }
         }
 
+        //===================================
+        //  新增以及刪除
+        //===================================
+        // [新增] 建立一個全新的空白技能組
+        public void AddNewSkillGroup()
+        {
+            if (skillGroups == null) skillGroups = new List<SkillGroup>();
+            var newGroup = new SkillGroup();
+
+            // 1. 計算插入位置：插在當前索引的「下一格」
+            // 如果清單是空的，就插在 0
+            int insertIndex = (skillGroups.Count == 0) ? 0 : currentSkillGroupIndex + 1;
+
+            // 2. 執行插入 (Insert)
+            if (insertIndex < skillGroups.Count)
+            {
+                skillGroups.Insert(insertIndex, newGroup);
+            }
+            else
+            {
+                // 如果當前已經是最後一個，就直接加在最後
+                skillGroups.Add(newGroup);
+            }
+
+            // 3. 重新命名所有組別 (1, 2, 3...) 確保順序名稱正確
+            RefreshGroupNames();
+
+            // 4. 自動切換到這個新建立的組別 (就在下一頁)
+            currentSkillGroupIndex = insertIndex;
+
+            // 初始化這一組的冷卻計時器 (重要！否則報錯)
+            InitializeCooldowns();
+
+            // 通知 HUD 更新
+            NotifyHudSkillGroupChanged();
+        }
+
+        // [新增] 刪除當前選中的技能組
+        public void RemoveCurrentSkillGroup()
+        {
+            if (skillGroups == null || skillGroups.Count <= 1)
+            {
+                Debug.LogWarning("至少要保留一個技能組，無法刪除！");
+                return;
+            }
+
+            // 移除當前索引的組
+            skillGroups.RemoveAt(currentSkillGroupIndex);
+
+            // [新增] 每次刪除後，重新命名所有組別 (自動往前補)
+            RefreshGroupNames();
+
+            // 修正索引：如果刪的是最後一個 (index 2)，刪完後剩 2 個 (max index 1)，需倒退
+            if (currentSkillGroupIndex >= skillGroups.Count)
+            {
+                currentSkillGroupIndex = skillGroups.Count - 1;
+            }
+
+            // 重建冷卻計時器結構
+            InitializeCooldowns();
+
+            // 通知 HUD 更新
+            NotifyHudSkillGroupChanged();
+        }
+
+        // [新增] 輔助方法：將所有群組依序重新命名
+        private void RefreshGroupNames()
+        {
+            if (skillGroups == null) return;
+            for (int i = 0; i < skillGroups.Count; i++)
+            {
+                // 自動設為 "技能組 1", "技能組 2", ...
+                skillGroups[i].groupName = $"技能組 {i + 1}";
+            }
+        }
+
         // ============================================================
         // 冷卻管理 (區分固定/切換)
         // ============================================================
@@ -312,28 +389,84 @@ namespace RPG
             var currentSkills = Skills;
             if (skillIndex < 0 || skillIndex >= currentSkills.Count) return;
 
-            var data = currentSkills[skillIndex];
-            if (!data) return; // 空技能槽
+            var rootData = currentSkills[skillIndex];
+            if (!rootData) return;
 
-            // 1. 檢查屬性
-            if (!data.MeetsRequirement(main.AddedPoints)) return;
-
-            // 2. 檢查冷卻 (使用新方法)
+            // 1. 檢查與消耗 (使用新的 CheckCastReq)
+            if (!rootData.CheckCastReq(main.AddedPoints)) return;
             if (GetCooldown(skillIndex) > 0f) return;
 
-            // 3. 計算與扣魔
-            var comp = SkillCalculator.Compute(data, main.MP);
-            if (playerStats.CurrentMP < comp.MpCost) return;
-            playerStats.UseMP(comp.MpCost);
+            // 2. 計算消耗 (只看 Root)
+            var rootComp = SkillCalculator.Compute(rootData, main.MP);
+            if (playerStats.CurrentMP < rootComp.MpCost) return;
 
-            // 4. 設定冷卻 (使用新方法)
-            SetCooldown(skillIndex, comp.Cooldown);
-            if (hudSkillStats) hudSkillStats.SetSkillCooldown(skillIndex, comp.Cooldown, comp.Cooldown);
+            playerStats.UseMP(rootComp.MpCost);
+            SetCooldown(skillIndex, rootComp.Cooldown);
+            if (hudSkillStats) hudSkillStats.SetSkillCooldown(skillIndex, rootComp.Cooldown, rootComp.Cooldown);
 
-            // 5. 開始施法
-            StartCoroutine(CastRoutine(data, comp, skillIndex));
+            // 3. 啟動排程
+            StartCoroutine(SequenceRoutine(rootData, rootComp));
         }
 
+        IEnumerator SequenceRoutine(SkillData rootData, SkillComputed rootComp)
+        {
+            // [Snapshot] 鎖定當下位置與方向
+            // 所有子技能都將使用這個起始點，不會隨玩家移動而改變
+            Vector3 startOrigin = firePoint ? firePoint.position : transform.position;
+            Vector2 startDir = GetDir();
+
+            // ==========================
+            // Phase 1: 詠唱 (Cast Time)
+            // ==========================
+            isCasting = true; // 鎖住玩家行動
+
+            float timer = rootComp.CastTime;
+            while (timer > 0f)
+            {
+                if (enabled && Time.timeScale > 0f) timer -= Time.deltaTime;
+                yield return null;
+            }
+
+            isCasting = false; // 解鎖玩家行動
+
+            // ==========================
+            // Phase 2: 執行第一招 (Root)
+            // ==========================
+            ExecuteAction(rootData, rootComp, startOrigin, startDir);
+
+            // ==========================
+            // Phase 3: 執行排程 (Sequence)
+            // ==========================
+            if (rootData.sequence != null && rootData.sequence.Count > 0)
+            {
+                foreach (var step in rootData.sequence)
+                {
+                    if (step.skill == null) continue;
+
+                    // 等待延遲
+                    if (step.delay > 0f)
+                        yield return new WaitForSeconds(step.delay);
+
+                    // 重新計算子技能數值 (使用當下的 main.MP)
+                    var subComp = SkillCalculator.Compute(step.skill, main.MP);
+
+                    // 執行子技能 (使用 Snapshot 的位置與方向)
+                    ExecuteAction(step.skill, subComp, startOrigin, startDir);
+                }
+            }
+        }
+
+        // 統一執行入口：根據 HitType 分派
+        void ExecuteAction(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
+        {
+            if (data.HitType == HitType.Area)
+                DoArea2D(data, comp, origin, dir);
+            else if (data.HitType == HitType.Cone)
+                DoCone2D(data, comp, origin, dir);
+            else
+                DoSingle2D(data, comp, origin, dir);
+        }
+        /*
         IEnumerator CastRoutine(SkillData data, SkillComputed comp, int skillIndex)
         {
             isCasting = true;
@@ -352,52 +485,82 @@ namespace RPG
 
             isCasting = false;
         }
+        */
 
         // ============================================================
-        // 物理判定 Helper (保留原樣)
+        // 物理判定 (稍微修改以接受傳入的 origin 和 dir)
         // ============================================================
-        void DoSingle2D(SkillData data, SkillComputed comp)
+
+        void DoSingle2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
         {
-            var origin = firePoint ? firePoint.position : Owner.position;
-            var dir = GetDir();
             if (data.UseProjectile && data.ProjectilePrefab)
             {
                 var spawnPos = origin + (Vector3)(dir * spawnInset);
-                GameObject obj = (ObjectPool.Instance != null)
-                   ? ObjectPool.Instance.Spawn(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity)
-                   : Instantiate(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
+
+                GameObject obj;
+                if (ObjectPool.Instance != null)
+                    obj = ObjectPool.Instance.Spawn(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
+                else
+                    obj = Instantiate(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
+
                 var proj = obj.GetComponent<Projectile2D>();
                 if (proj) proj.Init(Owner, dir, data, comp, enemyMask, obstacleMask);
             }
-            else { DoSingle2D_LegacyRay(data, comp); }
+            else
+            {
+                DoSingle2D_LegacyRay(data, comp, origin, dir);
+            }
         }
-        void DoSingle2D_LegacyRay(SkillData data, SkillComputed comp)
+
+        void DoSingle2D_LegacyRay(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
         {
-            Vector3 origin3 = firePoint ? firePoint.position : Owner.position;
-            Vector2 dir = GetDir(); float dist = Mathf.Max(0.1f, data.BaseRange);
-            RaycastHit2D hit = Physics2D.Raycast(origin3, dir, dist, enemyMask | obstacleMask);
-            if (hit.collider) FlashLine(origin3, hit.point); else FlashLine(origin3, origin3 + (Vector3)(dir * dist));
+            float dist = Mathf.Max(0.1f, data.BaseRange);
+            RaycastHit2D hit = Physics2D.Raycast(origin, dir, dist, enemyMask | obstacleMask);
+
+            Vector3 endPos = origin + (Vector3)(dir * dist);
+
+            if (hit.collider != null)
+            {
+                endPos = hit.point;
+                if (EffectApplier.TryResolveOwner(hit.collider, out var target, out var layer))
+                {
+                    if (data.TargetLayer == layer)
+                        target.ApplyIncomingRaw(comp.Damage);
+                }
+            }
+            FlashLine(origin, endPos);
         }
-        void DoArea2D(SkillData data, SkillComputed comp)
+
+        void DoArea2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
         {
-            Vector3 o = firePoint ? firePoint.position : Owner.position; Vector2 dir = GetDir();
-            Vector2 c = (Vector2)o + dir * Mathf.Max(0.1f, data.BaseRange);
+            // 計算中心點：從 origin 往 dir 延伸 BaseRange 距離
+            Vector2 center = (Vector2)origin + dir * Mathf.Max(0.1f, data.BaseRange);
             float r = Mathf.Max(0.05f, comp.AreaRadius);
-            Collider2D[] hits = Physics2D.OverlapCircleAll(c, r, enemyMask);
-            foreach (var h in hits) { if (EffectApplier.TryResolveOwner(h, out var target, out var layer)) if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage); }
-            if (areaRing) StartCoroutine(FlashCircle(areaRing, c, r, tracerDuration));
+
+            Collider2D[] hits = Physics2D.OverlapCircleAll(center, r, enemyMask);
+            foreach (var h in hits)
+            {
+                if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
+                    if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
+            }
+            if (areaRing) StartCoroutine(FlashCircle(areaRing, center, r, tracerDuration));
         }
-        void DoCone2D(SkillData data, SkillComputed comp)
+
+        void DoCone2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
         {
-            Vector3 o = firePoint ? firePoint.position : Owner.position; Vector2 dir = GetDir();
-            float dist = Mathf.Max(0.1f, data.BaseRange); float angle = comp.ConeAngle;
-            Collider2D[] hits = Physics2D.OverlapCircleAll(o, dist, enemyMask);
+            float dist = Mathf.Max(0.1f, data.BaseRange);
+            float angle = comp.ConeAngle;
+
+            Collider2D[] hits = Physics2D.OverlapCircleAll(origin, dist, enemyMask);
             foreach (var h in hits)
             {
                 if (h.transform.IsChildOf(Owner)) continue;
-                Vector2 tDir = (h.bounds.center - o);
+                Vector2 tDir = (h.bounds.center - origin);
                 if (Vector2.Angle(dir, tDir) <= angle * 0.5f)
-                    if (EffectApplier.TryResolveOwner(h, out var target, out var layer)) if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
+                {
+                    if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
+                        if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
+                }
             }
         }
         Vector2 GetDir() { return (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f) ? aimSource.AimDir : Vector2.right; }
