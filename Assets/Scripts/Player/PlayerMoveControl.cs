@@ -1,3 +1,4 @@
+using RPG;
 using UnityEngine;
 
 /// <summary>
@@ -25,16 +26,29 @@ public class PlayerMoveControl : MonoBehaviour
     Rigidbody2D _rb;
     Transform _root;
 
+
+    // [新增] 引用 StatusManager (Start時自動抓取)
+    [Header("Status")]
+    [SerializeField] private StatusManager statusManager;
+
     void Awake()
     {
         _root = targetRoot != null ? targetRoot : transform.root;
         _rb = _root.GetComponent<Rigidbody2D>();
         if (_rb == null)
             Debug.LogWarning("[PlayerMoveControl] 目標上沒有 Rigidbody2D，將改用 Transform 移動。");
+        if (!statusManager) statusManager = GetComponent<StatusManager>();
     }
 
     void FixedUpdate()
     {
+        // ★ 修改：加入 CanMove 檢查
+        // 如果狀態管理器說不能動，就停止移動
+        if (statusManager != null && !statusManager.CanMove)
+        {
+            if (_rb) _rb.velocity = Vector2.zero; // 確保完全停下
+            return;
+        }
         // 1. 從 UnifiedInputSource 讀值（鍵盤 / 手把 / DynamicTouchJoystick 都會經過這裡）
         Vector2 dir = (input != null) ? input.GetMoveVector() : Vector2.zero;
 

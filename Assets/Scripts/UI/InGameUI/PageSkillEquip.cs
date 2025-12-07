@@ -185,8 +185,54 @@ public class PageSkillEquip : MonoBehaviour
         foreach (Transform child in ultimateLibContent) Destroy(child.gameObject);
         _allLibSlots.Clear();
 
-        foreach (var skill in normalSkills) CreateLibSlot(skill, normalLibContent, false);
-        foreach (var skill in ultimateSkills) CreateLibSlot(skill, ultimateLibContent, true);
+        // 處理 Normal 技能庫
+        foreach (var skill in normalSkills)
+        {
+            // ... (Instantiate slot, Setup) ...
+            var slot = Instantiate(librarySlotPrefab, normalLibContent);
+            slot.Setup(skill);
+
+            // ★ 修改點 1：切換選取邏輯 (Normal)
+            slot.OnClick = (s) =>
+            {
+                if (_pendingSkill == s.data) // 重複點擊 -> 取消選取
+                {
+                    _pendingSkill = null;
+                    _isPendingSkillUltimate = false;
+                }
+                else
+                {
+                    _pendingSkill = s.data;
+                    _isPendingSkillUltimate = false;
+                }
+                RefreshLibraryVisuals();
+            };
+            _allLibSlots.Add(slot);
+        }
+        // 處理 Ultimate 技能庫
+        foreach (var skill in ultimateSkills)
+        {
+            // ... (Instantiate slot, Setup) ...
+            var slot = Instantiate(librarySlotPrefab, ultimateLibContent);
+            slot.Setup(skill);
+
+            // ★ 修改點 2：切換選取邏輯 (Ultimate)
+            slot.OnClick = (s) =>
+            {
+                if (_pendingSkill == s.data) // 重複點擊 -> 取消選取
+                {
+                    _pendingSkill = null;
+                    _isPendingSkillUltimate = false;
+                }
+                else
+                {
+                    _pendingSkill = s.data;
+                    _isPendingSkillUltimate = true;
+                }
+                RefreshLibraryVisuals();
+            };
+            _allLibSlots.Add(slot);
+        }
 
         Canvas.ForceUpdateCanvases();
         if (normalLibContent.GetComponent<ContentSizeFitter>())
@@ -262,19 +308,34 @@ public class PageSkillEquip : MonoBehaviour
             if (_isPendingSkillUltimate != isTargetUltimateSlot)
             {
                 Debug.LogWarning("類型不符：普攻不能裝入大招槽（反之亦然）！");
+                // 這裡可以加一個 UI 提示，例如 ShowMessage("類型不符")
                 return;
             }
         }
 
-        var group = skillCaster.skillGroups[_editingGroupIndex];
+        // ============================================================
+        // ★ 修改處：呼叫 SkillCaster 的新方法進行驗證與裝備
+        // ============================================================
 
-        switch (slotIndex)
+        // 呼叫驗證邏輯
+        string errorMsg = skillCaster.TryEquipSkill(slotIndex, _pendingSkill, _editingGroupIndex);
+
+        if (!string.IsNullOrEmpty(errorMsg))
         {
-            case 0: skillCaster.fixedNormalSkill = _pendingSkill; break;
-            case 1: group.switchableNormal = _pendingSkill; break;
-            case 2: skillCaster.fixedUltimateSkill = _pendingSkill; break;
-            case 3: group.switchableUltimate = _pendingSkill; break;
+            // 如果有錯誤訊息 (例如 "跟 Slot 0 重複")，這裡可以跳出 UI 通知
+            Debug.LogWarning(errorMsg);
+
+            // 假設你有一個全局的提示 UI，可以在這裡呼叫，例如：
+            // InteractPromptUI.Instance.Show(errorMsg); 
+            // 或是專門的 Toast UI
+
+            // 失敗了，直接返回，不更新介面
+            return;
         }
+
+        // ============================================================
+        // 裝備成功後的後續處理
+        // ============================================================
 
         RefreshEquippedView();
 

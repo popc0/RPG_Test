@@ -9,7 +9,7 @@ public class SkillDataEditor : Editor
     // --- 屬性變數 ---
     SerializedProperty type, rank, familySerial, skillID;
     SerializedProperty nextEvolution, sequence;
-    SerializedProperty skillName, icon, baseCooldown, baseMpCost, castTime;
+    SerializedProperty skillName, icon, baseCooldown, baseMpCost, castTime, recoveryTime;
 
     // 門檻
     SerializedProperty useAttackReq, reqAttackMin, useAttackCap, reqAttackMax;
@@ -30,6 +30,10 @@ public class SkillDataEditor : Editor
 
     // 投射物
     SerializedProperty useProjectile, projectilePrefab, projectileSpeed, projectileRadius;
+    // 狀態效果變數
+    SerializedProperty useCastingStatus, castingStatusEffects;
+    SerializedProperty useActingStatus, actingStatusEffects;
+    SerializedProperty useRecoveryStatus, recoveryStatusEffects;
 
     void OnEnable()
     {
@@ -46,6 +50,9 @@ public class SkillDataEditor : Editor
         baseCooldown = serializedObject.FindProperty("BaseCooldown");
         baseMpCost = serializedObject.FindProperty("BaseMpCost");
         castTime = serializedObject.FindProperty("CastTime");
+
+        // 綁定新的 RecoveryTime
+        recoveryTime = serializedObject.FindProperty("RecoveryTime");
 
         // 攻擊
         useAttackReq = serializedObject.FindProperty("UseAttackReq");
@@ -90,11 +97,27 @@ public class SkillDataEditor : Editor
         projectilePrefab = serializedObject.FindProperty("ProjectilePrefab");
         projectileSpeed = serializedObject.FindProperty("ProjectileSpeed");
         projectileRadius = serializedObject.FindProperty("ProjectileRadius");
+
+        // 綁定新的狀態效果屬性
+        useCastingStatus = serializedObject.FindProperty("UseCastingStatus");
+        castingStatusEffects = serializedObject.FindProperty("CastingStatusEffects");
+
+        useActingStatus = serializedObject.FindProperty("UseActingStatus");
+        actingStatusEffects = serializedObject.FindProperty("ActingStatusEffects");
+
+        useRecoveryStatus = serializedObject.FindProperty("UseRecoveryStatus");
+        recoveryStatusEffects = serializedObject.FindProperty("RecoveryStatusEffects");
     }
 
     public override void OnInspectorGUI()
     {
         serializedObject.Update(); // 開始更新
+
+        // 取得目前的技能類型
+        SkillType st = (SkillType)type.enumValueIndex;
+        bool isPassive = (st == SkillType.Passive);
+        bool isNormal = (st == SkillType.Normal);
+        bool isUltimate =(st == SkillType.Ultimate);
 
         // ========================================================
         // 1. 識別區塊 (樣式美化)
@@ -124,14 +147,13 @@ public class SkillDataEditor : Editor
             EditorGUILayout.PropertyField(skillName);
             EditorGUILayout.PropertyField(icon);
 
-            // 被動技通常不需要 CD/MP，可選隱藏
-            SkillType st = (SkillType)type.enumValueIndex;
-            if (st != SkillType.Passive)
+            if (!isPassive)
             {
                 EditorGUILayout.PropertyField(baseCooldown, new GUIContent("冷卻 (秒)"));
                 EditorGUILayout.PropertyField(baseMpCost, new GUIContent("MP 消耗"));
 
                 EditorGUILayout.PropertyField(castTime, new GUIContent("詠唱時間 (Cast Time)"));
+                EditorGUILayout.PropertyField(recoveryTime, new GUIContent("後搖時間 (Recovery Time)")); 
             }
         }
         EditorGUILayout.Space();
@@ -155,60 +177,85 @@ public class SkillDataEditor : Editor
         // ========================================================
         // 4. 戰鬥參數 (根據 HitType 變換)
         // ========================================================
-        EditorGUILayout.LabelField("【 戰鬥執行 】", EditorStyles.boldLabel);
-        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        if (!isPassive)
         {
-            EditorGUILayout.PropertyField(targetProp);
-            EditorGUILayout.PropertyField(targetLayer);
-            EditorGUILayout.PropertyField(baseDamage);
-
-            EditorGUILayout.Space(5);
-            EditorGUILayout.PropertyField(hitType);
-
-            HitType hit = (HitType)hitType.enumValueIndex;
-
-            // 根據類型顯示不同欄位
-            if (hit == HitType.Single)
-            {
-                EditorGUILayout.PropertyField(baseRange, new GUIContent("最大射程"));
-            }
-            else if (hit == HitType.Area)
-            {
-                EditorGUILayout.PropertyField(baseRange, new GUIContent("施法距離"));
-                EditorGUILayout.PropertyField(baseAreaRadius, new GUIContent("爆炸半徑 (Radius)"));
-            }
-            else if (hit == HitType.Cone)
-            {
-                EditorGUILayout.PropertyField(baseRange, new GUIContent("扇形長度"));
-                EditorGUILayout.PropertyField(baseConeAngle, new GUIContent("扇形角度 (Angle)"));
-            }
-        }
-        EditorGUILayout.Space();
-
-        // ========================================================
-        // 5. 投射物 (條件式)
-        // ========================================================
-        EditorGUILayout.PropertyField(useProjectile);
-        if (useProjectile.boolValue)
-        {
+            EditorGUILayout.LabelField("【 戰鬥執行 】", EditorStyles.boldLabel);
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                EditorGUILayout.PropertyField(projectilePrefab);
-                EditorGUILayout.PropertyField(projectileSpeed);
-                EditorGUILayout.PropertyField(projectileRadius);
+                EditorGUILayout.PropertyField(targetProp);
+                EditorGUILayout.PropertyField(targetLayer);
+                EditorGUILayout.PropertyField(baseDamage);
+
+                EditorGUILayout.Space(5);
+                EditorGUILayout.PropertyField(hitType);
+
+                HitType hit = (HitType)hitType.enumValueIndex;
+
+                // 根據類型顯示不同欄位
+                if (hit == HitType.Single)
+                {
+                    EditorGUILayout.PropertyField(baseRange, new GUIContent("最大射程"));
+
+                    EditorGUILayout.Space(5);
+                    EditorGUILayout.LabelField("--- 投射物設定 ---", EditorStyles.miniLabel); // 加個小標題區隔
+                    EditorGUILayout.PropertyField(useProjectile);
+                    if (useProjectile.boolValue)
+                    {
+                        using (new EditorGUI.IndentLevelScope())
+                        {
+                            EditorGUILayout.PropertyField(projectilePrefab);
+                            EditorGUILayout.PropertyField(projectileSpeed);
+                            EditorGUILayout.PropertyField(projectileRadius);
+                        }
+                    }
+                }
+                else if (hit == HitType.Area)
+                {
+                    EditorGUILayout.PropertyField(baseRange, new GUIContent("施法距離"));
+                    EditorGUILayout.PropertyField(baseAreaRadius, new GUIContent("爆炸半徑 (Radius)"));
+                }
+                else if (hit == HitType.Cone)
+                {
+                    EditorGUILayout.PropertyField(baseRange, new GUIContent("扇形長度"));
+                    EditorGUILayout.PropertyField(baseConeAngle, new GUIContent("扇形角度 (Angle)"));
+                }
+            }
+            EditorGUILayout.Space();
+        }
+
+        // ========================================================
+        // 5. 狀態效果 (Status Effects) 
+        // ========================================================
+        EditorGUILayout.LabelField("【 狀態效果 (Status Effects) 】", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("連結 StatusData 來定義施法期間的特殊狀態 (如：移動限制、施法限制等)，如果是被動 useActingStatus將用來當作常駐效果", MessageType.Info);
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+            // 詠唱：非被動才顯示
+            if (!isPassive)
+            {
+                DrawStatusEffectList("Casting Status (詠唱)", useCastingStatus, castingStatusEffects);
+            }
+            // 執行：始終顯示 (被動技通常用這個來掛常駐效果)
+            string actingLabel = isPassive ? "Passive Status (被動常駐)" : "Acting Status (執行/動作)";
+            DrawStatusEffectList(actingLabel, useActingStatus, actingStatusEffects);
+            // 後搖：非被動才顯示
+            if (!isPassive)
+            {
+                DrawStatusEffectList("Recovery Status (後搖/復原)", useRecoveryStatus, recoveryStatusEffects);
             }
         }
         EditorGUILayout.Space();
-
         // ========================================================
         // 6. 技能排程 (Sequence)
         // ========================================================
-        EditorGUILayout.LabelField("【 後續排程 】", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox("設定技能施放後的接續動作 (Delay + Skill)", MessageType.Info);
+        if (!isPassive)
+        {
+            EditorGUILayout.LabelField("【 後續排程 】", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("設定技能施放後的接續動作 (Delay + Skill)", MessageType.Info);
 
-        // 使用預設的 List 繪製方式
-        EditorGUILayout.PropertyField(sequence, true);
-
+            // 使用預設的 List 繪製方式
+            EditorGUILayout.PropertyField(sequence, true);
+        }
         serializedObject.ApplyModifiedProperties(); // 應用所有更動
     }
 
@@ -237,6 +284,24 @@ public class SkillDataEditor : Editor
                 EditorGUILayout.PropertyField(max, GUIContent.none);
             }
             EditorGUILayout.EndHorizontal();
+        }
+    }
+    // 新增輔助繪製方法，用來畫出啟用勾選和狀態列表
+    void DrawStatusEffectList(string label, SerializedProperty useProp, SerializedProperty listProp)
+    {
+        EditorGUILayout.BeginHorizontal();
+        // 繪製啟用勾選框
+        EditorGUILayout.PropertyField(useProp, new GUIContent(label), GUILayout.Width(180));
+        EditorGUILayout.EndHorizontal();
+
+        // 如果啟用被勾選，則在一個內嵌的區塊中繪製 List
+        if (useProp.boolValue)
+        {
+            EditorGUILayout.Space(2);
+            using (new EditorGUI.IndentLevelScope()) // 增加縮排讓列表看起來是從屬於上方的勾選
+            {
+                EditorGUILayout.PropertyField(listProp, new GUIContent("效果列表"), true);
+            }
         }
     }
 }

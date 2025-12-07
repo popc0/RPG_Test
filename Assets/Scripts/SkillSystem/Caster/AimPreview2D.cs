@@ -108,7 +108,14 @@ namespace RPG
             }
 
             var comp = SkillCalculator.Compute(data, main ? main.MP : MainPoint.Zero);
-            Vector3 origin = caster.firePoint ? (Vector3)caster.firePoint.position : transform.position;
+            // ▼▼▼▼▼▼ 修改重點 ▼▼▼▼▼▼
+            // 原本是 caster.firePoint，現在要改從 executor 拿
+            Vector3 origin = transform.position; // 預設用自己位置
+            if (caster.executor != null && caster.executor.firePoint != null)
+            {
+                origin = caster.executor.firePoint.position;
+            }
+            // ▲▲▲▲▲▲ 修改結束 ▲▲▲▲▲▲
 
             Vector2 dir = (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f) ? aimSource.AimDir : Vector2.right;
             dir.Normalize();

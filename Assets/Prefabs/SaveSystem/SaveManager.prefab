@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 3907729060687887530}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.2090534, y: -2.8710501, z: 0.014020284}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -46,5 +46,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   allSkillsLibrary:
   - {fileID: 11400000, guid: 67d57a09f03dc2f45819ef5c55a4b10a, type: 2}
+  defaultFixedNormal: {fileID: 0}
+  defaultFixedUltimate: {fileID: 0}
+  defaultSkillGroups:
+  - groupName: "\u6280\u80FD\u7D44 1"
+    normalSkill: {fileID: 11400000, guid: 67d57a09f03dc2f45819ef5c55a4b10a, type: 2}
+    ultimateSkill: {fileID: 0}
   playerTag: Player
   mainMenuSceneName: MainMenuScene

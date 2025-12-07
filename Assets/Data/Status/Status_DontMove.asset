@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 770e2337d62ba0348b505e7e0947a3c2, type: 3}
+  m_Name: Status_DontMove
+  m_EditorClassIdentifier: 
+  statusID: "\u4E0D\u80FD\u79FB\u52D5"
+  statusIcon: {fileID: 0}
+  effects:
+  - rid: 408547906891022336
+  references:
+    version: 2
+    RefIds:
+    - rid: 408547906891022336
+      type: {class: StatusControlEffect, ns: RPG, asm: Assembly-CSharp}
+      data:
+        EffectName: New Effect
+        disableMovement: 1
+        disableSkills: 0
+        movementSpeedMultiplier: 1

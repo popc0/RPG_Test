@@ -1,12 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.UI;
+using RPG;
 
 namespace RPG
 {
-    // [1] 修改資料結構：每一組只包含「會隨切換變動」的那兩個技能
+    // 保持 SkillGroup 定義不變，確保序列化相容
     [System.Serializable]
     public class SkillGroup
     {
@@ -20,405 +19,140 @@ namespace RPG
     [DisallowMultipleComponent]
     public class SkillCaster : MonoBehaviour
     {
-        [Header("Owner/發射者")]
-        public Transform owner;
-        public Transform Owner => owner ? owner : transform;
-
-        [Header("引用")]
+        [Header("核心引用")]
+        public Transform owner; // 保留 Owner 給存檔或其他邏輯備用
         public UnifiedInputSource inputSource;
         public MainPointComponent main;
         public PlayerStats playerStats;
         public AimSource2D aimSource;
 
+        [Header("執行者 (請拖曳上面的 SkillExecutor)")]
+        public SkillExecutor executor;
+
         // ============================================================
-        // [修改] 技能配置結構 (4 Slot 混合架構)
+        // 1. 數據 (Data) - 這些絕對不能動，因為 SaveManager 會讀寫它們
         // ============================================================
         [Header("常駐固定技能")]
-        [Tooltip("Slot 0: 不會隨切換改變的普攻")]
-        public SkillData fixedNormalSkill;
-        [Tooltip("Slot 2: 不會隨切換改變的大招")]
-        public SkillData fixedUltimateSkill;
+        public SkillData fixedNormalSkill;   // Slot 0
+        public SkillData fixedUltimateSkill; // Slot 2
 
         [Header("可切換技能組")]
         public List<SkillGroup> skillGroups = new List<SkillGroup>();
         public int currentSkillGroupIndex = 0;
 
-        // 內部緩存，避免每次存取 Skills 屬性都產生垃圾
+        // 緩存清單 (給 HUD 用)
         private List<SkillData> _cachedSkills = new List<SkillData>();
+        public List<SkillData> Skills { get { RebuildSkillList(); return _cachedSkills; } }
 
-        // [核心修改] 動態組出 4 個技能回傳給外部 (HUD, AimPreview)
-        // 順序：0:固定普攻, 1:切換普攻, 2:固定大招, 3:切換大招
-        public List<SkillData> Skills
-        {
-            get
-            {
-                RebuildSkillList();
-                return _cachedSkills;
-            }
-        }
-
-        // 輔助：重建清單
-        void RebuildSkillList()
-        {
-            _cachedSkills.Clear();
-
-            // Slot 0
-            _cachedSkills.Add(fixedNormalSkill);
-
-            // 取得當前組
-            SkillGroup currentGroup = null;
-            if (skillGroups != null && skillGroups.Count > 0)
-            {
-                int idx = Mathf.Clamp(currentSkillGroupIndex, 0, skillGroups.Count - 1);
-                currentGroup = skillGroups[idx];
-            }
-
-            // Slot 1
-            _cachedSkills.Add(currentGroup != null ? currentGroup.switchableNormal : null);
-            // Slot 2
-            _cachedSkills.Add(fixedUltimateSkill);
-            // Slot 3
-            _cachedSkills.Add(currentGroup != null ? currentGroup.switchableUltimate : null);
-        }
-
-        [Header("命中設定 (2D)")]
-        public Transform firePoint;
-        [SerializeField] private LayerMask enemyMask = 0;
-        [SerializeField] private LayerMask obstacleMask = 0;
-        [SerializeField] private float spawnInset = 0.05f;
-
-        [Header("可視化")]
-        public bool drawTracer = true;
-        public float tracerDuration = 0.08f;
-        public LineRenderer tracer;
-        public LineRenderer areaRing;
-        public int areaSegments = 48;
-
+        // ============================================================
+        // 2. HUD 連結 (UI)
+        // ============================================================
         [Header("HUD")]
         [SerializeField] private HUDSkillStats hudSkillStats;
         private bool _hudAutoBound = false;
 
         // ============================================================
-        // 冷卻系統 (獨立追蹤)
+        // 3. 冷卻管理 (Logic) - 內部狀態，不影響存檔
         // ============================================================
-        // 固定技能冷卻：[0]=Slot0, [1]=Slot2
         private float[] _fixedTimers = new float[2];
         private float[] _fixedMaxs = new float[2];
-
-        // 切換技能冷卻：Key=GroupIndex, Value=[0]=Slot1, [1]=Slot3
-        // 這樣即使切換到別組，原本那組的 CD 也會繼續跑
         private Dictionary<int, float[]> _groupTimers = new Dictionary<int, float[]>();
         private Dictionary<int, float[]> _groupMaxs = new Dictionary<int, float[]>();
 
-        private bool isCasting;
+        // ============================================================
+        // ★ 新增：狀態變數
+        // ============================================================
 
-        void OnValidate() { EnsureOwnerAndFirePoint(); }
+        // 狀態 1: 正在詠唱 (條還在跑)
+        public bool IsCasting { get; private set; }
 
-        void OnEnable()
-        {
-            EnsureOwnerAndFirePoint();
-            TryAutoBindHud();
-            NotifyHudSkillGroupChanged();
-        }
+        // 狀態 2: 正在執行攻擊或排程延遲 (CastTime 結束後，RecoveryTime 開始前)
+        public bool IsActing { get; private set; }
 
+        // 狀態 2: 正在後搖/復原 (RecoveryTime 期間)
+        public bool IsRecovery { get; private set; }
+
+        // [新增] 引用 StatusManager (Start時自動抓取)
+        [Header("Status")]
+        [SerializeField] private StatusManager statusManager;
+
+        // --- 初始化與生命週期 ---
+        void OnEnable() { TryAutoBindHud(); NotifyHudSkillGroupChanged(); }
         void Start()
         {
-            if (playerStats && playerStats.MaxMP > 0 && playerStats.CurrentMP <= 0)
-                playerStats.CurrentMP = playerStats.MaxMP;
-
-            InitializeCooldowns(); // 初始化冷卻結構
+            if (playerStats && playerStats.MaxMP > 0 && playerStats.CurrentMP <= 0) playerStats.CurrentMP = playerStats.MaxMP;
+            InitializeCooldowns();
             NotifyHudSkillGroupChanged();
-        }
 
-        void EnsureOwnerAndFirePoint()
-        {
-            if (!owner) owner = transform;
-            if (!firePoint) firePoint = owner;
-        }
-
-        // 初始化所有組的冷卻記憶體
-        void InitializeCooldowns()
-        {
-            _fixedTimers = new float[2];
-            _fixedMaxs = new float[2];
-            _groupTimers.Clear();
-            _groupMaxs.Clear();
-
-            for (int i = 0; i < skillGroups.Count; i++)
-            {
-                _groupTimers[i] = new float[2]; // [0] for Slot 1, [1] for Slot 3
-                _groupMaxs[i] = new float[2];
-            }
+            // 自動尋找
+            if (!executor) executor = GetComponent<SkillExecutor>();
+            if (!statusManager) statusManager = GetComponent<StatusManager>();
         }
 
         void Update()
         {
             if (hudSkillStats == null && !_hudAutoBound) TryAutoBindHud();
+            UpdateCooldowns();
 
-            UpdateCooldowns(); // 更新計時器
-
+            // 輸入監聽
             if (inputSource != null)
             {
-                // [修改] 輸入對應邏輯
-
-                // 按鈕 Attack -> 施放 Slot 0 (固定普攻)
                 if (inputSource.AttackPressedThisFrame()) TryCastSkillAtIndex(0);
-
-                // 按鈕 Attack2 -> 施放 Slot 1 (切換普攻)
                 if (inputSource.Attack2PressedThisFrame()) TryCastSkillAtIndex(1);
-
-                // 體感/點擊/按鍵 -> 施放 Slot 2 (固定大招) 或 Slot 3 (切換大招)
-                // 這裡保留介面讓您可以從 UnifiedInputSource 呼叫
-                // 例如： if (inputSource.IsFixedUltTriggered()) TryCastSkillAtIndex(2);
-                // 例如： if (inputSource.IsSwitchUltTriggered()) TryCastSkillAtIndex(3);
-
-                // 切換技能組
+                // if (inputSource.IsFixedUltTriggered()) TryCastSkillAtIndex(2);
+                // if (inputSource.IsSwitchUltTriggered()) TryCastSkillAtIndex(3);
                 if (inputSource.SwitchSkillGroupPressedThisFrame()) SwitchToNextSkillGroup();
             }
         }
 
-        public void SwitchToNextSkillGroup()
-        {
-            if (skillGroups == null || skillGroups.Count <= 1) return;
-            currentSkillGroupIndex = (currentSkillGroupIndex + 1) % skillGroups.Count;
-            NotifyHudSkillGroupChanged();
-        }
-
-        public void SetSkillGroupIndex(int index)
-        {
-            if (skillGroups == null || skillGroups.Count == 0) return;
-            currentSkillGroupIndex = Mathf.Clamp(index, 0, skillGroups.Count - 1);
-            NotifyHudSkillGroupChanged();
-        }
-
-        void NotifyHudSkillGroupChanged()
-        {
-            if (hudSkillStats == null) return;
-            hudSkillStats.SetSkillSetIndex(currentSkillGroupIndex);
-
-            // 傳遞完整的 4 個技能給 HUD
-            hudSkillStats.SetSkillSetData(currentSkillGroupIndex, Skills);
-
-            // 立即刷新 HUD 上的冷卻顯示 (因為 Slot 1/3 的內容和冷卻可能變了)
-            RefreshHudCooldowns();
-        }
-
-        void RefreshHudCooldowns()
-        {
-            if (hudSkillStats == null) return;
-            for (int i = 0; i < 4; i++)
-            {
-                float current = GetCooldown(i);
-                float max = GetMaxCooldown(i);
-                hudSkillStats.SetSkillCooldown(i, current, max);
-            }
-        }
-
-        //===================================
-        //  新增以及刪除
-        //===================================
-        // [新增] 建立一個全新的空白技能組
-        public void AddNewSkillGroup()
-        {
-            if (skillGroups == null) skillGroups = new List<SkillGroup>();
-            var newGroup = new SkillGroup();
-
-            // 1. 計算插入位置：插在當前索引的「下一格」
-            // 如果清單是空的，就插在 0
-            int insertIndex = (skillGroups.Count == 0) ? 0 : currentSkillGroupIndex + 1;
-
-            // 2. 執行插入 (Insert)
-            if (insertIndex < skillGroups.Count)
-            {
-                skillGroups.Insert(insertIndex, newGroup);
-            }
-            else
-            {
-                // 如果當前已經是最後一個，就直接加在最後
-                skillGroups.Add(newGroup);
-            }
-
-            // 3. 重新命名所有組別 (1, 2, 3...) 確保順序名稱正確
-            RefreshGroupNames();
-
-            // 4. 自動切換到這個新建立的組別 (就在下一頁)
-            currentSkillGroupIndex = insertIndex;
-
-            // 初始化這一組的冷卻計時器 (重要！否則報錯)
-            InitializeCooldowns();
-
-            // 通知 HUD 更新
-            NotifyHudSkillGroupChanged();
-        }
-
-        // [新增] 刪除當前選中的技能組
-        public void RemoveCurrentSkillGroup()
-        {
-            if (skillGroups == null || skillGroups.Count <= 1)
-            {
-                Debug.LogWarning("至少要保留一個技能組，無法刪除！");
-                return;
-            }
-
-            // 移除當前索引的組
-            skillGroups.RemoveAt(currentSkillGroupIndex);
-
-            // [新增] 每次刪除後，重新命名所有組別 (自動往前補)
-            RefreshGroupNames();
-
-            // 修正索引：如果刪的是最後一個 (index 2)，刪完後剩 2 個 (max index 1)，需倒退
-            if (currentSkillGroupIndex >= skillGroups.Count)
-            {
-                currentSkillGroupIndex = skillGroups.Count - 1;
-            }
-
-            // 重建冷卻計時器結構
-            InitializeCooldowns();
-
-            // 通知 HUD 更新
-            NotifyHudSkillGroupChanged();
-        }
-
-        // [新增] 輔助方法：將所有群組依序重新命名
-        private void RefreshGroupNames()
-        {
-            if (skillGroups == null) return;
-            for (int i = 0; i < skillGroups.Count; i++)
-            {
-                // 自動設為 "技能組 1", "技能組 2", ...
-                skillGroups[i].groupName = $"技能組 {i + 1}";
-            }
-        }
-
         // ============================================================
-        // 冷卻管理 (區分固定/切換)
+        // 4. 施法主流程 (Logic)
         // ============================================================
-        // 取得特定 Slot 的剩餘冷卻
-        float GetCooldown(int slotIndex)
-        {
-            if (slotIndex == 0) return _fixedTimers[0]; // Slot 0
-            if (slotIndex == 2) return _fixedTimers[1]; // Slot 2
 
-            // 切換技能 (1, 3)
-            int localIdx = (slotIndex == 1) ? 0 : 1; // 映射: Slot 1->0, Slot 3->1
-            if (_groupTimers.ContainsKey(currentSkillGroupIndex))
-                return _groupTimers[currentSkillGroupIndex][localIdx];
-            return 0f;
-        }
-
-        float GetMaxCooldown(int slotIndex)
-        {
-            if (slotIndex == 0) return _fixedMaxs[0];
-            if (slotIndex == 2) return _fixedMaxs[1];
-
-            int localIdx = (slotIndex == 1) ? 0 : 1;
-            if (_groupMaxs.ContainsKey(currentSkillGroupIndex))
-                return _groupMaxs[currentSkillGroupIndex][localIdx];
-            return 0f;
-        }
-
-        // 設定特定 Slot 的冷卻
-        void SetCooldown(int slotIndex, float val)
-        {
-            if (slotIndex == 0) { _fixedTimers[0] = val; _fixedMaxs[0] = val; return; }
-            if (slotIndex == 2) { _fixedTimers[1] = val; _fixedMaxs[1] = val; return; }
-
-            int localIdx = (slotIndex == 1) ? 0 : 1;
-            if (!_groupTimers.ContainsKey(currentSkillGroupIndex))
-                InitializeCooldowns(); // 防呆
-
-            _groupTimers[currentSkillGroupIndex][localIdx] = val;
-            _groupMaxs[currentSkillGroupIndex][localIdx] = val;
-        }
-
-        // 每幀更新所有計時器
-        void UpdateCooldowns()
-        {
-            float dt = Time.deltaTime;
-
-            // 1. 更新固定技能
-            for (int i = 0; i < 2; i++)
-            {
-                if (_fixedTimers[i] > 0f)
-                {
-                    _fixedTimers[i] = Mathf.Max(0f, _fixedTimers[i] - dt);
-                    // Slot 0 或 2 更新 UI
-                    int slot = (i == 0) ? 0 : 2;
-                    if (hudSkillStats) hudSkillStats.SetSkillCooldown(slot, _fixedTimers[i], _fixedMaxs[i]);
-                }
-            }
-
-            // 2. 更新所有組的切換技能 (後台也要跑 CD)
-            foreach (var kvp in _groupTimers)
-            {
-                int gIdx = kvp.Key;
-                float[] timers = kvp.Value;
-                float[] maxs = _groupMaxs[gIdx];
-
-                for (int k = 0; k < 2; k++) // k=0 -> Slot1, k=1 -> Slot3
-                {
-                    if (timers[k] > 0f)
-                    {
-                        timers[k] = Mathf.Max(0f, timers[k] - dt);
-                        // 只有「當前組」才更新 UI
-                        if (gIdx == currentSkillGroupIndex && hudSkillStats)
-                        {
-                            int slot = (k == 0) ? 1 : 3;
-                            hudSkillStats.SetSkillCooldown(slot, timers[k], maxs[k]);
-                        }
-                    }
-                }
-            }
-        }
-
-        void TryAutoBindHud()
-        {
-            if (hudSkillStats != null) { _hudAutoBound = true; return; }
-            hudSkillStats = FindObjectOfType<HUDSkillStats>();
-            if (hudSkillStats != null) { _hudAutoBound = true; NotifyHudSkillGroupChanged(); }
-        }
-
-        // ============================================================
-        // 施法邏輯 (整合)
-        // ============================================================
         public void TryCastSkillAtIndex(int skillIndex)
         {
-            if (!enabled || isCasting || !main || !playerStats) return;
+            // ★ 修改：加入 statusManager.CanCast 檢查
+            // 如果狀態管理器說不能放招，就直接 return
+            if (statusManager != null && !statusManager.CanCast)
+            {
+                // 這裡可以加個 UI 提示 "沉默中"
+                return;
+            }
+            if (!enabled || !main || !playerStats) return;
 
-            // 從目前的 4 個技能中獲取資料
             var currentSkills = Skills;
             if (skillIndex < 0 || skillIndex >= currentSkills.Count) return;
 
             var rootData = currentSkills[skillIndex];
             if (!rootData) return;
 
-            // 1. 檢查與消耗 (使用新的 CheckCastReq)
+            // 檢查條件
             if (!rootData.CheckCastReq(main.AddedPoints)) return;
             if (GetCooldown(skillIndex) > 0f) return;
 
-            // 2. 計算消耗 (只看 Root)
+            // 計算消耗
             var rootComp = SkillCalculator.Compute(rootData, main.MP);
             if (playerStats.CurrentMP < rootComp.MpCost) return;
 
+            // 執行扣除
             playerStats.UseMP(rootComp.MpCost);
             SetCooldown(skillIndex, rootComp.Cooldown);
             if (hudSkillStats) hudSkillStats.SetSkillCooldown(skillIndex, rootComp.Cooldown, rootComp.Cooldown);
 
-            // 3. 啟動排程
+            // 開始流程
             StartCoroutine(SequenceRoutine(rootData, rootComp));
         }
 
         IEnumerator SequenceRoutine(SkillData rootData, SkillComputed rootComp)
         {
-            // [Snapshot] 鎖定當下位置與方向
-            // 所有子技能都將使用這個起始點，不會隨玩家移動而改變
-            Vector3 startOrigin = firePoint ? firePoint.position : transform.position;
-            Vector2 startDir = GetDir();
+            // ----------------------------------------------------
+            // Phase 1: 詠唱階段 (Casting)
+            // ----------------------------------------------------
+            IsCasting = true;
 
-            // ==========================
-            // Phase 1: 詠唱 (Cast Time)
-            // ==========================
-            isCasting = true; // 鎖住玩家行動
+            // [應用狀態] 如果有啟用且清單不為空
+            if (rootData.UseCastingStatus)
+                ApplyStatusEffects(rootData.CastingStatusEffects); // ★ 改用 Helper 方法
 
             float timer = rootComp.CastTime;
             while (timer > 0f)
@@ -427,151 +161,214 @@ namespace RPG
                 yield return null;
             }
 
-            isCasting = false; // 解鎖玩家行動
+            IsCasting = false;
 
-            // ==========================
-            // Phase 2: 執行第一招 (Root)
-            // ==========================
-            ExecuteAction(rootData, rootComp, startOrigin, startDir);
+            // [解除狀態]
+            if (rootData.UseCastingStatus)
+                RemoveStatusEffects(rootData.CastingStatusEffects); // ★ 改用 Helper 方法
 
-            // ==========================
-            // Phase 3: 執行排程 (Sequence)
-            // ==========================
+            // ----------------------------------------------------
+            // Phase 2: 執行/動作階段 (Acting)
+            // ----------------------------------------------------
+            IsActing = true;
+
+            // [應用狀態]
+            if (rootData.UseActingStatus)
+                ApplyStatusEffects(rootData.ActingStatusEffects);
+
+            // [Snapshot] 鎖定位置與方向
+            Vector3 startOrigin = transform.position;
+            if (executor && executor.firePoint) startOrigin = executor.firePoint.position;
+            Vector2 aimDir = (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f) ? aimSource.AimDir : Vector2.right;
+
+            // 執行第一招
+            if (executor) executor.ExecuteSkill(rootData, rootComp, startOrigin, aimDir);
+
+            // 執行排程
             if (rootData.sequence != null && rootData.sequence.Count > 0)
             {
                 foreach (var step in rootData.sequence)
                 {
                     if (step.skill == null) continue;
+                    if (step.delay > 0f) yield return new WaitForSeconds(step.delay);
 
-                    // 等待延遲
-                    if (step.delay > 0f)
-                        yield return new WaitForSeconds(step.delay);
-
-                    // 重新計算子技能數值 (使用當下的 main.MP)
                     var subComp = SkillCalculator.Compute(step.skill, main.MP);
-
-                    // 執行子技能 (使用 Snapshot 的位置與方向)
-                    ExecuteAction(step.skill, subComp, startOrigin, startDir);
+                    if (executor) executor.ExecuteSkill(step.skill, subComp, startOrigin, aimDir);
                 }
             }
-        }
 
-        // 統一執行入口：根據 HitType 分派
-        void ExecuteAction(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
-        {
-            if (data.HitType == HitType.Area)
-                DoArea2D(data, comp, origin, dir);
-            else if (data.HitType == HitType.Cone)
-                DoCone2D(data, comp, origin, dir);
-            else
-                DoSingle2D(data, comp, origin, dir);
-        }
-        /*
-        IEnumerator CastRoutine(SkillData data, SkillComputed comp, int skillIndex)
-        {
-            isCasting = true;
-            // 前搖
-            float timer = comp.CastTime;
-            while (timer > 0f)
+            IsActing = false;
+
+            // [解除狀態]
+            if (rootData.UseActingStatus)
+                RemoveStatusEffects(rootData.ActingStatusEffects);
+
+            // ----------------------------------------------------
+            // Phase 3: 後搖/復原階段 (Recovery)
+            // ----------------------------------------------------
+            float recoveryTime = rootData.RecoveryTime;
+
+            if (recoveryTime > 0f)
             {
-                if (enabled && Time.timeScale > 0f) timer -= Time.deltaTime;
-                yield return null;
+                IsRecovery = true;
+
+                // [應用狀態]
+                if (rootData.UseRecoveryStatus)
+                    ApplyStatusEffects(rootData.RecoveryStatusEffects);
+
+                yield return new WaitForSeconds(recoveryTime);
+
+                IsRecovery = false;
+
+                // [解除狀態]
+                if (rootData.UseRecoveryStatus)
+                    RemoveStatusEffects(rootData.RecoveryStatusEffects);
             }
 
-            // 執行判定
-            if (data.HitType == HitType.Area) DoArea2D(data, comp);
-            else if (data.HitType == HitType.Cone) DoCone2D(data, comp);
-            else DoSingle2D(data, comp);
-
-            isCasting = false;
+            // 技能流程完全結束
         }
-        */
 
         // ============================================================
-        // 物理判定 (稍微修改以接受傳入的 origin 和 dir)
+        // 防重複裝備邏輯 (Logic) - 這是您剛加的，必須保留
+        // ============================================================
+        public string TryEquipSkill(int slotIndex, SkillData newSkill, int targetGroupIndex)
+        {
+            if (newSkill == null) { ApplyEquip(slotIndex, null, targetGroupIndex); return null; }
+            if (skillGroups == null || targetGroupIndex < 0 || targetGroupIndex >= skillGroups.Count) return "錯誤索引";
+
+            // 檢查重複
+            if (slotIndex == 1) // Slot 1 副普攻
+            {
+                if (fixedNormalSkill == newSkill) return "與主技能 (Slot 0) 重複！";
+                ApplyEquip(slotIndex, newSkill, targetGroupIndex);
+            }
+            else if (slotIndex == 3) // Slot 3 副大招
+            {
+                if (fixedUltimateSkill == newSkill) return "與主技能 (Slot 2) 重複！";
+                ApplyEquip(slotIndex, newSkill, targetGroupIndex);
+            }
+            else if (slotIndex == 0) // Slot 0 主普攻
+            {
+                foreach (var group in skillGroups)
+                    if (group.switchableNormal == newSkill) group.switchableNormal = null;
+                ApplyEquip(slotIndex, newSkill, targetGroupIndex);
+            }
+            else if (slotIndex == 2) // Slot 2 主大招
+            {
+                foreach (var group in skillGroups)
+                    if (group.switchableUltimate == newSkill) group.switchableUltimate = null;
+                ApplyEquip(slotIndex, newSkill, targetGroupIndex);
+            }
+            return null;
+        }
+
+        private void ApplyEquip(int slotIndex, SkillData skill, int groupIdx)
+        {
+            var group = skillGroups[groupIdx];
+            switch (slotIndex)
+            {
+                case 0: fixedNormalSkill = skill; break;
+                case 1: group.switchableNormal = skill; break;
+                case 2: fixedUltimateSkill = skill; break;
+                case 3: group.switchableUltimate = skill; break;
+            }
+        }
+
+        // ============================================================
+        // 下面全是輔助函式 (Helper) 
         // ============================================================
 
-        void DoSingle2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
+        // ============================================================
+        //  Helper 方法：處理 List 迴圈
+        // (您需要另外實作 StatusManager 來接收這些 ScriptableObject)
+        // ============================================================
+        void ApplyStatusEffects(List<StatusData> effects) // ★ 類型變更
         {
-            if (data.UseProjectile && data.ProjectilePrefab)
+            if (effects == null || statusManager == null) return;
+            foreach (var effect in effects)
             {
-                var spawnPos = origin + (Vector3)(dir * spawnInset);
-
-                GameObject obj;
-                if (ObjectPool.Instance != null)
-                    obj = ObjectPool.Instance.Spawn(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
-                else
-                    obj = Instantiate(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
-
-                var proj = obj.GetComponent<Projectile2D>();
-                if (proj) proj.Init(Owner, dir, data, comp, enemyMask, obstacleMask);
-            }
-            else
-            {
-                DoSingle2D_LegacyRay(data, comp, origin, dir);
+                statusManager.Apply(effect); // 傳入 StatusData
             }
         }
 
-        void DoSingle2D_LegacyRay(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
+        void RemoveStatusEffects(List<StatusData> effects) // ★ 類型變更
         {
-            float dist = Mathf.Max(0.1f, data.BaseRange);
-            RaycastHit2D hit = Physics2D.Raycast(origin, dir, dist, enemyMask | obstacleMask);
-
-            Vector3 endPos = origin + (Vector3)(dir * dist);
-
-            if (hit.collider != null)
+            if (effects == null || statusManager == null) return;
+            foreach (var effect in effects)
             {
-                endPos = hit.point;
-                if (EffectApplier.TryResolveOwner(hit.collider, out var target, out var layer))
-                {
-                    if (data.TargetLayer == layer)
-                        target.ApplyIncomingRaw(comp.Damage);
-                }
-            }
-            FlashLine(origin, endPos);
-        }
-
-        void DoArea2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
-        {
-            // 計算中心點：從 origin 往 dir 延伸 BaseRange 距離
-            Vector2 center = (Vector2)origin + dir * Mathf.Max(0.1f, data.BaseRange);
-            float r = Mathf.Max(0.05f, comp.AreaRadius);
-
-            Collider2D[] hits = Physics2D.OverlapCircleAll(center, r, enemyMask);
-            foreach (var h in hits)
-            {
-                if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
-                    if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
-            }
-            if (areaRing) StartCoroutine(FlashCircle(areaRing, center, r, tracerDuration));
-        }
-
-        void DoCone2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
-        {
-            float dist = Mathf.Max(0.1f, data.BaseRange);
-            float angle = comp.ConeAngle;
-
-            Collider2D[] hits = Physics2D.OverlapCircleAll(origin, dist, enemyMask);
-            foreach (var h in hits)
-            {
-                if (h.transform.IsChildOf(Owner)) continue;
-                Vector2 tDir = (h.bounds.center - origin);
-                if (Vector2.Angle(dir, tDir) <= angle * 0.5f)
-                {
-                    if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
-                        if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
-                }
+                statusManager.Remove(effect); // 傳入 StatusData
             }
         }
-        Vector2 GetDir() { return (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f) ? aimSource.AimDir : Vector2.right; }
-        void FlashLine(Vector3 a, Vector3 b) { if (!drawTracer || !tracer) return; tracer.positionCount = 2; tracer.SetPosition(0, a); tracer.SetPosition(1, b); StopCoroutine("LineRoutine"); StartCoroutine("LineRoutine"); }
-        IEnumerator LineRoutine() { tracer.enabled = true; yield return new WaitForSeconds(tracerDuration); tracer.enabled = false; }
-        IEnumerator FlashCircle(LineRenderer lr, Vector3 center, float radius, float dur)
+        void RebuildSkillList()
         {
-            if (!lr) yield break; int segs = Mathf.Max(6, areaSegments); lr.positionCount = segs + 1;
-            float step = 2f * Mathf.PI / segs;
-            for (int i = 0; i <= segs; i++) lr.SetPosition(i, center + new Vector3(Mathf.Cos(i * step) * radius, Mathf.Sin(i * step) * radius, 0));
-            lr.enabled = true; yield return new WaitForSeconds(dur); lr.enabled = false;
+            _cachedSkills.Clear();
+            _cachedSkills.Add(fixedNormalSkill);
+            var g = (skillGroups.Count > 0) ? skillGroups[Mathf.Clamp(currentSkillGroupIndex, 0, skillGroups.Count - 1)] : null;
+            _cachedSkills.Add(g?.switchableNormal);
+            _cachedSkills.Add(fixedUltimateSkill);
+            _cachedSkills.Add(g?.switchableUltimate);
         }
+
+        void InitializeCooldowns()
+        { /* ... 同原版 ... */
+            _fixedTimers = new float[2]; _fixedMaxs = new float[2]; _groupTimers.Clear(); _groupMaxs.Clear();
+            for (int i = 0; i < skillGroups.Count; i++) { _groupTimers[i] = new float[2]; _groupMaxs[i] = new float[2]; }
+        }
+
+        // ... (GetCooldown, SetCooldown, UpdateCooldowns, SwitchToNextSkillGroup, TryAutoBindHud 等等完全保持原樣) ...
+        // 為了節省篇幅，這裡省略這些未改動的程式碼，請直接複製原有的內容即可。
+        // 重點是移除了所有 DoArea2D, DoSingle2D, LineRenderer 變數。
+
+        // 這裡補上必要的 Helper 以確保編譯通過
+        float GetCooldown(int slotIndex)
+        {
+            if (slotIndex == 0) return _fixedTimers[0]; if (slotIndex == 2) return _fixedTimers[1];
+            int localIdx = (slotIndex == 1) ? 0 : 1;
+            if (_groupTimers.ContainsKey(currentSkillGroupIndex)) return _groupTimers[currentSkillGroupIndex][localIdx];
+            return 0f;
+        }
+        void SetCooldown(int slotIndex, float val)
+        {
+            if (slotIndex == 0) { _fixedTimers[0] = val; _fixedMaxs[0] = val; return; }
+            if (slotIndex == 2) { _fixedTimers[1] = val; _fixedMaxs[1] = val; return; }
+            int localIdx = (slotIndex == 1) ? 0 : 1;
+            if (!_groupTimers.ContainsKey(currentSkillGroupIndex)) InitializeCooldowns();
+            _groupTimers[currentSkillGroupIndex][localIdx] = val; _groupMaxs[currentSkillGroupIndex][localIdx] = val;
+        }
+        void UpdateCooldowns()
+        {
+            float dt = Time.deltaTime;
+            for (int i = 0; i < 2; i++) if (_fixedTimers[i] > 0f) { _fixedTimers[i] = Mathf.Max(0f, _fixedTimers[i] - dt); if (hudSkillStats) hudSkillStats.SetSkillCooldown((i == 0) ? 0 : 2, _fixedTimers[i], _fixedMaxs[i]); }
+            foreach (var kvp in _groupTimers)
+            {
+                for (int k = 0; k < 2; k++) if (kvp.Value[k] > 0f) { kvp.Value[k] = Mathf.Max(0f, kvp.Value[k] - dt); if (kvp.Key == currentSkillGroupIndex && hudSkillStats) hudSkillStats.SetSkillCooldown((k == 0) ? 1 : 3, kvp.Value[k], _groupMaxs[kvp.Key][k]); }
+            }
+        }
+        public void SwitchToNextSkillGroup() { if (skillGroups.Count <= 1) return; currentSkillGroupIndex = (currentSkillGroupIndex + 1) % skillGroups.Count; NotifyHudSkillGroupChanged(); }
+        public void SetSkillGroupIndex(int index) { if (skillGroups.Count == 0) return; currentSkillGroupIndex = Mathf.Clamp(index, 0, skillGroups.Count - 1); NotifyHudSkillGroupChanged(); }
+        void NotifyHudSkillGroupChanged() { if (hudSkillStats) { hudSkillStats.SetSkillSetIndex(currentSkillGroupIndex); hudSkillStats.SetSkillSetData(currentSkillGroupIndex, Skills); RefreshHudCooldowns(); } }
+        void RefreshHudCooldowns() { if (!hudSkillStats) return; for (int i = 0; i < 4; i++) hudSkillStats.SetSkillCooldown(i, GetCooldown(i), GetMaxCooldown(i)); }
+        float GetMaxCooldown(int slotIndex) { if (slotIndex == 0) return _fixedMaxs[0]; if (slotIndex == 2) return _fixedMaxs[1]; int localIdx = (slotIndex == 1) ? 0 : 1; if (_groupMaxs.ContainsKey(currentSkillGroupIndex)) return _groupMaxs[currentSkillGroupIndex][localIdx]; return 0f; }
+
+        // 新增/刪除群組功能也保持不變
+        public void AddNewSkillGroup()
+        {
+            if (skillGroups == null) skillGroups = new List<SkillGroup>();
+            var newGroup = new SkillGroup();
+            int insertIndex = (skillGroups.Count == 0) ? 0 : currentSkillGroupIndex + 1;
+            if (insertIndex < skillGroups.Count) skillGroups.Insert(insertIndex, newGroup); else skillGroups.Add(newGroup);
+            RefreshGroupNames(); currentSkillGroupIndex = insertIndex; InitializeCooldowns(); NotifyHudSkillGroupChanged();
+        }
+        public void RemoveCurrentSkillGroup()
+        {
+            if (skillGroups == null || skillGroups.Count <= 1) { Debug.LogWarning("至少保留一組"); return; }
+            skillGroups.RemoveAt(currentSkillGroupIndex); RefreshGroupNames();
+            if (currentSkillGroupIndex >= skillGroups.Count) currentSkillGroupIndex = skillGroups.Count - 1;
+            InitializeCooldowns(); NotifyHudSkillGroupChanged();
+        }
+        private void RefreshGroupNames() { if (skillGroups == null) return; for (int i = 0; i < skillGroups.Count; i++) skillGroups[i].groupName = $"技能組 {i + 1}"; }
+        void TryAutoBindHud() { if (hudSkillStats) { _hudAutoBound = true; return; } hudSkillStats = FindObjectOfType<HUDSkillStats>(); if (hudSkillStats) { _hudAutoBound = true; NotifyHudSkillGroupChanged(); } }
+        void EnsureOwnerAndFirePoint() { if (!owner) owner = transform; }
+        void OnValidate() { EnsureOwnerAndFirePoint(); }
     }
 }

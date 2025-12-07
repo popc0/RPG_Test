@@ -14,6 +14,29 @@ public class SaveManager : MonoBehaviour
     [Header("技能資料庫 (必須包含遊戲內所有技能)")]
     public List<SkillData> allSkillsLibrary;
 
+    // ============================================================
+    // ★ [新增] 新遊戲預設配置 (New Game Defaults)
+    // ============================================================
+    [Header("新遊戲預設配置")]
+    [Tooltip("預設的固定普攻 (Slot 0)")]
+    public SkillData defaultFixedNormal;
+
+    [Tooltip("預設的固定大招 (Slot 2)")]
+    public SkillData defaultFixedUltimate;
+
+    [Tooltip("預設的技能組清單")]
+    public List<DefaultSkillGroupConfig> defaultSkillGroups;
+
+    // 定義一個簡單的結構，讓你可以在 Inspector 設定每一組的預設值
+    [System.Serializable]
+    public struct DefaultSkillGroupConfig
+    {
+        public string groupName;
+        public SkillData normalSkill;   // Slot 1
+        public SkillData ultimateSkill; // Slot 3
+    }
+    // ============================================================
+
     [Header("Player 尋找設定")]
     public string playerTag = "Player";
 
@@ -74,7 +97,8 @@ public class SaveManager : MonoBehaviour
         var levelAgent = player.GetComponent<PlayerLevel>(); // [新增] 獲取 PlayerLevel
         var mainPoint = player.GetComponent<MainPointComponent>(); // [新增] 抓取主屬性組件
         var caster = player.GetComponentInChildren<SkillCaster>(true); // [新增] 抓 SkillCaster
-
+        // [修改] 改用 GetComponentInChildren(true)
+        var pm = player.GetComponentInChildren<PassiveManager>(true); // ★ 這裡修改
         var data = new SaveData(SceneManager.GetActiveScene().name, p.x, p.y, vol);
         // 將靜態資料中的頁面索引拷貝到要儲存的新資料中
         data.pageMainLastPageIndex = CurrentData.pageMainLastPageIndex;
@@ -124,6 +148,33 @@ public class SaveManager : MonoBehaviour
                 data.skillGroups.Add(saveGroup);
             }
         }
+        // =================被動技能組=========================
+        if (pm != null)
+        {
+            data.currentPassiveGroupIndex = pm.currentGroupIndex;
+
+            // ★ 新增：儲存生效索引
+            data.appliedPassiveGroupIndex = pm.appliedGroupIndex;
+
+            data.passiveGroups = new List<SaveData.SavedPassiveGroup>();
+
+            foreach (var group in pm.passiveGroups)
+            {
+                var saveGroup = new SaveData.SavedPassiveGroup
+                {
+                    groupName = group.groupName,
+                    skillIDs = new List<string>()
+                };
+
+                // 把這一組的所有技能轉成 ID 存起來
+                foreach (var skill in group.slots)
+                {
+                    saveGroup.skillIDs.Add(skill != null ? skill.skillID : "");
+                }
+                data.passiveGroups.Add(saveGroup);
+            }
+        }
+        // ==========================================
 
         SaveSystem.Save(data);
     }
@@ -255,6 +306,58 @@ public class SaveManager : MonoBehaviour
             }
             caster.SetSkillGroupIndex(dataToApply.currentSkillGroupIndex);
         }
+
+        // =================被動技能組=========================
+        // [修改] 改用 GetComponentInChildren(true)
+        var pm = player.GetComponentInChildren<PassiveManager>(true);
+        if (pm != null)
+        {
+            // 1. 還原群組資料
+            if (dataToApply.passiveGroups != null && dataToApply.passiveGroups.Count > 0)
+            {
+                pm.passiveGroups.Clear();
+                foreach (var savedGroup in dataToApply.passiveGroups)
+                {
+                    var newGroup = new PassiveManager.PassiveSkillGroup
+                    {
+                        groupName = savedGroup.groupName,
+                        slots = new List<SkillData>()
+                    };
+
+                    // 還原技能
+                    foreach (var id in savedGroup.skillIDs)
+                    {
+                        newGroup.slots.Add(FindSkillByID(id));
+                    }
+                    pm.passiveGroups.Add(newGroup);
+                }
+            }
+
+            // 2. 還原 UI 編輯索引
+            pm.currentGroupIndex = dataToApply.currentPassiveGroupIndex;
+
+            // 3. ★ 還原並套用生效索引
+            // 注意：這裡呼叫 ApplyGroup 會自動觸發效果套用，所以不需要再手動呼叫 ApplyPassives
+            // 如果存檔中的 appliedIndex 是有效的，就套用它；否則設為 -1 (無生效)
+
+            // 檢查欄位是否存在 (舊存檔可能沒有這個欄位，預設是 0 或 -1 需要小心)
+            // 這裡假設 int 預設是 0，為了兼容舊存檔，我們可以加個檢查
+            // 但因為我們加了 public int appliedPassiveGroupIndex = -1; 在 SaveData 初始值
+            // 所以如果是新存檔應該沒問題。
+
+            int indexToApply = dataToApply.appliedPassiveGroupIndex;
+
+            // 強制套用 (forceRefresh = true)，確保效果在載入後立即執行
+            if (indexToApply >= 0 && indexToApply < pm.passiveGroups.Count)
+            {
+                pm.ApplyGroup(indexToApply, true);
+            }
+            else
+            {
+                pm.appliedGroupIndex = -1; // 確保狀態正確
+            }
+        }
+        // ==========================================
     }
 
     // [修改] 搜尋方法改為比對 ID
@@ -280,41 +383,88 @@ public class SaveManager : MonoBehaviour
         var rb = player.GetComponent<Rigidbody2D>();
         if (rb) rb.velocity = Vector2.zero;
     }
-    // [新增] 這是您提到的「初始化的檔案」
-    // 當玩家點擊 Start Game 時呼叫這個方法
+
+    // [修改] 這是您提到的「初始化的檔案」
     public void PrepareNewGame()
     {
-        // 1. 建立一個全新的 SaveData (這就是初始化的檔案)
+        // 1. 建立一個全新的 SaveData
         var initData = new SaveData();
 
-        // 2. 填入初始數值 (確保玩家從 1 等、0 經驗開始)
-        // 注意：SceneName 這裡可以不填，因為 MainMenuController 會負責切換場景
+        // 2. 填入初始數值 (1等, 0經驗, 30點, 滿血滿魔)
         initData.playerLevel = 1;
         initData.playerCurrentExp = 0;
         initData.playerUnspentPoints = 30;
-
-        // [修改] 將初始血魔設為很大的數字 (例如 99999)
-        // 這樣在 ApplyLoadedStatsIfPossible 裡的 Mathf.Clamp 
-        // 就會自動把它變成 MaxHP 和 MaxMP (即滿血滿魔)
-        initData.playerHP = 99999f;
+        initData.playerHP = 99999f; // 強制補滿
         initData.playerMP = 99999f;
-        initData.playerMaxHP = 0; // 0 代表使用角色預設的最大血量
+        initData.playerMaxHP = 0;
         initData.playerMaxMP = 0;
+        initData.pageMainLastPageIndex = 0; // 重置 UI 頁籤位置
 
-        // [新增] 設定初始技能組 (如果不設定，讀檔時會保留 Prefab 上的設定，這也可以)
-        // 如果您希望新遊戲是「乾淨」的或有特定初始招，可以在這裡 new List<SavedSkillGroup> 並填入
-        // 這裡示範：不特別設定，讓它讀取時發現是空清單，進而使用 Player Prefab 上的預設技能
+        // ============================================================
+        // ★ [新增] 將 Inspector 設定的預設技能寫入存檔
+        // ============================================================
 
+        // A. 寫入固定技能 ID
+        initData.fixedNormalSkillID = defaultFixedNormal != null ? defaultFixedNormal.skillID : "";
+        initData.fixedUltimateSkillID = defaultFixedUltimate != null ? defaultFixedUltimate.skillID : "";
+
+        // B. 寫入技能組
         initData.skillGroups = new List<SaveData.SavedSkillGroup>();
-        // 這樣 Apply 時會發現 count=0，就會跳過 skillGroups.Clear()，保留 Prefab 設定
-        // 詳見 ApplyLoadedStatsIfPossible 中的判斷
 
+        if (defaultSkillGroups != null && defaultSkillGroups.Count > 0)
+        {
+            // 如果你有在 Inspector 設定預設組，就用你設定的
+            foreach (var config in defaultSkillGroups)
+            {
+                var savedGroup = new SaveData.SavedSkillGroup
+                {
+                    // 如果沒填名字就給預設值
+                    groupName = string.IsNullOrEmpty(config.groupName) ? $"技能組 {initData.skillGroups.Count + 1}" : config.groupName,
+                    // 轉成 ID 存起來
+                    normalSkillID = config.normalSkill != null ? config.normalSkill.skillID : "",
+                    ultimateSkillID = config.ultimateSkill != null ? config.ultimateSkill.skillID : ""
+                };
+                initData.skillGroups.Add(savedGroup);
+            }
+        }
+        else
+        {
+            // 如果你沒設定任何預設組，我們至少給一組空的，避免報錯
+            // 或者：留空讓系統去讀 Player Prefab 上的設定 (依你的需求)
+            // 這裡示範：自動給一組空的 "預設組"
+            initData.skillGroups.Add(new SaveData.SavedSkillGroup
+            {
+                groupName = "預設組",
+                normalSkillID = "",
+                ultimateSkillID = ""
+            });
+        }
+
+        initData.currentSkillGroupIndex = 0;
+
+        // ============================================================
+        //預設被動技能組
+        // ============================================================
+        initData.passiveGroups = new List<SaveData.SavedPassiveGroup>();
+        // 預設給一組空的
+        var defaultPassiveGroup = new SaveData.SavedPassiveGroup
+        {
+            groupName = "預設被動組",
+            skillIDs = new List<string>() // 裡面看你要不要塞預設技能 ID
+        };
+        // 補滿空字串 (對應 maxSlots，假設是 5)
+        for (int i = 0; i < 5; i++) defaultPassiveGroup.skillIDs.Add("");
+
+        initData.passiveGroups.Add(defaultPassiveGroup);
+        initData.currentPassiveGroupIndex = 0;
+
+        // 新遊戲預設沒有生效的被動組 (或者您可以設為 0)
+        initData.appliedPassiveGroupIndex = -1;
+        // ============================================================
 
         // 3. 關鍵步驟：把它存入 _loadedData
-        // 這樣等到場景載入完成 (OnSceneLoaded) 時，
-        // 系統就會以為這是剛讀出來的存檔，並把這些初始值強制套用到場上的玩家身上
         _loadedData = initData;
 
-        Debug.Log("[SaveManager] New game data prepared.");
+        Debug.Log($"[SaveManager] New game prepared. (Groups: {initData.skillGroups.Count})");
     }
 }

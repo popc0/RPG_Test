@@ -53,6 +53,20 @@ public class SaveData
     public List<SavedSkillGroup> skillGroups = new List<SavedSkillGroup>();
     public int currentSkillGroupIndex = 0;
 
+    // [新增] 被動技能組結構
+    [Serializable]
+    public struct SavedPassiveGroup
+    {
+        public string groupName;
+        public List<string> skillIDs; // 這一組裡面的所有技能 ID
+    }
+
+    public List<SavedPassiveGroup> passiveGroups = new List<SavedPassiveGroup>();
+    public int currentPassiveGroupIndex = 0;// 這是 UI 編輯用的索引
+
+    // 生效的被動組索引
+    public int appliedPassiveGroupIndex = -1;
+
     public SaveData() { }
 
     public SaveData(string scene, float x, float y)

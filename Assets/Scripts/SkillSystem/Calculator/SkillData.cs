@@ -79,6 +79,7 @@ namespace RPG
         // 3. 執行參數 (Action)
         // ============================================================
         public float CastTime = 0.3f; // 只有第一招會用到，後續招式通常視為 0 或忽略
+        public float RecoveryTime = 0.2f; // ★ 新增：後搖/復原時間 (硬直)
 
         public TargetType Target = TargetType.Enemy;
         public HitType HitType = HitType.Single;
@@ -88,6 +89,26 @@ namespace RPG
         public float BaseRange = 8f;       // 射程 / 距離
         public float BaseAreaRadius = 2f;  // Area 用
         public float BaseConeAngle = 60f;  // Cone 用
+
+        // ============================================================
+        // ★ 新增：技能狀態/效果 (用於控制移動、限制施法、特殊效果等)
+        // (未來可指向繼承 ScriptableObject 的特殊狀態檔案)
+        // ============================================================
+        [Header("狀態效果 (需另行實作應用程式)")]
+        // ★ 變更點 1：詠唱狀態
+        public bool UseCastingStatus = false; // 新增：是否啟用詠唱狀態
+        [Tooltip("詠唱期間套用的狀態/效果")]
+        public List<StatusData> CastingStatusEffects = new List<StatusData>(); // 變更：改為 List
+
+        // ★ 變更點 2：執行狀態
+        public bool UseActingStatus = false; // 新增：是否啟用執行狀態
+        [Tooltip("執行攻擊/排程期間套用的狀態/效果")]
+        public List<StatusData> ActingStatusEffects = new List<StatusData>(); // 變更：改為 List
+
+        // ★ 變更點 3：後搖狀態
+        public bool UseRecoveryStatus = false; // 新增：是否啟用後搖狀態
+        [Tooltip("後搖/復原期間套用的狀態/效果")]
+        public List<StatusData> RecoveryStatusEffects = new List<StatusData>(); // 變更：改為 List
 
         // ============================================================
         // 4. 投射物 (Projectile)
