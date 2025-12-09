@@ -27,6 +27,10 @@ namespace RPG
         [Tooltip("每幀最多連續 Cast 次數")]
         public int maxCastsPerStep = 4;
 
+        [Header("模型設定 (透視修正用)")]
+        [Tooltip("若指定此欄位，旋轉時只會轉動此子物件，父物件保持不動以維持縮放。")]
+        public Transform modelTransform;
+
         // 內部
         Collider2D _col;                    // 允許在子物件上
         Vector2 _dir = Vector2.right;
@@ -183,7 +187,20 @@ namespace RPG
             float deg = Mathf.Atan2(_dir.y, _dir.x) * Mathf.Rad2Deg; // 以 +X 為前
             if (modelForward == FacingAxis.Up) deg -= 90f;
             deg += rotationOffsetDeg;
-            transform.rotation = Quaternion.AngleAxis(deg, Vector3.forward);
+
+            Quaternion targetRot = Quaternion.AngleAxis(deg, Vector3.forward);
+
+            if (modelTransform)
+            {
+                // 有指定模型：轉模型，父物件不動 (保持世界座標的 Scale 軸向)
+                modelTransform.localRotation = targetRot;
+                transform.rotation = Quaternion.identity; // 確保父物件歸零
+            }
+            else
+            {
+                // 沒指定：轉自己 (舊邏輯)
+                transform.rotation = targetRot;
+            }
         }
 
         void StopProjectile()

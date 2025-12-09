@@ -27,9 +27,10 @@ public class PlayerMoveControl : MonoBehaviour
     Transform _root;
 
 
-    // [新增] 引用 StatusManager (Start時自動抓取)
+    // [新增] 引用 StatusManager、主屬性(Start時自動抓取)
     [Header("Status")]
     [SerializeField] private StatusManager statusManager;
+    [SerializeField] private MainPointComponent _mainPoint;
 
     void Awake()
     {
@@ -38,6 +39,7 @@ public class PlayerMoveControl : MonoBehaviour
         if (_rb == null)
             Debug.LogWarning("[PlayerMoveControl] 目標上沒有 Rigidbody2D，將改用 Transform 移動。");
         if (!statusManager) statusManager = GetComponent<StatusManager>();
+        _mainPoint = GetComponentInParent<MainPointComponent>();
     }
 
     void FixedUpdate()
@@ -64,21 +66,24 @@ public class PlayerMoveControl : MonoBehaviour
             dir = dir.normalized; // 不管搖桿推多遠，速度都一樣
         }
 
-        float spd = moveSpeed * runMultiplier;
+        // [修改] 計算最終速度 (基礎速度 + 敏捷加成)
+        float agility = _mainPoint != null ? _mainPoint.Agility : 0f;
+        float finalSpeed = Balance.MoveSpeed(moveSpeed, agility);
 
+        // 跑步加成 (如果有按跑步鍵的話，再乘上去)
+        finalSpeed *= runMultiplier;
+
+        // 套用速度
         if (_rb != null)
         {
-            Vector2 before = _rb.position;
-            Vector2 next = before + dir * spd * Time.fixedDeltaTime;
+            Vector2 next = _rb.position + dir * finalSpeed * Time.fixedDeltaTime;
             _rb.MovePosition(next);
-
-            // 這邊直接用計算值當 LastMove，給動畫用
-            LastMove = dir * spd * Time.fixedDeltaTime;
+            LastMove = dir * finalSpeed * Time.fixedDeltaTime;
         }
         else if (_root != null)
         {
             Vector3 before = _root.position;
-            _root.position += (Vector3)(dir * spd * Time.fixedDeltaTime);
+            _root.position += (Vector3)(dir * finalSpeed * Time.fixedDeltaTime);
             LastMove = (Vector2)(_root.position - before);
         }
     }

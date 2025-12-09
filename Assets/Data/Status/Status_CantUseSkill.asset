@@ -10,19 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 770e2337d62ba0348b505e7e0947a3c2, type: 3}
-  m_Name: Status_SlowMove
+  m_Name: Status_CantUseSkill
   m_EditorClassIdentifier: 
-  statusID: "\u7DE9\u6162\u79FB\u52D5"
+  statusID: CantUseSkill
   statusIcon: {fileID: 0}
   effects:
-  - rid: 408547906891022337
+  - rid: 408547944605941760
   references:
     version: 2
     RefIds:
-    - rid: 408547906891022337
+    - rid: 408547944605941760
       type: {class: StatusControlEffect, ns: RPG, asm: Assembly-CSharp}
       data:
         EffectName: New Effect
         disableMovement: 0
-        disableSkills: 0
-        movementSpeedMultiplier: 0.3
+        disableSkills: 1

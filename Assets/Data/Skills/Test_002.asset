@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1be0a826d20df6b4d934aa5d1ec69578, type: 3}
   m_Name: Test_002
   m_EditorClassIdentifier: 
-  type: 0
+  type: 2
   rank: 1
   familySerial: 1
-  skillID: N01000001
+  skillID: P01000001
   nextEvolution: {fileID: 0}
   SkillName: New Skill
   Icon: {fileID: 0}

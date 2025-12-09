@@ -13,8 +13,5 @@ namespace RPG
 
         [Tooltip("是否禁止施放技能")]
         public bool disableSkills = false;
-
-        [Tooltip("移動速度乘數 (0.5f = 減速 50%)")]
-        public float movementSpeedMultiplier = 1f;
     }
 }

@@ -61,11 +61,10 @@ MonoBehaviour:
   UseActingStatus: 1
   ActingStatusEffects:
   - {fileID: 11400000, guid: bcd8e1f492d33264ea8f78f6bb461376, type: 2}
-  UseRecoveryStatus: 1
-  RecoveryStatusEffects:
-  - {fileID: 11400000, guid: 4384f76219a19d84d9a8102499fba224, type: 2}
+  UseRecoveryStatus: 0
+  RecoveryStatusEffects: []
   UseProjectile: 1
-  ProjectilePrefab: {fileID: 3133480608834982146, guid: c33d42b0446f7504d8f536f28ecf07ba, type: 3}
+  ProjectilePrefab: {fileID: 5647007730339340808, guid: c33d42b0446f7504d8f536f28ecf07ba, type: 3}
   ProjectileSpeed: 15
   ProjectileRadius: 0.25
   sequence:

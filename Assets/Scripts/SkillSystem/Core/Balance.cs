@@ -20,6 +20,13 @@ namespace RPG
 
         public const float AREA_RADIUS_MIN = 0.2f;          // AoE 最小半徑下限
 
+        // [新增] 移動速度參數
+        public const float SPEED_AGI_FACTOR = 0.005f; // 每點敏捷增加 0.5% 速度
+        public const float SPEED_MAX_MULTIPLIER = 2.0f; // 最多加速到 200% (兩倍速)
+
+        // [新增] 碰撞箱縮放參數
+        public const float HITBOX_AGI_REDUCTION = 0.002f; // 每點敏捷減少 0.2% 體積
+        public const float HITBOX_MIN_SCALE = 0.7f;       // 最小縮到 70%
 
         // ===== 公式 =====
 
@@ -57,6 +64,29 @@ namespace RPG
             float t = Mathf.Clamp01(agility / 300f); // 300 時效果趨近穩定
             float scale = Mathf.Lerp(1f, 0.8f, t);   // 最多縮到 80%
             return Mathf.Max(AREA_RADIUS_MIN, baseRadius * scale);
+        }
+
+        /// <summary>
+        /// 計算移動速度 (基礎速度 * (1 + 敏捷加成))
+        /// </summary>
+        public static float MoveSpeed(float baseSpeed, float agility)
+        {
+            // 計算加成倍率：敏捷 * 0.5%
+            float bonus = agility * SPEED_AGI_FACTOR;
+
+            // 限制最大倍率 (例如原本 1.0，加成後變成 1.5，但不能超過 2.0)
+            float totalMultiplier = Mathf.Clamp(1f + bonus, 1f, SPEED_MAX_MULTIPLIER);
+
+            return baseSpeed * totalMultiplier;
+        }
+        // [新增] 玩家受擊判定縮放公式
+        // 敏捷 0  => 回傳 1.0 (原尺寸)
+        // 敏捷 100 => 回傳 0.8 (縮小 20%)
+        public static float PlayerHitboxScale(float agility)
+        {
+            float reduction = agility * HITBOX_AGI_REDUCTION;
+            float scale = 1f - reduction;
+            return Mathf.Clamp(scale, HITBOX_MIN_SCALE, 1.0f);
         }
     }
 }
