@@ -113,24 +113,39 @@ public class UnifiedInputSource : MonoBehaviour, IInputSource
     /// </summary>
     public Vector2 GetMoveVector()
     {
-        // 1) 先從 Input Actions 讀值（鍵盤 + 手把）
-        Vector2 v = Vector2.zero;
-        if (move != null && move.action != null)
-            v = move.action.ReadValue<Vector2>();
+        // 1. 取得原始輸入 (物理空間 Raw Input)
+        // 這裡拿到的還是 45 度、長度 1 的原始向量
+        Vector2 rawInput = Vector2.zero;
 
-        // 2) 再看 DynamicTouchJoystick（若有設置且有輸入，再覆蓋）
-        if (dynamicTouchJoystick != null &&
-            dynamicTouchJoystick.enabledOnThisPlatform)
+        if (move != null && move.action != null)
+            rawInput = move.action.ReadValue<Vector2>();
+
+        if (dynamicTouchJoystick != null && dynamicTouchJoystick.enabledOnThisPlatform)
         {
             Vector2 joy = dynamicTouchJoystick.Value;
-
-            // 有明顯輸入才覆蓋（避免小抖動蓋掉硬體輸入）
+            // 覆蓋邏輯：如果有搖桿輸入，就以此為準
             if (joy.sqrMagnitude > 0.001f)
-                v = joy;
+                rawInput = joy;
         }
 
-        // 最後限制在長度 1 以內
-        return Vector2.ClampMagnitude(v, 1f);
+        // 防呆：如果沒有輸入就直接回傳零
+        if (rawInput.sqrMagnitude < 1e-6f) return Vector2.zero;
+
+        // 2. ★ 核心修改：在此處統一進行透視轉換
+        // 把 "物理輸入" (例如搖桿推到底) 轉換成 "視覺位移"
+        // 假設 PerspectiveUtils.GlobalScale 是 (1, 0.5)
+        // 往上推 (0,1) -> 變成 (0, 0.5)
+        // 往右推 (1,0) -> 變成 (1, 0)
+        // 往斜推 (0.7, 0.7) -> 變成 (0.7, 0.35) -> 角度變平
+
+        Vector3 visualVec3 = PerspectiveUtils.GetVisualVector(rawInput.normalized, rawInput.magnitude);
+
+        // 轉回 Vector2
+        Vector2 finalOutput = (Vector2)visualVec3;
+
+        // 3. 限制最大長度
+        // 因為壓扁通常是變小，所以不太會超過 1，但為了保險還是 Clamp 一下
+        return Vector2.ClampMagnitude(finalOutput, 1f);
     }
 
     public bool InteractPressedThisFrame()

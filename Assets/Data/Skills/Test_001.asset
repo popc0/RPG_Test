@@ -46,7 +46,9 @@ MonoBehaviour:
   UseMPCap: 0
   ReqMPMax: 9999
   CastTime: 0
-  RecoveryTime: 2
+  RecoveryTime: 10
+  TrackFirePoint: 1
+  TrackAimDirection: 1
   Target: 0
   HitType: 0
   TargetLayer: 0
@@ -55,14 +57,13 @@ MonoBehaviour:
   BaseAreaRadius: 2
   BaseConeAngle: 60
   UseCastingStatus: 0
-  CastingStatusEffects:
-  - {fileID: 0}
-  - {fileID: 0}
+  CastingStatusEffects: []
   UseActingStatus: 1
   ActingStatusEffects:
   - {fileID: 11400000, guid: bcd8e1f492d33264ea8f78f6bb461376, type: 2}
-  UseRecoveryStatus: 0
-  RecoveryStatusEffects: []
+  UseRecoveryStatus: 1
+  RecoveryStatusEffects:
+  - {fileID: 11400000, guid: bcd8e1f492d33264ea8f78f6bb461376, type: 2}
   UseProjectile: 1
   ProjectilePrefab: {fileID: 5647007730339340808, guid: c33d42b0446f7504d8f536f28ecf07ba, type: 3}
   ProjectileSpeed: 15

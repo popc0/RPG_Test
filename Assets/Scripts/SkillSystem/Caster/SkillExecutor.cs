@@ -102,15 +102,31 @@ namespace RPG
 
         void DoArea2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
         {
-            Vector2 center = (Vector2)origin + dir * Mathf.Max(0.1f, data.BaseRange);
+            // 1. 計算中心點 (視覺上的終點)
+            // 因為移動有透視，所以射程也要經過透視換算
+            float visualDist = PerspectiveUtils.PhysicalToVisualDistance(data.BaseRange, dir);
+            Vector2 center = (Vector2)origin + dir * Mathf.Max(0.1f, visualDist);
+
+            // 2. 物理範圍半徑
             float r = Mathf.Max(0.05f, comp.AreaRadius);
 
+            // 3. 第一階段：Unity 物理檢測 (抓一個足夠大的正圓，包含扁圓形)
+            // 因為扁圓形的寬度是 1.0 (未縮放)，所以用原始半徑去抓一定抓得到
             Collider2D[] hits = Physics2D.OverlapCircleAll(center, r, enemyMask);
+
             foreach (var h in hits)
             {
-                if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
-                    if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
+                // 4. 第二階段：透視過濾 (Narrow Phase)
+                if (CheckHitAreaPerspective(center, h.bounds.center, r))
+                {
+                    // 命中！
+                    if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
+                        if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
+                }
             }
+
+            // (可選) 這裡可以生成一個視覺特效，記得設定 scale 為 (1, 0.5, 1)
+            SpawnAreaVFX(center, r);
         }
 
         void DoCone2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
@@ -118,18 +134,76 @@ namespace RPG
             float dist = Mathf.Max(0.1f, data.BaseRange);
             float angle = comp.ConeAngle;
 
+            // 1. 第一階段：抓大圓 (距離不用透視縮放，因為我們要檢查的是"還原後"的距離)
             Collider2D[] hits = Physics2D.OverlapCircleAll(origin, dist, enemyMask);
+
             foreach (var h in hits)
             {
                 if (h.transform == owner || h.transform.IsChildOf(owner)) continue;
 
-                Vector2 tDir = ((Vector2)h.bounds.center - (Vector2)origin);
-                if (Vector2.Angle(dir, tDir) <= angle * 0.5f)
+                // 2. 第二階段：透視過濾
+                if (CheckHitConePerspective(origin, dir, h.bounds.center, dist, angle))
                 {
                     if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
                         if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
                 }
             }
+        }
+        // ============================================================
+        // ★ 核心數學：透視判定演算法
+        // ============================================================
+
+        /// <summary>
+        /// 檢查目標是否在「壓扁的圓形 (橢圓)」內
+        /// </summary>
+        bool CheckHitAreaPerspective(Vector2 center, Vector2 targetPos, float radius)
+        {
+            Vector2 diff = targetPos - center;
+
+            // 逆向工程：把畫面上的距離「還原」成物理距離
+            // 例如：Y 軸差了 0.5 (畫面)，除以 Scale.y (0.5) = 1.0 (物理)
+            // 這樣就等於把橢圓拉回成正圓來比較
+            float physicalX = diff.x / PerspectiveUtils.GlobalScale.x;
+            float physicalY = diff.y / PerspectiveUtils.GlobalScale.y;
+
+            // 計算還原後的距離平方
+            float sqrDist = (physicalX * physicalX) + (physicalY * physicalY);
+
+            // 比較半徑平方
+            return sqrDist <= (radius * radius);
+        }
+
+        /// <summary>
+        /// 檢查目標是否在「壓扁的扇形」內
+        /// </summary>
+        bool CheckHitConePerspective(Vector2 origin, Vector2 aimDir, Vector2 targetPos, float range, float angle)
+        {
+            // 1. 還原目標向量
+            Vector2 diff = targetPos - origin;
+            Vector2 physicalDiff = new Vector2(
+                diff.x / PerspectiveUtils.GlobalScale.x,
+                diff.y / PerspectiveUtils.GlobalScale.y
+            );
+
+            // 2. 檢查距離 (物理距離)
+            if (physicalDiff.magnitude > range) return false;
+
+            // 3. 還原瞄準方向 (這很重要！原本 (1, 0.5) 的方向其實代表 45 度)
+            Vector2 physicalAim = new Vector2(
+                aimDir.x / PerspectiveUtils.GlobalScale.x,
+                aimDir.y / PerspectiveUtils.GlobalScale.y
+            ).normalized;
+
+            // 4. 檢查角度
+            float angleToTarget = Vector2.Angle(physicalAim, physicalDiff);
+            return angleToTarget <= angle * 0.5f;
+        }
+
+        // 簡單的特效生成範例
+        void SpawnAreaVFX(Vector3 pos, float radius)
+        {
+            // 如果你有特效 Prefab，可以在這裡 Instantiate
+            // 重點：obj.transform.localScale = new Vector3(radius, radius * 0.5f, 1f);
         }
     }
 }

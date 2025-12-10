@@ -1250,7 +1250,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   passiveManager: {fileID: 0}
   libraryContent: {fileID: 2099954198174825133}
-  passiveLibrary: []
+  passiveLibrary:
+  - {fileID: 11400000, guid: a51ca9f4de8b2aa4e9228e5f6c0b4d9e, type: 2}
   librarySlotPrefab: {fileID: 2391578149896298609, guid: bb6b51e055274fd4da61555275288739, type: 3}
   equipContent: {fileID: 5153688392891659389}
   equipSlotPrefab: {fileID: 2391578149896298609, guid: bb6b51e055274fd4da61555275288739, type: 3}

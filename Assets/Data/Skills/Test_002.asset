@@ -17,8 +17,8 @@ MonoBehaviour:
   familySerial: 1
   skillID: P01000001
   nextEvolution: {fileID: 0}
-  SkillName: New Skill
-  Icon: {fileID: 0}
+  SkillName: Dontmove
+  Icon: {fileID: 21300000, guid: 0fc4f3fcf6bd6c14d8a3536b152ade2c, type: 3}
   BaseCooldown: 5
   BaseMpCost: 10
   UseAttackReq: 0
@@ -47,6 +47,8 @@ MonoBehaviour:
   ReqMPMax: 9999
   CastTime: 0.3
   RecoveryTime: 0.2
+  TrackFirePoint: 0
+  TrackAimDirection: 0
   Target: 0
   HitType: 0
   TargetLayer: 0
@@ -56,11 +58,12 @@ MonoBehaviour:
   BaseConeAngle: 60
   UseCastingStatus: 0
   CastingStatusEffects: []
-  UseActingStatus: 0
-  ActingStatusEffects: []
+  UseActingStatus: 1
+  ActingStatusEffects:
+  - {fileID: 11400000, guid: bcd8e1f492d33264ea8f78f6bb461376, type: 2}
   UseRecoveryStatus: 0
   RecoveryStatusEffects: []
-  UseProjectile: 0
+  UseProjectile: 1
   ProjectilePrefab: {fileID: 0}
   ProjectileSpeed: 15
   ProjectileRadius: 0.25

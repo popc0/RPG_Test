@@ -54,16 +54,9 @@ public class PlayerMoveControl : MonoBehaviour
         // 1. 從 UnifiedInputSource 讀值（鍵盤 / 手把 / DynamicTouchJoystick 都會經過這裡）
         Vector2 dir = (input != null) ? input.GetMoveVector() : Vector2.zero;
 
-        // 2. 只保留「方向」：
-        //    - 長度太小 → 當成 0，避免微抖
-        //    - 長度大於死區 → 正規化成單位向量（固定速度）
         if (dir.sqrMagnitude < moveDeadzone * moveDeadzone)
         {
             dir = Vector2.zero;
-        }
-        else
-        {
-            dir = dir.normalized; // 不管搖桿推多遠，速度都一樣
         }
 
         // [修改] 計算最終速度 (基礎速度 + 敏捷加成)

@@ -6,10 +6,13 @@ using RPG;
 [CanEditMultipleObjects]
 public class SkillDataEditor : Editor
 {
+    
     // --- 屬性變數 ---
     SerializedProperty type, rank, familySerial, skillID;
     SerializedProperty nextEvolution, sequence;
     SerializedProperty skillName, icon, baseCooldown, baseMpCost, castTime, recoveryTime;
+    // ★ 新增：瞄準追蹤
+    SerializedProperty trackFirePoint, trackAimDirection;
 
     // 門檻
     SerializedProperty useAttackReq, reqAttackMin, useAttackCap, reqAttackMax;
@@ -53,6 +56,10 @@ public class SkillDataEditor : Editor
 
         // 綁定新的 RecoveryTime
         recoveryTime = serializedObject.FindProperty("RecoveryTime");
+
+        // ★ 綁定新增的變數
+        trackFirePoint = serializedObject.FindProperty("TrackFirePoint");
+        trackAimDirection = serializedObject.FindProperty("TrackAimDirection");
 
         // 攻擊
         useAttackReq = serializedObject.FindProperty("UseAttackReq");
@@ -159,6 +166,38 @@ public class SkillDataEditor : Editor
         EditorGUILayout.Space();
 
         // ========================================================
+        // ★ 新增區塊：瞄準與追蹤
+        // ========================================================
+        if (!isPassive)
+        {
+            EditorGUILayout.LabelField("【 瞄準與追蹤 】", EditorStyles.boldLabel);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.PropertyField(trackFirePoint, new GUIContent("跟隨施放點 (移動)"));
+                if (trackFirePoint.boolValue)
+                {
+                    EditorGUILayout.HelpBox("角色移動時，發射點會跟著移動 (適合邊跑邊射)。", MessageType.None);
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("詠唱結束後鎖定位置 (適合定點轟炸)。", MessageType.None);
+                }
+
+                EditorGUILayout.Space(2);
+
+                EditorGUILayout.PropertyField(trackAimDirection, new GUIContent("跟隨瞄準方向 (旋轉)"));
+                if (trackAimDirection.boolValue)
+                {
+                    EditorGUILayout.HelpBox("滑鼠/搖桿轉動時，彈道會跟著轉 (適合掃射)。", MessageType.None);
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("詠唱結束後鎖定方向 (適合狙擊)。", MessageType.None);
+                }
+            }
+            EditorGUILayout.Space();
+        }
+        // ========================================================
         // 3. 學習門檻 (條件式顯示)
         // ========================================================
         EditorGUILayout.LabelField("【 學習門檻 】", EditorStyles.boldLabel);
@@ -170,7 +209,6 @@ public class SkillDataEditor : Editor
             DrawRequirement("技巧 (Technique)", useTechniqueReq, reqTechniqueMin, useTechniqueCap, reqTechniqueMax);
             DrawRequirement("HP (Health)", useHPReq, reqHPMin, useHPCap, reqHPMax);
             DrawRequirement("MP (Mana)", useMPReq, reqMPMin, useMPCap, reqMPMax);
-            // 若有其他屬性，在這裡呼叫 DrawRequirement 即可
         }
         EditorGUILayout.Space();
 
@@ -227,7 +265,7 @@ public class SkillDataEditor : Editor
         // 5. 狀態效果 (Status Effects) 
         // ========================================================
         EditorGUILayout.LabelField("【 狀態效果 (Status Effects) 】", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox("連結 StatusData 來定義施法期間的特殊狀態 (如：移動限制、施法限制等)，如果是被動 useActingStatus將用來當作常駐效果", MessageType.Info);
+        EditorGUILayout.HelpBox("連結 StatusData 來定義施法期間的特殊狀態 (如：移動限制、施法限制等)", MessageType.Info);
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
             // 詠唱：非被動才顯示

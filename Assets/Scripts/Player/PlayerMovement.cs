@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using RPG;
+using UnityEngine;
 
 /// <summary>
 /// 只根據 PlayerMoveControl.LastMove 來決定顯示哪個模型/播放哪個動畫。
@@ -62,16 +63,27 @@ public class PlayerMovement : MonoBehaviour
         }
         idleTimer = 0f;
 
-        if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+        // ★ 修正重點：
+        // 為了讓動畫切換的判定符合「手把輸入的感覺」(45度)，
+        // 我們要把被壓扁的 Y 軸「還原」回去再比較。
+        // 也就是：比較 abs(x) vs abs(y / 0.5)
+
+        float adjustedY = delta.y / PerspectiveUtils.GlobalScale.y;
+
+        if (Mathf.Abs(delta.x) > Mathf.Abs(adjustedY))
         {
+            // 橫向主導
             int sx = Mathf.Sign(delta.x) >= 0 ? +1 : -1;
-            int sy = lastVertSign; lastHorizSign = sx;
+            int sy = lastVertSign;
+            lastHorizSign = sx;
             var f = ToFacing(sx, sy); ShowForWalk(f); PlayWalk(f);
         }
         else
         {
+            // 縱向主導
             int sy = Mathf.Sign(delta.y) >= 0 ? +1 : -1;
-            int sx = lastHorizSign; lastVertSign = sy;
+            int sx = lastHorizSign;
+            lastVertSign = sy;
             var f = ToFacing(sx, sy); ShowForWalk(f); PlayWalk(f);
         }
     }

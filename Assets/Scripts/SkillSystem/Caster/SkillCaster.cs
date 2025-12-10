@@ -177,14 +177,32 @@ namespace RPG
                 ApplyStatusEffects(rootData.ActingStatusEffects);
 
             // [Snapshot] 鎖定位置與方向
-            Vector3 startOrigin = transform.position;
-            if (executor && executor.firePoint) startOrigin = executor.firePoint.position;
-            Vector2 aimDir = (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f) ? aimSource.AimDir : Vector2.right;
+            Vector3 finalOrigin = GetCurrentFirePoint();
+            Vector2 finalDir = GetCurrentAimDir();
 
-            // 執行第一招
-            if (executor) executor.ExecuteSkill(rootData, rootComp, startOrigin, aimDir);
+            // 定義發射函式
+            void ExecuteShot(SkillData data, SkillComputed comp)
+            {
+                // A. 判斷是否要更新「施放點」 (跟隨角色移動)
+                if (rootData.TrackFirePoint)
+                {
+                    finalOrigin = GetCurrentFirePoint();
+                }
 
-            // 執行排程
+                // B. 判斷是否要更新「瞄準方向」 (跟隨準星旋轉)
+                if (rootData.TrackAimDirection)
+                {
+                    finalDir = GetCurrentAimDir();
+                }
+
+                // 執行發射
+                if (executor) executor.ExecuteSkill(data, comp, finalOrigin, finalDir);
+            }
+
+            // 2. 執行第一招
+            ExecuteShot(rootData, rootComp);
+
+            // 3. 執行排程
             if (rootData.sequence != null && rootData.sequence.Count > 0)
             {
                 foreach (var step in rootData.sequence)
@@ -193,10 +211,11 @@ namespace RPG
                     if (step.delay > 0f) yield return new WaitForSeconds(step.delay);
 
                     var subComp = SkillCalculator.Compute(step.skill, main.MP);
-                    if (executor) executor.ExecuteSkill(step.skill, subComp, startOrigin, aimDir);
+
+                    // 排程中的每一發都會重新檢查追蹤設定
+                    ExecuteShot(step.skill, subComp);
                 }
             }
-
             IsActing = false;
 
             // [解除狀態]
@@ -370,5 +389,20 @@ namespace RPG
         void TryAutoBindHud() { if (hudSkillStats) { _hudAutoBound = true; return; } hudSkillStats = FindObjectOfType<HUDSkillStats>(); if (hudSkillStats) { _hudAutoBound = true; NotifyHudSkillGroupChanged(); } }
         void EnsureOwnerAndFirePoint() { if (!owner) owner = transform; }
         void OnValidate() { EnsureOwnerAndFirePoint(); }
+
+        // ★ 輔助方法 (如果還沒加的話記得加上)
+        Vector3 GetCurrentFirePoint()
+        {
+            // 這裡會去抓 SkillExecutor 上面的 FirePoint (通常掛在角色手上或槍口)
+            // 如果角色移動了，這個座標自然會變
+            if (executor && executor.firePoint) return executor.firePoint.position;
+            return transform.position;
+        }
+
+        Vector2 GetCurrentAimDir()
+        {
+            // 這裡會去抓滑鼠/搖桿的最新輸入
+            return (aimSource && aimSource.AimDir.sqrMagnitude > 0.0001f) ? aimSource.AimDir : Vector2.right;
+        }
     }
 }

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 namespace RPG
 {
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(Collider2D))]
     public class Projectile2D : MonoBehaviour
     {
         public enum FacingAxis { Right, Up }
@@ -45,6 +44,11 @@ namespace RPG
         public void Init(Transform owner, Vector2 dir, SkillData data, SkillComputed comp,
                          LayerMask enemyMask, LayerMask obstacleMask)
         {
+            // ★ 新增：初始化時強制套用全域透視縮放
+            // 這樣就不需要 SkillExecutor 去設定 transform.localScale 了
+            transform.localScale = PerspectiveUtils.GlobalScale;
+
+            // ... (原本的 Init 邏輯: 抓 Collider, 設定變數...)
             _col = GetComponent<Collider2D>();
             if (!_col) _col = GetComponentInChildren<Collider2D>();
 
@@ -74,12 +78,19 @@ namespace RPG
         {
             if (_stopped || speed <= 0f) return;
 
-            float step = speed * Time.deltaTime;
+            // 1. 取得透視倍率
+            // _dir 已經是視覺方向 (例如 26度)，我們算出這個角度應有的速度折損率 (例如 0.8)
+            float scaleFactor = PerspectiveUtils.GetVisualScaleFactor(_dir);
+
+            // 2. 計算這一幀的位移 (速度 * 倍率 * 時間)
+            float step = speed * scaleFactor * Time.deltaTime;
+
             float remaining = step;
             int guard = 0;
 
             while (remaining > 0f && guard++ < maxCastsPerStep && !_stopped)
             {
+                // 直接用 _dir (視覺方向) 檢測
                 int count = _col.Cast(_dir, _filter, _hitsBuf, remaining);
 
                 // 取最近，但只考慮「障礙物」與「正確目標部位」
@@ -120,11 +131,15 @@ namespace RPG
                     }
                 }
 
+                // 下面是 Hit 處理的修改 (還原物理距離)
                 if (best == -1)
                 {
-                    // 無命中 → 前進完整 remaining
                     transform.position += (Vector3)(_dir * remaining);
-                    _traveled += remaining;
+
+                    // ★ 距離累加：要把「視覺距離」還原成「物理距離」來判斷射程
+                    // 物理距離 = 視覺距離 / 倍率
+                    _traveled += remaining / scaleFactor;
+
                     remaining = 0f;
                     break;
                 }
@@ -132,41 +147,27 @@ namespace RPG
                 var hit = _hitsBuf[best];
                 float move = Mathf.Max(0f, hit.distance);
                 transform.position += (Vector3)(_dir * move);
-                _traveled += move;
+
+                // ★ 累加
+                _traveled += move / scaleFactor;
+
                 remaining -= move;
 
                 int maskBit = 1 << hit.collider.gameObject.layer;
 
                 // 障礙物 → 直接停
-                if ((obstacleMask.value & maskBit) != 0)
-                {
-                    StopProjectile();
-                    return;
-                }
-
-                // 敵人 → 檢查部位（這裡理論上只會剩下「正確部位」）
+                if ((obstacleMask.value & maskBit) != 0) { StopProjectile(); return; }
                 if ((enemyMask.value & maskBit) != 0)
                 {
-                    if (EffectApplier.TryResolveOwner(hit.collider, out var target, out var hitLayer)
-                        && hitLayer == targetLayer)
-                    {
-                        target.ApplyIncomingRaw(damage);
-                        StopProjectile();
-                        return;
-                    }
-                    else
-                    {
-                        // 理論上不會發生（錯誤部位已在 Cast 過濾掉），
-                        // 保守起見將其視為障礙物並終止飛行，以避免無限穿模。
-                        StopProjectile();
-                        return;
-                    }
+                    if (EffectApplier.TryResolveOwner(hit.collider, out var target, out var hitLayer) && hitLayer == targetLayer)
+                    { target.ApplyIncomingRaw(damage); StopProjectile(); return; }
+                    else { StopProjectile(); return; }
                 }
 
-                // 其他 → 微移繼續（理論上不會進來，保險留著）
+                // 微移
                 float advance = Mathf.Min(remaining, skin);
                 transform.position += (Vector3)(_dir * advance);
-                _traveled += advance;
+                // _traveled += advance / scaleFactor;
                 remaining -= advance;
             }
 
@@ -284,7 +285,9 @@ namespace RPG
 #if UNITY_EDITOR
         void OnDrawGizmosSelected()
         {
+            //  修正：如果自己身上沒有，就去子物件找
             if (!_col) _col = GetComponent<Collider2D>();
+            if (!_col) _col = GetComponentInChildren<Collider2D>();
             Gizmos.color = new Color(1f, 0.6f, 0.1f, 0.5f);
             if (_col) Gizmos.DrawWireCube(_col.bounds.center, _col.bounds.size);
 

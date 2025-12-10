@@ -81,6 +81,10 @@ namespace RPG
         public float CastTime = 0.3f; // 只有第一招會用到，後續招式通常視為 0 或忽略
         public float RecoveryTime = 0.2f; // ★ 新增：後搖/復原時間 (硬直)
 
+        
+        public bool TrackFirePoint = false; // ★ 新增：跟點
+        public bool TrackAimDirection = false; // ★ 新增：跟向
+
         public TargetType Target = TargetType.Enemy;
         public HitType HitType = HitType.Single;
         public InteractionLayer TargetLayer = InteractionLayer.Body;
@@ -102,7 +106,7 @@ namespace RPG
 
         // ★ 變更點 2：執行狀態
         public bool UseActingStatus = false; // 新增：是否啟用執行狀態
-        [Tooltip("執行攻擊/排程期間套用的狀態/效果")]
+        [Tooltip("執行攻擊/排程期間套用的狀態/效果")]//如果是被動 useActingStatus將用來當作常駐效果
         public List<StatusData> ActingStatusEffects = new List<StatusData>(); // 變更：改為 List
 
         // ★ 變更點 3：後搖狀態
