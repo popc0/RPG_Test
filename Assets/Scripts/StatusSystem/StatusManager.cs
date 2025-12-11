@@ -9,16 +9,22 @@ namespace RPG
         // 為了方便全域存取 (單機遊戲常用)，也可以用 GetComponent
         public static StatusManager Instance { get; private set; }
 
-        [Header("除錯顯示")]
-        [SerializeField] private List<StatusData> activeEffects = new List<StatusData>();
+        // ★ 修改 1: 改用 Dictionary 來計數 (Key=狀態, Value=層數)
+        private Dictionary<StatusData, int> statusCounts = new Dictionary<StatusData, int>();
+
+        // 為了 Inspector 除錯方便，我們保留一個 List 顯示目前有哪些狀態 (唯讀)
+        [Header("除錯顯示 (唯讀)")]
+        [SerializeField] private List<StatusData> debugActiveEffects = new List<StatusData>();
 
         // 快取計算結果，避免每幀重算 List
         private int _moveLockCount = 0;
         private int _skillLockCount = 0;
+        private int _analogMoveCount = 0; // 類比移動計數
 
         // --- 對外公開的狀態查詢屬性 ---
         public bool CanMove => _moveLockCount == 0;
         public bool CanCast => _skillLockCount == 0;
+        public bool IsAnalogMove => _analogMoveCount > 0;
 
         void Awake()
         {
@@ -27,43 +33,73 @@ namespace RPG
         }
 
         /// <summary>
-        /// 套用狀態效果
+        /// 套用狀態效果 (引用計數 + 1)
         /// </summary>
-        public void Apply(StatusData statusData) // ★ 參數類型變更
+        public void Apply(StatusData statusData)
         {
             if (statusData == null) return;
 
-            if (!activeEffects.Contains(statusData))
+            // 1. 檢查字典裡有沒有這個狀態
+            if (statusCounts.ContainsKey(statusData))
             {
-                activeEffects.Add(statusData);
-                // 必須計算 StatusData 裡面的所有效果
+                // 已經有了 -> 計數 + 1
+                statusCounts[statusData]++;
+            }
+            else
+            {
+                // 這是新的 -> 初始化為 1，並執行效果計算
+                statusCounts[statusData] = 1;
+                debugActiveEffects.Add(statusData); // 更新 Debug 清單
+
+                // ★ 只有在「從 0 變 1」的時候才需要計算鎖定 (避免重複疊加鎖定值)
                 RecalculateLocks(statusData, true);
-                Debug.Log($"[StatusManager] 套用狀態組: {statusData.name}");
-
-                // 待辦：如果有持續傷害 StatusDamageEffect，在這裡啟動 Coroutine
+                Debug.Log($"[StatusManager] 新增狀態: {statusData.name}");
             }
         }
 
         /// <summary>
-        /// 移除狀態效果
+        /// 移除狀態效果 (引用計數 - 1)
         /// </summary>
-        public void Remove(StatusData statusData) // ★ 參數類型變更
+        public void Remove(StatusData statusData)
         {
             if (statusData == null) return;
 
-            if (activeEffects.Contains(statusData))
+            if (statusCounts.ContainsKey(statusData))
             {
-                activeEffects.Remove(statusData);
-                RecalculateLocks(statusData, false);
-                Debug.Log($"[StatusManager] 移除狀態組: {statusData.name}");
+                // 計數 - 1
+                statusCounts[statusData]--;
 
-                // 待辦：如果有持續傷害 StatusDamageEffect，在這裡停止 Coroutine
+                // 如果計數歸零，才真正移除
+                if (statusCounts[statusData] <= 0)
+                {
+                    statusCounts.Remove(statusData);
+                    debugActiveEffects.Remove(statusData); // 更新 Debug 清單
+
+                    // ★ 只有在「真正移除」的時候才計算解鎖
+                    RecalculateLocks(statusData, false);
+                    Debug.Log($"[StatusManager] 移除狀態: {statusData.name}");
+                }
             }
         }
 
         /// <summary>
-        /// 增量更新鎖定計數，遍歷 StatusData 內部的 effects
+        /// 強制清除所有狀態 (死亡或過場時用)
         /// </summary>
+        public void ClearAll()
+        {
+            // 為了安全，我們反向遍歷來移除
+            foreach (var status in new List<StatusData>(statusCounts.Keys))
+            {
+                // 強制移除邏輯：把計數歸零並執行 RecalculateLocks(false)
+                RecalculateLocks(status, false);
+            }
+            statusCounts.Clear();
+            debugActiveEffects.Clear();
+            _moveLockCount = 0;
+            _skillLockCount = 0;
+            _analogMoveCount = 0;
+        }
+
         private void RecalculateLocks(StatusData statusData, bool isAdding)
         {
             if (statusData.effects == null) return;
@@ -72,22 +108,18 @@ namespace RPG
 
             foreach (var effect in statusData.effects)
             {
-                // 檢查是否是控制類效果
                 if (effect is StatusControlEffect control)
                 {
                     if (control.disableMovement) _moveLockCount += delta;
                     if (control.disableSkills) _skillLockCount += delta;
-
-                    // 未來這裡可以處理 MovementSpeedMultiplier 的疊加或最大值/最小值邏輯
+                    if (control.enableAnalogMovement) _analogMoveCount += delta;
                 }
-
-                // if (effect is StatusAttributeEffect attr) { /* 處理屬性增減 */ }
-                // if (effect is StatusImmunizeEffect imm) { /* 處理免疫 */ }
             }
 
-            // 防呆：計數不應小於 0
+            // 防呆校正
             if (_moveLockCount < 0) _moveLockCount = 0;
             if (_skillLockCount < 0) _skillLockCount = 0;
+            if (_analogMoveCount < 0) _analogMoveCount = 0;
         }
     }
 }

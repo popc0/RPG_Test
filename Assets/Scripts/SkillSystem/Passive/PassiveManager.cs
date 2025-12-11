@@ -119,15 +119,18 @@ public class PassiveManager : MonoBehaviour
 
     private void ApplySkillEffect(SkillData skill)
     {
-        // 被動技能的常駐效果放在 ActingStatusEffects
         if (skill.UseActingStatus && skill.ActingStatusEffects != null)
         {
-            foreach (var effect in skill.ActingStatusEffects)
+            foreach (var statusData in skill.ActingStatusEffects)
             {
-                if (effect == null) continue;
+                if (statusData == null) continue;
 
-                // ★ 待辦： StatusManager.Instance.Apply(effect, this.gameObject);
-                Debug.Log($"[PassiveManager] 啟用被動效果: {effect.name} (來源: {skill.SkillName})");
+                // ★ 修改：解開註解，並確保 StatusManager 存在
+                if (StatusManager.Instance != null)
+                {
+                    StatusManager.Instance.Apply(statusData);
+                    Debug.Log($"[PassiveManager] 啟用被動效果: {statusData.name}");
+                }
             }
         }
     }
@@ -136,12 +139,16 @@ public class PassiveManager : MonoBehaviour
     {
         if (skill.UseActingStatus && skill.ActingStatusEffects != null)
         {
-            foreach (var effect in skill.ActingStatusEffects)
+            foreach (var statusData in skill.ActingStatusEffects)
             {
-                if (effect == null) continue;
+                if (statusData == null) continue;
 
-                // ★ 待辦： StatusManager.Instance.Remove(effect, this.gameObject);
-                Debug.Log($"[PassiveManager] 移除被動效果: {effect.name} (來源: {skill.SkillName})");
+                // ★ 修改：解開註解
+                if (StatusManager.Instance != null)
+                {
+                    StatusManager.Instance.Remove(statusData);
+                    Debug.Log($"[PassiveManager] 移除被動效果: {statusData.name}");
+                }
             }
         }
     }

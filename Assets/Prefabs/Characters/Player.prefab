@@ -101,7 +101,7 @@ Transform:
   m_GameObject: {fileID: 629795556655638790}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: -2.34, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1200,7 +1200,7 @@ Transform:
   m_GameObject: {fileID: 3945549519162720450}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: -0.34, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1390,8 +1390,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2bb430054f86c64dafefd1fd248309b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  activeEffects:
-  - {fileID: 0}
+  debugActiveEffects: []
 --- !u!1 &6814540962067492927
 GameObject:
   m_ObjectHideFlags: 0
@@ -1420,7 +1419,7 @@ Transform:
   m_GameObject: {fileID: 6814540962067492927}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -1, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1.5, y: 1.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2033,7 +2032,10 @@ MonoBehaviour:
   firePoint: {fileID: 0}
   enemyMask:
     serializedVersion: 2
-    m_Bits: 33792
+    m_Bits: 32768
+  allyMask:
+    serializedVersion: 2
+    m_Bits: 1024
   obstacleMask:
     serializedVersion: 2
     m_Bits: 65536
@@ -2509,7 +2511,7 @@ Transform:
   m_GameObject: {fileID: 9094061729102970077}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -4.25, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1.5, y: 1.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3295,6 +3297,10 @@ PrefabInstance:
     - target: {fileID: 7790028853368233807, guid: 718f6f820c528ee4a9c62cae58d6eb32, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.0225
+      objectReference: {fileID: 0}
+    - target: {fileID: 7790028853368233807, guid: 718f6f820c528ee4a9c62cae58d6eb32, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.022
       objectReference: {fileID: 0}
     - target: {fileID: 8234336454879944506, guid: 718f6f820c528ee4a9c62cae58d6eb32, type: 3}
       propertyPath: m_Controller

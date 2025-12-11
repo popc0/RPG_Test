@@ -56,8 +56,8 @@ namespace RPG
         };
 
         // [新增] 供 PlayerStats 讀取的總血/魔量屬性
-        public float TotalHPStat => (HPStat * 10f) + BASE_VALUE;
-        public float TotalMPStat => (MPStat * 5f) + BASE_VALUE;
+        public float TotalHPStat => (HPStat + BASE_VALUE) * 10f;
+        public float TotalMPStat => (MPStat + BASE_VALUE) * 5f;
 
         /// <summary>依防禦減傷（線性反向，或改 Balance）</summary>
         // ... (AfterDefense 方法保持不變，注意如果它用到 Defense 欄位，請改用 MP.Defense 或是 (Defense + BASE_VALUE))

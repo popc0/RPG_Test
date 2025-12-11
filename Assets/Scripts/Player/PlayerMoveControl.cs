@@ -57,10 +57,35 @@ public class PlayerMoveControl : MonoBehaviour
         if (dir.sqrMagnitude < moveDeadzone * moveDeadzone)
         {
             dir = Vector2.zero;
+        }else{
+            // ★ 核心邏輯修改：決定是否要 "吃掉力度" (強制全速)
+
+            bool allowAnalog = (statusManager != null && statusManager.IsAnalogMove);
+
+            if (!allowAnalog)
+            {
+                // 【模式 A：數位移動 (預設)】
+                // 我們希望忽略推桿力度，強制皆為 "該方向的最大透視速度"
+
+                // 1. 取得純方向 (正規化)
+                Vector2 normalizedVisualDir = dir.normalized;
+
+                // 2. 問 PerspectiveUtils：這個方向的最大長度應該是多少？
+                // (例如往右是 1.0，往上是 0.577)
+                float maxVisualMagnitude = PerspectiveUtils.GetVisualScaleFactor(normalizedVisualDir);
+
+                // 3. 強制設定為最大長度
+                dir = normalizedVisualDir * maxVisualMagnitude;
+            }
+            // else { 
+            //    【模式 B：類比移動 (被動技能)】
+            //    直接保留 input 給的 dir，因為它已經是 (原始力度 * 透視倍率) 了
+            //    輕推就會走得慢，但依然符合透視比例
+            // }
         }
 
-        // [修改] 計算最終速度 (基礎速度 + 敏捷加成)
-        float agility = _mainPoint != null ? _mainPoint.Agility : 0f;
+        float agility = (_mainPoint != null) ? _mainPoint.MP.Agility : 0f;
+
         float finalSpeed = Balance.MoveSpeed(moveSpeed, agility);
 
         // 跑步加成 (如果有按跑步鍵的話，再乘上去)

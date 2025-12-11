@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 770e2337d62ba0348b505e7e0947a3c2, type: 3}
-  m_Name: Status_DontMove
+  m_Name: Status_Move
   m_EditorClassIdentifier: 
-  statusID: Status_DontMove
+  statusID: Status_Move
   statusIcon: {fileID: 0}
   effects:
-  - rid: 408547906891022336
+  - rid: 408547987921567744
   references:
     version: 2
     RefIds:
-    - rid: 408547906891022336
+    - rid: 408547987921567744
       type: {class: StatusControlEffect, ns: RPG, asm: Assembly-CSharp}
       data:
-        disableMovement: 1
+        disableMovement: 0
         disableSkills: 0
-        enableAnalogMovement: 0
+        enableAnalogMovement: 1

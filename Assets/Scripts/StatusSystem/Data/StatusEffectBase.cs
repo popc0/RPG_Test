@@ -8,7 +8,6 @@ namespace RPG
     [Serializable]
     public abstract class StatusEffectBase
     {
-        [Tooltip("此效果的唯一名稱，方便除錯")]
-        public string EffectName = "New Effect";
+
     }
 }

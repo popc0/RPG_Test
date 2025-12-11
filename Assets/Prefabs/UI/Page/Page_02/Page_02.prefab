@@ -938,9 +938,8 @@ MonoBehaviour:
   skillCaster: {fileID: 0}
   normalLibContent: {fileID: 7194617760380421443}
   normalSkills:
-  - {fileID: 11400000, guid: 67d57a09f03dc2f45819ef5c55a4b10a, type: 2}
-  - {fileID: 11400000, guid: a51ca9f4de8b2aa4e9228e5f6c0b4d9e, type: 2}
-  - {fileID: 11400000, guid: d75806892d469ab4281a7b58f4134001, type: 2}
+  - {fileID: 11400000, guid: f0106f24dea17db49b52c90ded98dcab, type: 2}
+  - {fileID: 11400000, guid: 50e82dd63c00daa4396770c9c7bf4d02, type: 2}
   ultimateLibContent: {fileID: 28029699832754638}
   ultimateSkills: []
   librarySlotPrefab: {fileID: 2391578149896298609, guid: bb6b51e055274fd4da61555275288739, type: 3}

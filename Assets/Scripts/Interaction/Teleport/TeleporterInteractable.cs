@@ -71,7 +71,11 @@ public class TeleporterInteractable : InteractableBase
     void OnTriggerEnter2D(Collider2D other)
     {
         if (!enabled || !interactable) return;
-        if (!other.CompareTag("Player")) return;
+        // ★ 修改：不比對 Tag，而是檢查是否有玩家的互動組件
+        // 這樣不管你的 Collider 是在 Root、Body 還是 Feet，只要它屬於玩家，就會被偵測到
+        var interactor = other.GetComponentInParent<PlayerInteractor>();
+
+        if (interactor == null) return; // 不是玩家(或玩家的手)，忽略
 
         string nameToShow = GetDisplayName();
         string tip = string.IsNullOrEmpty(nameToShow)
@@ -85,7 +89,10 @@ public class TeleporterInteractable : InteractableBase
     // 玩家離開範圍時隱藏提示
     void OnTriggerExit2D(Collider2D other)
     {
-        if (!other.CompareTag("Player")) return;
+        // 同樣改用 GetComponentInParent 檢查
+        var interactor = other.GetComponentInParent<PlayerInteractor>();
+
+        if (interactor == null) return;
         if (InteractPromptUI.Instance != null)
             InteractPromptUI.Instance.Hide();
     }

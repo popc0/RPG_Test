@@ -15,8 +15,9 @@ namespace RPG
         public Transform firePoint;  // 發射點 (槍口/手部)
 
         [Header("判定層級")]
-        public LayerMask enemyMask = 0;
-        public LayerMask obstacleMask = 0;
+        public LayerMask enemyMask = 0;    // 攻擊目標 (怪物)
+        public LayerMask allyMask = 0;     // 友方目標 (玩家/隊友) -> ★ 新增
+        public LayerMask obstacleMask = 0; // 障礙物 (牆壁)
         [SerializeField] private float spawnInset = 0.05f; // 生成投射物的微偏移
 
         // 確保有 Owner 與 FirePoint
@@ -33,31 +34,58 @@ namespace RPG
         {
             if (!data) return;
 
+            // ★ 新增：如果是對自己 (Self)，直接作用，不走物理投射
+            if (data.Target == TargetType.Self)
+            {
+                ApplyToSelf(data, comp);
+                return;
+            }
+
             // 確保方向正確 (防呆)
             if (aimDir.sqrMagnitude < 0.0001f) aimDir = Vector2.right;
             aimDir.Normalize();
+
+            // ★ 關鍵：根據 Target 類型決定要打哪一層
+            LayerMask targetMask = (data.Target == TargetType.Ally) ? allyMask : enemyMask;
 
             // 根據類型分派工作
             switch (data.HitType)
             {
                 case HitType.Area:
-                    DoArea2D(data, comp, origin, aimDir);
+                    DoArea2D(data, comp, origin, aimDir, targetMask); // 傳入 mask
                     break;
                 case HitType.Cone:
-                    DoCone2D(data, comp, origin, aimDir);
+                    DoCone2D(data, comp, origin, aimDir, targetMask); // 傳入 mask
                     break;
                 case HitType.Single:
                 default:
-                    DoSingle2D(data, comp, origin, aimDir);
+                    DoSingle2D(data, comp, origin, aimDir, targetMask); // 傳入 mask
                     break;
             }
         }
 
+        // --- 新增：自我施法邏輯 ---
+        void ApplyToSelf(SkillData data, SkillComputed comp)
+        {
+            // 嘗試從 owner 身上找 EffectApplier
+            // 這裡假設 owner 本身就是受擊主體，或者你可以用 GetComponentInChildren 找 Body
+            var target = owner.GetComponent<EffectApplier>();
+            if (!target) target = owner.GetComponentInChildren<EffectApplier>();
+
+            if (target)
+            {
+                // 直接呼叫 ImpactResolver 或 EffectApplier
+                // 注意：這裡假設 ApplyIncomingRaw 包含治療邏輯 (如果是負傷害) 
+                // 或者你需要擴充 EffectApplier 來支援 Heal
+                target.ApplyIncomingRaw(comp.Damage);
+            }
+        }
         // ============================================================
         //  內部物理邏輯 (從原 SkillCaster 搬過來的)
         // ============================================================
 
-        void DoSingle2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
+        // --- 修改 DoSingle2D 接收 targetMask ---
+        void DoSingle2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
         {
             if (data.UseProjectile && data.ProjectilePrefab)
             {
@@ -72,19 +100,22 @@ namespace RPG
                     obj = Instantiate(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
 
                 var proj = obj.GetComponent<Projectile2D>();
-                if (proj) proj.Init(owner, dir, data, comp, enemyMask, obstacleMask);
+                // ★ 傳入 targetMask 作為 enemyMask
+                if (proj) proj.Init(owner, dir, data, comp, targetMask, obstacleMask);
             }
             else
             {
                 // 立即射線 (Hitscan)
-                DoSingle2D_LegacyRay(data, comp, origin, dir);
+                DoSingle2D_LegacyRay(data, comp, origin, dir, targetMask);
             }
         }
 
-        void DoSingle2D_LegacyRay(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
+        // --- 修改 Raycast 接收 targetMask ---
+        void DoSingle2D_LegacyRay(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
         {
             float dist = Mathf.Max(0.1f, data.BaseRange);
-            RaycastHit2D hit = Physics2D.Raycast(origin, dir, dist, enemyMask | obstacleMask);
+            // ★ 使用 targetMask
+            RaycastHit2D hit = Physics2D.Raycast(origin, dir, dist, targetMask | obstacleMask);
 
             Vector3 endPos = origin + (Vector3)(dir * dist);
 
@@ -100,7 +131,8 @@ namespace RPG
             }
         }
 
-        void DoArea2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
+        // --- 修改 DoArea2D 接收 targetMask ---
+        void DoArea2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
         {
             // 1. 計算中心點 (視覺上的終點)
             // 因為移動有透視，所以射程也要經過透視換算
@@ -112,7 +144,8 @@ namespace RPG
 
             // 3. 第一階段：Unity 物理檢測 (抓一個足夠大的正圓，包含扁圓形)
             // 因為扁圓形的寬度是 1.0 (未縮放)，所以用原始半徑去抓一定抓得到
-            Collider2D[] hits = Physics2D.OverlapCircleAll(center, r, enemyMask);
+            // ★ 使用 targetMask
+            Collider2D[] hits = Physics2D.OverlapCircleAll(center, r, targetMask);
 
             foreach (var h in hits)
             {
@@ -129,13 +162,14 @@ namespace RPG
             SpawnAreaVFX(center, r);
         }
 
-        void DoCone2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir)
+        // --- 修改 DoCone2D 接收 targetMask ---
+        void DoCone2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
         {
             float dist = Mathf.Max(0.1f, data.BaseRange);
             float angle = comp.ConeAngle;
 
-            // 1. 第一階段：抓大圓 (距離不用透視縮放，因為我們要檢查的是"還原後"的距離)
-            Collider2D[] hits = Physics2D.OverlapCircleAll(origin, dist, enemyMask);
+            // ★ 使用 targetMask
+            Collider2D[] hits = Physics2D.OverlapCircleAll(origin, dist, targetMask);
 
             foreach (var h in hits)
             {

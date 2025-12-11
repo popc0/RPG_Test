@@ -118,7 +118,7 @@ namespace RPG
         // 4. §ë®gª« (Projectile)
         // ============================================================
         public bool UseProjectile = false;
-        public Projectile2D ProjectilePrefab;
+        public  Projectile2D ProjectilePrefab;
         public float ProjectileSpeed = 15f;
         public float ProjectileRadius = 0.25f;
 

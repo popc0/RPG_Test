@@ -48,9 +48,17 @@ namespace RPG
             // 這樣就不需要 SkillExecutor 去設定 transform.localScale 了
             transform.localScale = PerspectiveUtils.GlobalScale;
 
-            // ... (原本的 Init 邏輯: 抓 Collider, 設定變數...)
             _col = GetComponent<Collider2D>();
             if (!_col) _col = GetComponentInChildren<Collider2D>();
+
+            // =========================================================
+            // ★ 新增這行：強制開啟 Trigger (防呆機制)
+            // =========================================================
+            if (_col != null)
+            {
+                _col.isTrigger = true;
+            }
+            // =========================================================
 
             this.owner = owner;
             _dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;

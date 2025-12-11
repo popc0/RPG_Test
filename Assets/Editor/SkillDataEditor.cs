@@ -127,24 +127,58 @@ public class SkillDataEditor : Editor
         bool isUltimate =(st == SkillType.Ultimate);
 
         // ========================================================
-        // 1. 識別區塊 (樣式美化)
+        // 1. 識別區塊
         // ========================================================
         EditorGUILayout.LabelField("【 識別與 ID 】", EditorStyles.boldLabel);
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
             EditorGUILayout.PropertyField(type, new GUIContent("技能類型"));
 
-            EditorGUILayout.PropertyField(rank, new GUIContent("階級"));
-            EditorGUILayout.PropertyField(familySerial, new GUIContent("流水號"));
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PropertyField(rank, new GUIContent("階級 (Rank)"));
 
-            GUI.enabled = false; // 唯讀
+            // 唯讀顯示流水號
+            GUI.enabled = false;
+            EditorGUILayout.PropertyField(familySerial, new GUIContent("流水號 (Random)"));
+            GUI.enabled = true;
+            EditorGUILayout.EndHorizontal();
+
+            GUI.enabled = false;
             EditorGUILayout.PropertyField(skillID, new GUIContent("Unique ID"));
             GUI.enabled = true;
 
+            // --- 進化連結 ---
+            EditorGUILayout.Space(2);
+            EditorGUILayout.BeginHorizontal();
             EditorGUILayout.PropertyField(nextEvolution, new GUIContent("下一階進化"));
+
+            // 建立進化版按鈕
+            if (!serializedObject.isEditingMultipleObjects && nextEvolution.objectReferenceValue == null)
+            {
+                if (GUILayout.Button("＋建立進化版", GUILayout.Width(85)))
+                {
+                    SkillAssetTool.CreateEvolutionAsset((SkillData)target);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // ============================================================
+            // ★ 修改：重新產生按鈕 (連動整組)
+            // ============================================================
+            if (GUILayout.Button("重新產生家族流水號 (Regenerate Family ID)"))
+            {
+                string msg = "確定要重新產生此技能的流水號嗎？\n\n" +
+                             "★ 注意：所有屬於同一家族 (同流水號) 的技能都會一起更新！\n" +
+                             "這將改變它們的 ID，請確保沒有存檔正在使用舊 ID。";
+
+                if (EditorUtility.DisplayDialog("整組更新警告", msg, "確定更新", "取消"))
+                {
+                    // 呼叫批次更新方法
+                    SkillAssetTool.RegenerateFamilySerial((SkillData)target);
+                }
+            }
         }
         EditorGUILayout.Space();
-
         // ========================================================
         // 2. 基本參數
         // ========================================================
