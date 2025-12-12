@@ -120,7 +120,8 @@ namespace RPG
         public bool UseProjectile = false;
         public  Projectile2D ProjectilePrefab;
         public float ProjectileSpeed = 15f;
-        public float ProjectileRadius = 0.25f;
+        public bool IsPiercing = false; 
+        public float ProjectileDuration; // 顯示在 Inspector 給你看
 
         // ============================================================
         // 5. 排程 (Sequence)
@@ -136,6 +137,16 @@ namespace RPG
             if (type == SkillType.Ultimate) typeCode = "U";
             if (type == SkillType.Passive) typeCode = "P";
             skillID = $"{typeCode}{rank:D2}{familySerial:D6}";
+
+            // ★ 新增：自動計算飛行時間
+            if (ProjectileSpeed > 0f)
+            {
+                ProjectileDuration = BaseRange / ProjectileSpeed;
+            }
+            else
+            {
+                ProjectileDuration = 0f;
+            }
         }
 
         // 檢查學習條件 (包含上限)

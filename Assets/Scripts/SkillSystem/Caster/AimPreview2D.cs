@@ -84,7 +84,14 @@ namespace RPG
             // 1. 取得透視倍率
             float scaleFactor = PerspectiveUtils.GetVisualScaleFactor(dir);
 
-            Vector3 scale = PerspectiveUtils.GlobalScale;
+            // ============================================================
+            // ★ 修改：關閉寬度的透視計算
+            // ============================================================
+            // [原版] Vector3 scale = PerspectiveUtils.GlobalScale; // 會導致線條被壓扁
+
+            // [修改] 改用 Vector3.one (1, 1, 1)
+            // 這樣傳進去 BuildFlatStrip 的時候，就不會對寬度做額外的縮放了
+            Vector3 scale = Vector3.one;
 
             // 2. 計算視覺終點
             // 物理射程 10 * 倍率 0.5 = 視覺射程 5 (往上)
@@ -143,14 +150,19 @@ namespace RPG
 
         float GetProjectileRadiusForPreview(SkillData data, Vector2 dir)
         {
-            float radius = Mathf.Max(0.02f, data.ProjectileRadius);
-            if (data.UseProjectile && data.ProjectilePrefab)
+            // [修改] 預設給一個最小值，不再依賴 data.ProjectileRadius
+            float radius = 0.1f;
+
+            // [修改] 不再檢查 UseProjectile，只看有沒有 Prefab
+            if (data.ProjectilePrefab != null)
             {
+                // 嘗試從 Prefab 取得實際寬度
                 if (data.ProjectilePrefab.TryGetColliderDiameter(dir, out float diameter))
                 {
                     radius = Mathf.Max(radius, diameter * 0.5f);
                 }
             }
+
             return radius;
         }
 

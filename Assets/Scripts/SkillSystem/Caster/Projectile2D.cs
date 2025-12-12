@@ -14,7 +14,7 @@ namespace RPG
         public float maxDistance;           // from SkillData.BaseRange
         public float damage;
         public InteractionLayer targetLayer;
-        public LayerMask enemyMask;
+        public LayerMask targetMask;
         public LayerMask obstacleMask;
 
         [Header("朝向與步進")]
@@ -41,6 +41,11 @@ namespace RPG
         public Vector2 Direction => _dir;
         public float Traveled => _traveled;
 
+        // ★ 新增：穿透相關變數
+        private bool _isPiercing = false;
+        // 用來記錄這發子彈已經打過誰，避免穿透時同一幀或下一幀重複判定
+        private HashSet<GameObject> _hitHistory = new HashSet<GameObject>();
+
         public void Init(Transform owner, Vector2 dir, SkillData data, SkillComputed comp,
                          LayerMask enemyMask, LayerMask obstacleMask)
         {
@@ -66,11 +71,14 @@ namespace RPG
             maxDistance = Mathf.Max(0.1f, data.BaseRange);
             damage = comp.Damage;
             targetLayer = data.TargetLayer;
-            this.enemyMask = enemyMask;
+            this.targetMask = enemyMask;
             this.obstacleMask = obstacleMask;
 
             _traveled = 0f;
             _stopped = false;
+            // ★ 讀取穿透設定並初始化
+            _isPiercing = data.IsPiercing;
+            _hitHistory.Clear();
 
             _filter = new ContactFilter2D
             {
@@ -93,96 +101,79 @@ namespace RPG
             // 2. 計算這一幀的位移 (速度 * 倍率 * 時間)
             float step = speed * scaleFactor * Time.deltaTime;
 
-            float remaining = step;
-            int guard = 0;
+            // 執行射線檢測
+            int count = _col.Cast(_dir, _filter, _hitsBuf, step);
 
-            while (remaining > 0f && guard++ < maxCastsPerStep && !_stopped)
+            // 如果有撞到東西，我們需要處理「穿透」與「撞牆」的順序
+            if (count > 0)
             {
-                // 直接用 _dir (視覺方向) 檢測
-                int count = _col.Cast(_dir, _filter, _hitsBuf, remaining);
+                // 1. 先把所有擊中資訊整理出來，並依照距離排序 (由近到遠)
+                // 這樣才不會發生「先穿牆」或是「先打到後面的怪」這種穿模問題
+                var hits = new List<RaycastHit2D>();
+                for (int i = 0; i < count; i++) hits.Add(_hitsBuf[i]);
+                hits.Sort((a, b) => a.distance.CompareTo(b.distance));
 
-                // 取最近，但只考慮「障礙物」與「正確目標部位」
-                int best = -1;
-                float bestDist = float.PositiveInfinity;
-
-                for (int i = 0; i < count; i++)
+                // 2. 依序判定
+                foreach (var hit in hits)
                 {
-                    var h = _hitsBuf[i];
-                    if (!h.collider) continue;
-                    if (owner && h.collider.transform.IsChildOf(owner)) continue;
+                    if (!hit.collider) continue;
+                    if (owner && hit.collider.transform.IsChildOf(owner)) continue;
 
-                    int maskBitHit = 1 << h.collider.gameObject.layer;
-                    bool isObstacle = (obstacleMask.value & maskBitHit) != 0;
-                    bool isEnemy = (enemyMask.value & maskBitHit) != 0;
+                    int maskBit = 1 << hit.collider.gameObject.layer;
+                    bool isObstacle = (obstacleMask.value & maskBit) != 0;
+                    bool isTarget = (targetMask.value & maskBit) != 0; // 改用 targetMask
 
-                    // 只處理障礙物與敵人，其餘忽略
-                    if (!isObstacle && !isEnemy) continue;
-
-                    if (isEnemy)
+                    // A. 撞牆 (障礙物)：無論是否穿透，都要停下
+                    if (isObstacle)
                     {
-                        // 先檢查是不是正確部位，不是的話整個當透明忽略
-                        if (EffectApplier.TryResolveOwner(h.collider, out var tmpTarget, out var tmpLayer))
-                        {
-                            if (tmpLayer != targetLayer)
-                                continue; // 錯誤部位 → 視為不存在
-                        }
-                        else
-                        {
-                            // 找不到擁有者時，保守起見交給後面的流程去決定（視為可命中）
-                        }
+                        // 移動到撞擊點
+                        transform.position += (Vector3)(_dir * hit.distance);
+                        _traveled += hit.distance / scaleFactor;
+                        StopProjectile();
+                        return; // 結束 Update
                     }
 
-                    if (h.distance < bestDist)
+                    // B. 撞目標 (敵人/隊友)
+                    if (isTarget)
                     {
-                        bestDist = h.distance;
-                        best = i;
+                        // 解析受擊者
+                        if (EffectApplier.TryResolveOwner(hit.collider, out var targetApplier, out var layer) && layer == targetLayer)
+                        {
+                            // ★ 關鍵：檢查是否已經打過這隻 (穿透防重複)
+                            if (!_hitHistory.Contains(targetApplier.gameObject))
+                            {
+                                // 造成傷害
+                                targetApplier.ApplyIncomingRaw(damage);
+                                _hitHistory.Add(targetApplier.gameObject);
+
+                                // ★ 判斷穿透邏輯
+                                if (!_isPiercing)
+                                {
+                                    // 不穿透：移動到目標身上並銷毀
+                                    transform.position += (Vector3)(_dir * hit.distance);
+                                    _traveled += hit.distance / scaleFactor;
+                                    StopProjectile();
+                                    return;
+                                }
+                                else
+                                {
+                                    // 穿透：不銷毀，繼續迴圈檢查下一個物體
+                                    // (這裡不移動 transform，等迴圈跑完統一移動 full step)
+                                }
+                            }
+                        }
                     }
                 }
-
-                // 下面是 Hit 處理的修改 (還原物理距離)
-                if (best == -1)
-                {
-                    transform.position += (Vector3)(_dir * remaining);
-
-                    // ★ 距離累加：要把「視覺距離」還原成「物理距離」來判斷射程
-                    // 物理距離 = 視覺距離 / 倍率
-                    _traveled += remaining / scaleFactor;
-
-                    remaining = 0f;
-                    break;
-                }
-
-                var hit = _hitsBuf[best];
-                float move = Mathf.Max(0f, hit.distance);
-                transform.position += (Vector3)(_dir * move);
-
-                // ★ 累加
-                _traveled += move / scaleFactor;
-
-                remaining -= move;
-
-                int maskBit = 1 << hit.collider.gameObject.layer;
-
-                // 障礙物 → 直接停
-                if ((obstacleMask.value & maskBit) != 0) { StopProjectile(); return; }
-                if ((enemyMask.value & maskBit) != 0)
-                {
-                    if (EffectApplier.TryResolveOwner(hit.collider, out var target, out var hitLayer) && hitLayer == targetLayer)
-                    { target.ApplyIncomingRaw(damage); StopProjectile(); return; }
-                    else { StopProjectile(); return; }
-                }
-
-                // 微移
-                float advance = Mathf.Min(remaining, skin);
-                transform.position += (Vector3)(_dir * advance);
-                // _traveled += advance / scaleFactor;
-                remaining -= advance;
             }
+
+            // 如果迴圈跑完沒有 return (代表沒撞牆，且如果是單體也沒撞到人，或者是穿透模式)
+            // 就直接移動完整的一步
+            transform.position += (Vector3)(_dir * step);
+            _traveled += step / scaleFactor;
 
             if (_traveled >= maxDistance)
             {
                 StopProjectile();
-                return;
             }
 
             if (alignRotation)

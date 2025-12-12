@@ -45,12 +45,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   allSkillsLibrary:
-  - {fileID: 11400000, guid: 67d57a09f03dc2f45819ef5c55a4b10a, type: 2}
-  defaultFixedNormal: {fileID: 0}
+  - {fileID: 11400000, guid: f0106f24dea17db49b52c90ded98dcab, type: 2}
+  - {fileID: 11400000, guid: bac91bd43c4db3e4eafc97563822027e, type: 2}
+  - {fileID: 11400000, guid: b4d8d7b9e5945d842963f342042f3f03, type: 2}
+  - {fileID: 11400000, guid: 3ebe32fbe809f7541bb95a75258abb8d, type: 2}
+  defaultFixedNormal: {fileID: 11400000, guid: bac91bd43c4db3e4eafc97563822027e, type: 2}
   defaultFixedUltimate: {fileID: 0}
   defaultSkillGroups:
   - groupName: "\u6280\u80FD\u7D44 1"
-    normalSkill: {fileID: 11400000, guid: 67d57a09f03dc2f45819ef5c55a4b10a, type: 2}
+    normalSkill: {fileID: 11400000, guid: f0106f24dea17db49b52c90ded98dcab, type: 2}
     ultimateSkill: {fileID: 0}
   playerTag: Player
   mainMenuSceneName: MainMenuScene

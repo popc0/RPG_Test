@@ -32,7 +32,7 @@ public class SkillDataEditor : Editor
     SerializedProperty baseAreaRadius, baseConeAngle;
 
     // 投射物
-    SerializedProperty useProjectile, projectilePrefab, projectileSpeed, projectileRadius;
+    SerializedProperty  projectilePrefab, projectileSpeed;
     // 狀態效果變數
     SerializedProperty useCastingStatus, castingStatusEffects;
     SerializedProperty useActingStatus, actingStatusEffects;
@@ -100,10 +100,8 @@ public class SkillDataEditor : Editor
         baseAreaRadius = serializedObject.FindProperty("BaseAreaRadius");
         baseConeAngle = serializedObject.FindProperty("BaseConeAngle");
 
-        useProjectile = serializedObject.FindProperty("UseProjectile");
         projectilePrefab = serializedObject.FindProperty("ProjectilePrefab");
         projectileSpeed = serializedObject.FindProperty("ProjectileSpeed");
-        projectileRadius = serializedObject.FindProperty("ProjectileRadius");
 
         // 綁定新的狀態效果屬性
         useCastingStatus = serializedObject.FindProperty("UseCastingStatus");
@@ -269,17 +267,17 @@ public class SkillDataEditor : Editor
                     EditorGUILayout.PropertyField(baseRange, new GUIContent("最大射程"));
 
                     EditorGUILayout.Space(5);
-                    EditorGUILayout.LabelField("--- 投射物設定 ---", EditorStyles.miniLabel); // 加個小標題區隔
-                    EditorGUILayout.PropertyField(useProjectile);
-                    if (useProjectile.boolValue)
-                    {
-                        using (new EditorGUI.IndentLevelScope())
-                        {
-                            EditorGUILayout.PropertyField(projectilePrefab);
-                            EditorGUILayout.PropertyField(projectileSpeed);
-                            EditorGUILayout.PropertyField(projectileRadius);
+
+                    using (new EditorGUI.IndentLevelScope()) {
+                        EditorGUILayout.LabelField("--- 投射物設定 ---", EditorStyles.miniLabel); // 加個小標題區隔
+                        EditorGUILayout.PropertyField(projectilePrefab);
+                        EditorGUILayout.PropertyField(projectileSpeed);
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty("IsPiercing"), new GUIContent("是否穿透"));
+                        // 顯示自動計算的時間 (設為唯讀)
+                        GUI.enabled = false;
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty("ProjectileDuration"), new GUIContent("飛行時間 (後搖可參考)"));
+                        GUI.enabled = true;
                         }
-                    }
                 }
                 else if (hit == HitType.Area)
                 {

@@ -87,7 +87,7 @@ namespace RPG
         // --- 修改 DoSingle2D 接收 targetMask ---
         void DoSingle2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
         {
-            if (data.UseProjectile && data.ProjectilePrefab)
+            if (data.ProjectilePrefab != null)
             {
                 // 生成投射物
                 var spawnPos = origin + (Vector3)(dir * spawnInset);
