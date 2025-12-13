@@ -20,7 +20,7 @@ MonoBehaviour:
   SkillName: "\u7A7A\u65AC"
   Icon: {fileID: 21300000, guid: b1131597d5c38d04da2e158592a36c56, type: 3}
   BaseCooldown: 1
-  BaseMpCost: 5
+  BaseMpCost: 1
   UseAttackReq: 0
   ReqAttackMin: 0
   UseAttackCap: 0
@@ -63,10 +63,11 @@ MonoBehaviour:
   - {fileID: 11400000, guid: bcd8e1f492d33264ea8f78f6bb461376, type: 2}
   UseRecoveryStatus: 0
   RecoveryStatusEffects: []
-  UseProjectile: 1
-  ProjectilePrefab: {fileID: 8811415750702046901, guid: 2e4bed4a9279fd740940639703995b5f, type: 3}
+  ProjectilePrefab: {fileID: 2671298764272197432, guid: 944a30b2e4324a3419aacf4ffe59cb3e, type: 3}
   ProjectileSpeed: 15
-  ProjectileRadius: 0.25
+  IsPiercing: 0
+  MaxDuration: 0.4
+  SwingDirection: 1
   sequence:
   - delay: 0.2
     skill: {fileID: 11400000, guid: bac91bd43c4db3e4eafc97563822027e, type: 2}

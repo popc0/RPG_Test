@@ -62,9 +62,9 @@ MonoBehaviour:
   ActingStatusEffects: []
   UseRecoveryStatus: 0
   RecoveryStatusEffects: []
-  UseProjectile: 1
-  ProjectilePrefab: {fileID: 1777836326858961675, guid: ceefd84d441d09340b7a0ef05e1df8df, type: 3}
+  ProjectilePrefab: {fileID: 2046945046303790552, guid: 249c6d58d964c4c418de806197426b81, type: 3}
   ProjectileSpeed: 15
   IsPiercing: 0
-  ProjectileDuration: 0.53333336
+  MaxDuration: 0.53333336
+  SwingDirection: 1
   sequence: []

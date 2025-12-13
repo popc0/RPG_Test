@@ -1,232 +1,317 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Linq; // 用於排序
+using RPG;
 
 namespace RPG
 {
     [DisallowMultipleComponent]
     public class Projectile2D : MonoBehaviour
     {
-        public enum FacingAxis { Right, Up }
-
-        [Header("執行參數（由 SkillCaster 初始化）")]
+        #region 1. 參數與設定 (Settings)
+        [Header("執行參數")]
         public Transform owner;
-        public float speed;                 // from SkillData.ProjectileSpeed
-        public float maxDistance;           // from SkillData.BaseRange
-        public float damage;
         public InteractionLayer targetLayer;
         public LayerMask targetMask;
         public LayerMask obstacleMask;
 
-        [Header("朝向與步進")]
-        public bool alignRotation = true;
-        public FacingAxis modelForward = FacingAxis.Right;
-        public float rotationOffsetDeg = 0f;
-        [Tooltip("命中點向前微移以避免重複命中（公尺）")]
-        public float skin = 0.01f;
-        [Tooltip("每幀最多連續 Cast 次數")]
-        public int maxCastsPerStep = 4;
+        [Header("數值")]
+        public float speed;          // 飛行速度 或 旋轉速度(度/秒)
+        public float damage;
+        public float maxDuration;    // ★ 統一生死判斷標準
 
-        [Header("模型設定 (透視修正用)")]
-        [Tooltip("若指定此欄位，旋轉時只會轉動此子物件，父物件保持不動以維持縮放。")]
-        public Transform modelTransform;
+        [Header("行為開關")]
+        public bool isPiercing = false;
+        public bool alignRotation = true; 
 
-        // 內部
-        Collider2D _col;                    // 允許在子物件上
-        Vector2 _dir = Vector2.right;
-        float _traveled;
-        bool _stopped;
-        readonly RaycastHit2D[] _hitsBuf = new RaycastHit2D[8];
-        ContactFilter2D _filter;
+        [Header("模型設定")]
+        public FacingAxis modelForward = FacingAxis.Right; // 圖片原本朝哪？
+        public float rotationOffsetDeg = 0f;               // 額外修正角度
+        public Transform modelTransform;                   // 視覺子物件
+        #endregion
 
-        public Vector2 Direction => _dir;
-        public float Traveled => _traveled;
+        #region 2. 內部狀態 (State)
+        // 元件
+        private Collider2D _col;
+        private ContactFilter2D _filter;
+        private readonly RaycastHit2D[] _hitsBuf = new RaycastHit2D[16];
 
-        // ★ 新增：穿透相關變數
-        private bool _isPiercing = false;
-        // 用來記錄這發子彈已經打過誰，避免穿透時同一幀或下一幀重複判定
+        // 運動狀態
+        private Vector2 _dir = Vector2.right; // 飛行方向
+        private float _lifeTimer = 0f;        // 存活計時
+        private bool _stopped = false;
+
+        // 防重複打擊 (穿透用)
         private HashSet<GameObject> _hitHistory = new HashSet<GameObject>();
 
+        // 揮舞專用狀態
+        private bool _isConeSweep = false;
+        private float _currentAngleTraveled = 0f;
+        private float _totalSweepAngle = 0f;
+        private float _spinSign = 1f;
+        #endregion
+
+        #region 3. 初始化 (Init)
         public void Init(Transform owner, Vector2 dir, SkillData data, SkillComputed comp,
-                         LayerMask enemyMask, LayerMask obstacleMask)
+                         LayerMask targetMask, LayerMask obstacleMask)
         {
-            // ★ 新增：初始化時強制套用全域透視縮放
-            // 這樣就不需要 SkillExecutor 去設定 transform.localScale 了
-            transform.localScale = PerspectiveUtils.GlobalScale;
-
-            _col = GetComponent<Collider2D>();
-            if (!_col) _col = GetComponentInChildren<Collider2D>();
-
-            // =========================================================
-            // ★ 新增這行：強制開啟 Trigger (防呆機制)
-            // =========================================================
-            if (_col != null)
-            {
-                _col.isTrigger = true;
-            }
-            // =========================================================
-
+            // --- 基礎綁定 ---
             this.owner = owner;
-            _dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;
-            speed = data.ProjectileSpeed;
-            maxDistance = Mathf.Max(0.1f, data.BaseRange);
-            damage = comp.Damage;
-            targetLayer = data.TargetLayer;
-            this.targetMask = enemyMask;
+            this.targetMask = targetMask;
             this.obstacleMask = obstacleMask;
 
-            _traveled = 0f;
+            // 強制套用全域透視縮放
+            transform.localScale = PerspectiveUtils.GlobalScale;
+
+            // 抓取 Collider
+            _col = GetComponent<Collider2D>();
+            if (!_col) _col = GetComponentInChildren<Collider2D>();
+            if (_col != null) _col.isTrigger = true;
+
+            // 讀取數據
+            if (data.HitType == HitType.Area)
+            {
+                speed = 0f;
+            }
+            else
+            {
+                speed = data.ProjectileSpeed;
+            }
+
+            damage = comp.Damage;
+            targetLayer = data.TargetLayer;
+            maxDuration = data.MaxDuration; // ★ 從 Data 讀取統一的時間
+            isPiercing = data.IsPiercing;
+
+            // 重置狀態
+            _lifeTimer = 0f;
             _stopped = false;
-            // ★ 讀取穿透設定並初始化
-            _isPiercing = data.IsPiercing;
             _hitHistory.Clear();
 
+            // 設定物理過濾器
             _filter = new ContactFilter2D
             {
                 useLayerMask = true,
-                layerMask = enemyMask | obstacleMask,
+                layerMask = targetMask | obstacleMask,
                 useTriggers = true
             };
 
-            ApplyFacingRotation();
+            // --- 模式分流 ---
+            if (data.HitType == HitType.Cone)
+            {
+                InitConeSweep(data, comp, dir);
+            }
+            else
+            {
+                InitStandardProjectile(dir);
+            }
         }
 
+        private void InitConeSweep(SkillData data, SkillComputed comp, Vector2 inputDir)
+        {
+            _isConeSweep = true;
+            _totalSweepAngle = comp.ConeAngle;
+            _currentAngleTraveled = 0f;
+            _dir = Vector2.zero;
+
+            _spinSign = (data.SwingDirection == SwingDir.LeftToRight) ? -1f : 1f;
+
+            // 計算起始角度
+            float aimAngle = Mathf.Atan2(inputDir.y, inputDir.x) * Mathf.Rad2Deg;
+            float startOffset = -_spinSign * (_totalSweepAngle * 0.5f);
+            float startAngle = aimAngle + startOffset;
+
+            transform.rotation = Quaternion.Euler(0f, 0f, startAngle);
+
+            // 修正子物件朝向
+            if (modelTransform)
+            {
+                float modelCorrection = (modelForward == FacingAxis.Up) ? -90f : 0f;
+                modelCorrection += rotationOffsetDeg;
+                modelTransform.localRotation = Quaternion.Euler(0f, 0f, modelCorrection);
+            }
+        }
+
+        private void InitStandardProjectile(Vector2 inputDir)
+        {
+            _isConeSweep = false;
+
+            // 如果是 Area (速度=0)，且不轉向，我們通常希望它保持預設朝向 (Right/Up)
+            // 但為了邏輯統一，這裡還是根據 inputDir 設定 _dir
+            _dir = (inputDir.sqrMagnitude > 0.0001f) ? inputDir.normalized : Vector2.right;
+
+            // ★ 修改：加入判斷，讓 Inspector 裡的勾選框生效
+            // 這樣你就可以在 SkillData -> ProjectilePrefab 裡把 AlignRotation 勾掉，讓爆炸永遠朝正
+            if (alignRotation)
+            {
+                ApplyFacingRotation();
+            }
+        }
+        #endregion
+
+        #region 4. 更新循環 (Update)
         void Update()
         {
-            if (_stopped || speed <= 0f) return;
+            if (_stopped) return;
 
-            // 1. 取得透視倍率
-            // _dir 已經是視覺方向 (例如 26度)，我們算出這個角度應有的速度折損率 (例如 0.8)
+            // 1. 時間檢查 (統一由 MaxDuration 控制生死)
+            _lifeTimer += Time.deltaTime;
+            if (_lifeTimer >= maxDuration)
+            {
+                // 對於揮舞(Cone)，確保最後一幀轉滿
+                if (_isConeSweep) FinishConeSweep();
+
+                StopProjectile();
+                return;
+            }
+
+            // 2. 執行對應邏輯
+            if (_isConeSweep) UpdateConeSweep();
+            else UpdateStandardProjectile();
+        }
+
+        private void UpdateConeSweep()
+        {
+            // 這裡不需檢查 _currentAngleTraveled >= total，因為時間是同步的
+            // 時間到了 Update 裡的 _lifeTimer 會負責殺掉它
+
+            float rotateStep = speed * Time.deltaTime;
+            transform.Rotate(0f, 0f, rotateStep * _spinSign);
+            _currentAngleTraveled += rotateStep;
+
+            CheckOverlapCollision();
+        }
+
+        private void FinishConeSweep()
+        {
+            // 補足最後一點角度 (視覺上完美)
+            if (_currentAngleTraveled < _totalSweepAngle)
+            {
+                float remain = _totalSweepAngle - _currentAngleTraveled;
+                transform.Rotate(0f, 0f, remain * _spinSign);
+                CheckOverlapCollision();
+            }
+        }
+
+        private void UpdateStandardProjectile()
+        {
+            if (speed <= 0f)
+            {
+                CheckCastCollision(0f, 1f);
+                return;
+            }
+
             float scaleFactor = PerspectiveUtils.GetVisualScaleFactor(_dir);
-
-            // 2. 計算這一幀的位移 (速度 * 倍率 * 時間)
             float step = speed * scaleFactor * Time.deltaTime;
 
-            // 執行射線檢測
-            int count = _col.Cast(_dir, _filter, _hitsBuf, step);
+            CheckCastCollision(step, scaleFactor);
 
-            // 如果有撞到東西，我們需要處理「穿透」與「撞牆」的順序
-            if (count > 0)
+            if (!_stopped)
             {
-                // 1. 先把所有擊中資訊整理出來，並依照距離排序 (由近到遠)
-                // 這樣才不會發生「先穿牆」或是「先打到後面的怪」這種穿模問題
-                var hits = new List<RaycastHit2D>();
-                for (int i = 0; i < count; i++) hits.Add(_hitsBuf[i]);
-                hits.Sort((a, b) => a.distance.CompareTo(b.distance));
+                transform.position += (Vector3)(_dir * step);
+                // 不再檢查 _traveled >= maxDistance，完全依賴 _lifeTimer
+            }
 
-                // 2. 依序判定
-                foreach (var hit in hits)
+            if (alignRotation && !_stopped) ApplyFacingRotation();
+        }
+        #endregion
+
+        #region 5. 碰撞核心 (Collision Core)
+        // ... (CheckCastCollision, CheckOverlapCollision, ResolveHit 保持不變) ...
+        // ... (請參考上一則回應的實作，邏輯完全相同，只是拿掉了 maxDistance 檢查) ...
+
+        private void CheckCastCollision(float distance, float scaleFactor)
+        {
+            int count = _col.Cast(_dir, _filter, _hitsBuf, distance);
+            if (count == 0) return;
+
+            var hits = _hitsBuf.Take(count).OrderBy(h => h.distance).ToList();
+
+            foreach (var hit in hits)
+            {
+                if (ResolveHit(hit.collider))
                 {
-                    if (!hit.collider) continue;
-                    if (owner && hit.collider.transform.IsChildOf(owner)) continue;
-
-                    int maskBit = 1 << hit.collider.gameObject.layer;
-                    bool isObstacle = (obstacleMask.value & maskBit) != 0;
-                    bool isTarget = (targetMask.value & maskBit) != 0; // 改用 targetMask
-
-                    // A. 撞牆 (障礙物)：無論是否穿透，都要停下
-                    if (isObstacle)
+                    if (speed > 0)
                     {
-                        // 移動到撞擊點
                         transform.position += (Vector3)(_dir * hit.distance);
-                        _traveled += hit.distance / scaleFactor;
-                        StopProjectile();
-                        return; // 結束 Update
                     }
+                    StopProjectile();
+                    return;
+                }
+            }
+        }
 
-                    // B. 撞目標 (敵人/隊友)
-                    if (isTarget)
+        private void CheckOverlapCollision()
+        {
+            List<Collider2D> results = new List<Collider2D>();
+            int count = _col.OverlapCollider(_filter, results);
+            foreach (var col in results)
+            {
+                if (ResolveHit(col)) { StopProjectile(); return; }
+            }
+        }
+
+        private bool ResolveHit(Collider2D other)
+        {
+            if (!other) return false;
+            if (owner && other.transform.IsChildOf(owner)) return false;
+
+            int layerVal = 1 << other.gameObject.layer;
+
+            // 撞牆
+            if ((obstacleMask.value & layerVal) != 0)
+            {
+                // 1. 揮舞 (Cone) 不彈刀
+                if (_isConeSweep) return false;
+
+                // 2. ★ 新增：定點 (Area) 也不彈刀/不消失
+                // Area 的速度在 Init 時被強制設為 0，可以用這個來判斷
+                if (speed == 0f) return false;
+
+                // 其他 (Single 飛行道具) -> 撞牆停下
+                return true;
+            }
+
+            // 撞人
+            if ((targetMask.value & layerVal) != 0)
+            {
+                if (EffectApplier.TryResolveOwner(other, out var applier, out var layer) && layer == targetLayer)
+                {
+                    if (!_hitHistory.Contains(applier.gameObject))
                     {
-                        // 解析受擊者
-                        if (EffectApplier.TryResolveOwner(hit.collider, out var targetApplier, out var layer) && layer == targetLayer)
-                        {
-                            // ★ 關鍵：檢查是否已經打過這隻 (穿透防重複)
-                            if (!_hitHistory.Contains(targetApplier.gameObject))
-                            {
-                                // 造成傷害
-                                targetApplier.ApplyIncomingRaw(damage);
-                                _hitHistory.Add(targetApplier.gameObject);
-
-                                // ★ 判斷穿透邏輯
-                                if (!_isPiercing)
-                                {
-                                    // 不穿透：移動到目標身上並銷毀
-                                    transform.position += (Vector3)(_dir * hit.distance);
-                                    _traveled += hit.distance / scaleFactor;
-                                    StopProjectile();
-                                    return;
-                                }
-                                else
-                                {
-                                    // 穿透：不銷毀，繼續迴圈檢查下一個物體
-                                    // (這裡不移動 transform，等迴圈跑完統一移動 full step)
-                                }
-                            }
-                        }
+                        applier.ApplyIncomingRaw(damage);
+                        _hitHistory.Add(applier.gameObject);
+                        if (!isPiercing) return true;
                     }
                 }
             }
-
-            // 如果迴圈跑完沒有 return (代表沒撞牆，且如果是單體也沒撞到人，或者是穿透模式)
-            // 就直接移動完整的一步
-            transform.position += (Vector3)(_dir * step);
-            _traveled += step / scaleFactor;
-
-            if (_traveled >= maxDistance)
-            {
-                StopProjectile();
-            }
-
-            if (alignRotation)
-                ApplyFacingRotation();
+            return false;
         }
+        #endregion
 
-        void ApplyFacingRotation()
+        #region 6. 工具 (Utils)
+        // ... (ApplyFacingRotation, StopProjectile, TryGetColliderDiameter 保持不變) ...
+
+        private void ApplyFacingRotation()
         {
             if (_dir.sqrMagnitude < 1e-6f) return;
-
-            float deg = Mathf.Atan2(_dir.y, _dir.x) * Mathf.Rad2Deg; // 以 +X 為前
+            float deg = Mathf.Atan2(_dir.y, _dir.x) * Mathf.Rad2Deg;
             if (modelForward == FacingAxis.Up) deg -= 90f;
             deg += rotationOffsetDeg;
 
-            Quaternion targetRot = Quaternion.AngleAxis(deg, Vector3.forward);
-
-            if (modelTransform)
-            {
-                // 有指定模型：轉模型，父物件不動 (保持世界座標的 Scale 軸向)
-                modelTransform.localRotation = targetRot;
-                transform.rotation = Quaternion.identity; // 確保父物件歸零
-            }
-            else
-            {
-                // 沒指定：轉自己 (舊邏輯)
-                transform.rotation = targetRot;
-            }
+            Quaternion rot = Quaternion.AngleAxis(deg, Vector3.forward);
+            if (modelTransform) { modelTransform.localRotation = rot; transform.rotation = Quaternion.identity; }
+            else transform.rotation = rot;
         }
 
-        void StopProjectile()
+        private void StopProjectile()
         {
             if (_stopped) return;
             _stopped = true;
-
-            // 將原有的 Destroy(gameObject);
-            // 改為呼叫物件池的回收方法
-
-            // ⭐ 新的物件池回收邏輯 ⭐
-            if (ObjectPool.Instance != null)
-            {
-                ObjectPool.Instance.Despawn(gameObject);
-            }
-            else
-            {
-                // 作為備用（如果沒有物件池實例，就使用傳統銷毀）
-                Destroy(gameObject);
-            }
-
-            // 注意：這裡不需要額外設置 _stopped=false，因為當物件被回收並再次 Spawn 時，
-            // Init() 方法會被調用並重置所有內部狀態。
+            if (ObjectPool.Instance != null) ObjectPool.Instance.Despawn(gameObject);
+            else Destroy(gameObject);
         }
 
-        // === 權威寬度：由投射物回報自身 Collider 寬度（沿飛行方向的垂直厚度） ===
         public bool TryGetColliderDiameter(Vector2 dir, out float diameter)
         {
             diameter = 0f;
@@ -234,65 +319,118 @@ namespace RPG
             if (!_col) _col = GetComponentInChildren<Collider2D>();
             if (!_col) return false;
 
-            dir = (dir.sqrMagnitude > 0.0001f) ? dir.normalized : Vector2.right;
-            Vector2 n = new Vector2(Mathf.Abs(-dir.y), Mathf.Abs(dir.x)); // 法向
+            // 1. 決定測量軸向 (Measure Axis)
+            // 既然 Projectile 會自動旋轉對齊飛行方向 (alignRotation)，
+            // 我們只需要知道這個物件在「未旋轉狀態(Prefab)」下的「側面」是哪一軸。
+
+            // 預設：物件朝右(X)，所以側面是 Y 軸
+            Vector2 measureAxis = Vector2.up;
+
+            // 如果物件朝上(Y)，那側面就是 X 軸
+            if (modelForward == FacingAxis.Up) measureAxis = Vector2.right;
+
+            // 考慮額外旋轉 (RotationOffset)
+            // 如果有設 offset，測量軸也要跟著轉
+            if (Mathf.Abs(rotationOffsetDeg) > 0.001f)
+            {
+                measureAxis = Quaternion.Euler(0, 0, rotationOffsetDeg) * measureAxis;
+            }
+
+            // 2. 根據 Collider 類型計算投影寬度
             Transform t = _col.transform;
             Vector3 s = t.lossyScale;
 
-            switch (_col)
+            // 注意：我們是在 Local Space 或 World Space 投影到 measureAxis 上
+            // 為了簡單且精確，我們直接拿 World Points (Prefab狀態) 投影到 MeasureAxis
+
+            if (_col is CircleCollider2D circle)
             {
-                case CircleCollider2D c:
-                    diameter = 2f * c.radius * Mathf.Max(Mathf.Abs(s.x), Mathf.Abs(s.y));
-                    return true;
-
-                case BoxCollider2D b:
-                    Vector2 size = b.size;
-                    bool horiz = Mathf.Abs(n.x) > Mathf.Abs(n.y);
-                    diameter = horiz ? size.y * Mathf.Abs(s.y) : size.x * Mathf.Abs(s.x);
-                    return true;
-
-                case CapsuleCollider2D cap:
-                    Vector2 cs = cap.size;
-                    diameter = (cap.direction == CapsuleDirection2D.Horizontal)
-                        ? cs.y * Mathf.Abs(s.y)
-                        : cs.x * Mathf.Abs(s.x);
-                    return true;
-
-                case PolygonCollider2D poly:
-                    var pts = poly.points;
-                    if (pts == null || pts.Length == 0) return false;
-                    float minProj = float.PositiveInfinity, maxProj = float.NegativeInfinity;
-                    for (int i = 0; i < pts.Length; i++)
-                    {
-                        Vector2 wp = t.TransformPoint(pts[i]);
-                        float proj = wp.x * n.x + wp.y * n.y;
-                        if (proj < minProj) minProj = proj;
-                        if (proj > maxProj) maxProj = proj;
-                    }
-                    diameter = Mathf.Max(0f, maxProj - minProj);
-                    return diameter > 0f;
-
-                default:
-                    var bnd = _col.bounds;
-                    var ext = bnd.extents;
-                    float r = ext.x * n.x + ext.y * n.y;
-                    diameter = Mathf.Max(0f, 2f * r);
-                    return diameter > 0f;
+                // 圓形：半徑 * 縮放 * 2
+                // 取 X/Y 縮放中較大者 (保守估計)
+                float maxScale = Mathf.Max(Mathf.Abs(s.x), Mathf.Abs(s.y));
+                diameter = 2f * circle.radius * maxScale;
+                return true;
             }
+            else if (_col is BoxCollider2D box)
+            {
+                // 矩形：投影四個角
+                Vector2 size = box.size;
+                Vector2 offset = box.offset;
+
+                // 建立四個角的 Local 座標
+                Vector2[] corners = new Vector2[4];
+                corners[0] = offset + new Vector2(-size.x, -size.y) * 0.5f;
+                corners[1] = offset + new Vector2(size.x, -size.y) * 0.5f;
+                corners[2] = offset + new Vector2(size.x, size.y) * 0.5f;
+                corners[3] = offset + new Vector2(-size.x, size.y) * 0.5f;
+
+                return CalculateProjectionWidth(corners, t, measureAxis, out diameter);
+            }
+            else if (_col is PolygonCollider2D poly)
+            {
+                // 多邊形：投影所有點
+                return CalculateProjectionWidth(poly.points, t, measureAxis, out diameter);
+            }
+            else if (_col is CapsuleCollider2D cap)
+            {
+                // 膠囊：簡化為 Box 處理
+                Vector2 size = cap.size;
+                float w = (cap.direction == CapsuleDirection2D.Horizontal) ? size.y : size.x;
+                // 乘上對應軸的 scale
+                float axisScale = (cap.direction == CapsuleDirection2D.Horizontal) ? Mathf.Abs(s.y) : Mathf.Abs(s.x);
+                diameter = w * axisScale;
+                return true;
+            }
+
+            // Fallback: 使用 Bounds (最不準，但總比沒有好)
+            // 投影 Bounds 的四個角
+            var b = _col.bounds;
+            Vector3 min = b.min;
+            Vector3 max = b.max;
+            Vector2[] bCorners = new Vector2[]
+            {
+                new Vector2(min.x, min.y), new Vector2(max.x, min.y),
+                new Vector2(max.x, max.y), new Vector2(min.x, max.y)
+            };
+
+            // Bounds 已經是 World Space，所以 transform 傳 null (代表不需再轉 Local->World)
+            return CalculateProjectionWidth(bCorners, null, measureAxis, out diameter);
         }
+        // --- 核心運算：投影點集到軸上求寬度 ---
+        private bool CalculateProjectionWidth(Vector2[] points, Transform pointSpace, Vector2 axis, out float width)
+        {
+            if (points == null || points.Length == 0)
+            {
+                width = 0f;
+                return false;
+            }
+
+            float minProj = float.PositiveInfinity;
+            float maxProj = float.NegativeInfinity;
+
+            for (int i = 0; i < points.Length; i++)
+            {
+                // 1. 轉成世界座標 (如果有點空間)
+                Vector2 worldPt = (pointSpace != null) ? (Vector2)pointSpace.TransformPoint(points[i]) : points[i];
+
+                // 2. 投影到測量軸 (Dot Product)
+                float proj = Vector2.Dot(worldPt, axis);
+
+                if (proj < minProj) minProj = proj;
+                if (proj > maxProj) maxProj = proj;
+            }
+
+            width = Mathf.Max(0f, maxProj - minProj);
+            return width > 0f;
+        }
+        #endregion
 
 #if UNITY_EDITOR
         void OnDrawGizmosSelected()
         {
-            //  修正：如果自己身上沒有，就去子物件找
             if (!_col) _col = GetComponent<Collider2D>();
-            if (!_col) _col = GetComponentInChildren<Collider2D>();
-            Gizmos.color = new Color(1f, 0.6f, 0.1f, 0.5f);
-            if (_col) Gizmos.DrawWireCube(_col.bounds.center, _col.bounds.size);
-
-            Gizmos.color = Color.cyan;
-            var tip = (Vector3)Direction.normalized * 0.6f;
-            Gizmos.DrawLine(transform.position, transform.position + tip);
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawLine(transform.position, transform.position + (Vector3)_dir * 0.5f);
         }
 #endif
     }

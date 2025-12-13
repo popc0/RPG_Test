@@ -87,7 +87,7 @@ GameObject:
   - component: {fileID: 396901627743371384}
   m_Layer: 0
   m_Name: Feet_Scaler
-  m_TagString: Player
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -630,6 +630,38 @@ MonoBehaviour:
   attack: {fileID: 4310761020611396234, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
   attack2: {fileID: 154307831872007348, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
   switchSkillGroup: {fileID: 7478728349189276307, guid: 62d1fb7c96e67cc45974cc15acd93205, type: 3}
+--- !u!1 &1826724212094015366
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 870906902970889052}
+  m_Layer: 0
+  m_Name: Parent2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &870906902970889052
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1826724212094015366}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2810386751599377087}
+  m_Father: {fileID: 6648747158502526269}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2433672989429476946
 GameObject:
   m_ObjectHideFlags: 0
@@ -828,7 +860,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 6429690710870235819}
+  m_Father: {fileID: 8544624115269636827}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &4187496549326067859
 MeshFilter:
@@ -986,7 +1018,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 6648747158502526269}
+  m_Father: {fileID: 870906902970889052}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &2358044710608633699
 MeshFilter:
@@ -1186,7 +1218,7 @@ GameObject:
   - component: {fileID: 4617053060649094948}
   m_Layer: 10
   m_Name: Hitbox_Scaler
-  m_TagString: Player
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1405,7 +1437,7 @@ GameObject:
   - component: {fileID: 68597433289834598}
   m_Layer: 10
   m_Name: Body
-  m_TagString: Player
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1878,6 +1910,38 @@ PolygonCollider2D:
       - {x: 0.026855469, y: -0.49804688}
       - {x: 0.03466797, y: -0.4975586}
   m_UseDelaunayMesh: 0
+--- !u!1 &6852388012579471495
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8544624115269636827}
+  m_Layer: 0
+  m_Name: Parent1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8544624115269636827
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6852388012579471495}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6351890704771529437}
+  m_Father: {fileID: 6429690710870235819}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8083622240290383298
 GameObject:
   m_ObjectHideFlags: 0
@@ -1907,7 +1971,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6351890704771529437}
+  - {fileID: 8544624115269636827}
   - {fileID: 2868646844584510963}
   - {fileID: 7234166204317677991}
   m_Father: {fileID: 5211986859676481243}
@@ -1967,6 +2031,7 @@ MonoBehaviour:
   playerStats: {fileID: 7017005957277385581}
   aimSource: {fileID: 6127803504258366139}
   executor: {fileID: 5733872817715440219}
+  feetPoint: {fileID: 396901627743371384}
   fixedNormalSkill: {fileID: 0}
   fixedUltimateSkill: {fileID: 0}
   skillGroups:
@@ -1995,10 +2060,13 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 65536
+  squashRoot1: {fileID: 8544624115269636827}
   meshFilter1: {fileID: 4187496549326067859}
   meshRenderer1: {fileID: 3638761911481628247}
+  squashRoot2: {fileID: 870906902970889052}
   meshFilter2: {fileID: 2358044710608633699}
   meshRenderer2: {fileID: 1732348370070361750}
+  measurePosition: {x: 0, y: -100, z: 0}
   circleSegments: 48
 --- !u!114 &6127803504258366139
 MonoBehaviour:
@@ -2477,7 +2545,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2810386751599377087}
+  - {fileID: 870906902970889052}
   - {fileID: 4651629795302107770}
   - {fileID: 9717687279474923}
   m_Father: {fileID: 5211986859676481243}
@@ -2497,7 +2565,7 @@ GameObject:
   - component: {fileID: 5186099480265635219}
   m_Layer: 0
   m_Name: Feet
-  m_TagString: Player
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

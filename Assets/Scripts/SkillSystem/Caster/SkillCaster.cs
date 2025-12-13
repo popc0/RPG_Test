@@ -29,6 +29,10 @@ namespace RPG
         [Header("執行者 (請拖曳上面的 SkillExecutor)")]
         public SkillExecutor executor;
 
+        // ★ 新增：腳底位置參考 (如果沒設，會自動嘗試找)
+        [Header("位置錨點")]
+        public Transform feetPoint;
+
         // ============================================================
         // 1. 數據 (Data) - 這些絕對不能動，因為 SaveManager 會讀寫它們
         // ============================================================
@@ -177,25 +181,27 @@ namespace RPG
                 ApplyStatusEffects(rootData.ActingStatusEffects);
 
             // [Snapshot] 鎖定位置與方向
-            Vector3 finalOrigin = GetCurrentFirePoint();
+            // [Snapshot] 鎖定位置與方向
+            // ★ 修改：傳入 Prefab (如果有) 以決定初始錨點
+            Vector3 finalOrigin = GetCurrentOrigin(rootData.ProjectilePrefab);
             Vector2 finalDir = GetCurrentAimDir();
 
             // 定義發射函式
             void ExecuteShot(SkillData data, SkillComputed comp)
             {
-                // A. 判斷是否要更新「施放點」 (跟隨角色移動)
+                // A. 判斷是否要更新「施放點」
                 if (rootData.TrackFirePoint)
                 {
-                    finalOrigin = GetCurrentFirePoint();
+                    // ★ 修改：即時更新時，也要根據該技能 Prefab 的設定來抓點
+                    finalOrigin = GetCurrentOrigin(data.ProjectilePrefab);
                 }
 
-                // B. 判斷是否要更新「瞄準方向」 (跟隨準星旋轉)
+                // B. 判斷是否要更新「瞄準方向」
                 if (rootData.TrackAimDirection)
                 {
                     finalDir = GetCurrentAimDir();
                 }
 
-                // 執行發射
                 if (executor) executor.ExecuteSkill(data, comp, finalOrigin, finalDir);
             }
 
@@ -388,16 +394,59 @@ namespace RPG
         private void RefreshGroupNames() { if (skillGroups == null) return; for (int i = 0; i < skillGroups.Count; i++) skillGroups[i].groupName = $"技能組 {i + 1}"; }
         void TryAutoBindHud() { if (hudSkillStats) { _hudAutoBound = true; return; } hudSkillStats = FindObjectOfType<HUDSkillStats>(); if (hudSkillStats) { _hudAutoBound = true; NotifyHudSkillGroupChanged(); } }
         void EnsureOwnerAndFirePoint() { if (!owner) owner = transform; }
-        void OnValidate() { EnsureOwnerAndFirePoint(); }
+        void OnValidate() 
+        {
+            EnsureOwnerAndFirePoint();
+            // ★ 自動找 Feet
+            if (feetPoint == null)
+            {
+                // 嘗試找名為 "Feet", "Foot", "Ground" 的子物件，或者如果有掛 Collider2D 且不是 Trigger 的通常是腳
+                // 這裡簡單實作：找不到就用 owner (root)
+                feetPoint = transform;
+            }
+        }
 
         // ★ 輔助方法 (如果還沒加的話記得加上)
-        Vector3 GetCurrentFirePoint()
+        // ============================================================
+        // ★ 新增/修改：取得發射點的邏輯
+        // ============================================================
+
+        /// <summary>
+        /// 根據投射物 Prefab 的設定 (Body vs Feet) 決定生成點
+        /// </summary>
+        public Vector3 GetCurrentOrigin(ProjectileBase prefab)
         {
-            // 這裡會去抓 SkillExecutor 上面的 FirePoint (通常掛在角色手上或槍口)
-            // 如果角色移動了，這個座標自然會變
-            if (executor && executor.firePoint) return executor.firePoint.position;
-            return transform.position;
+            // 預設用 Body (FirePoint)
+            SpawnAnchorType anchor = SpawnAnchorType.Body;
+
+            // 如果有 Prefab，就問它的設定
+            if (prefab != null)
+            {
+                anchor = prefab.AnchorType;
+            }
+
+            return GetAnchorPosition(anchor);
         }
+
+        /// <summary>
+        /// 取得指定類型的座標 (公開給 AimPreview2D 用)
+        /// </summary>
+        public Vector3 GetAnchorPosition(SpawnAnchorType type)
+        {
+            if (type == SpawnAnchorType.Feet && feetPoint != null)
+            {
+                return feetPoint.position;
+            }
+            else
+            {
+                // Body: 優先用 executor 的 firePoint，沒有就用 transform
+                if (executor && executor.firePoint) return executor.firePoint.position;
+                return transform.position;
+            }
+        }
+
+        // 舊方法 (為了相容性可保留，或改為呼叫上面)
+        Vector3 GetCurrentFirePoint() => GetAnchorPosition(SpawnAnchorType.Body);
 
         Vector2 GetCurrentAimDir()
         {

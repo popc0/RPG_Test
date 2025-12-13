@@ -62,13 +62,13 @@ MonoBehaviour:
   ActingStatusEffects: []
   UseRecoveryStatus: 0
   RecoveryStatusEffects: []
-  UseProjectile: 1
-  ProjectilePrefab: {fileID: 8811415750702046901, guid: 2e4bed4a9279fd740940639703995b5f, type: 3}
+  ProjectilePrefab: {fileID: 2671298764272197432, guid: 944a30b2e4324a3419aacf4ffe59cb3e, type: 3}
   ProjectileSpeed: 15
   IsPiercing: 1
-  ProjectileDuration: 0.4
+  MaxDuration: 0.4
+  SwingDirection: 1
   sequence:
   - delay: 0.2
-    skill: {fileID: 11400000, guid: bac91bd43c4db3e4eafc97563822027e, type: 2}
+    skill: {fileID: 11400000}
   - delay: 0.2
-    skill: {fileID: 11400000, guid: bac91bd43c4db3e4eafc97563822027e, type: 2}
+    skill: {fileID: 11400000}

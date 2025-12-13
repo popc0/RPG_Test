@@ -1,243 +1,102 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System.Collections;
-using RPG; // ¤Ş¥Î±zªº©R¦WªÅ¶¡
+using RPG;
 
 namespace RPG
 {
-    /// <summary>
-    /// ­t³d§Ş¯àªº¡uª«²z°õ¦æ¡v»P¡uµøÄ±ªí²{¡v¡C
-    /// ±µ¨ü SkillCaster ªº©R¥O¡A°õ¦æ¨ãÅéªºµo®g¡B§P©w»P¯S®Ä¡C
-    /// </summary>
     public class SkillExecutor : MonoBehaviour
     {
-        [Header("¦ì¸m»Pª«²z³]©w")]
-        public Transform owner;      // ½Öµo®gªº (³q±`¬O Player)
-        public Transform firePoint;  // µo®gÂI (ºj¤f/¤â³¡)
+        [Header("ä½ç½®èˆ‡ç‰©ç†è¨­å®š")]
+        public Transform owner;
+        public Transform firePoint;
 
-        [Header("§P©w¼h¯Å")]
-        public LayerMask enemyMask = 0;    // §ğÀ»¥Ø¼Ğ (©Çª«)
-        public LayerMask allyMask = 0;     // ¤Í¤è¥Ø¼Ğ (ª±®a/¶¤¤Í) -> ¡¹ ·s¼W
-        public LayerMask obstacleMask = 0; // »ÙÃªª« (Àğ¾À)
-        [SerializeField] private float spawnInset = 0.05f; // ¥Í¦¨§ë®gª«ªº·L°¾²¾
+        [Header("åˆ¤å®šå±¤ç´š")]
+        public LayerMask enemyMask = 0;
+        public LayerMask allyMask = 0;
+        public LayerMask obstacleMask = 0;
+        [SerializeField] private float spawnInset = 0.05f;
 
-        // ½T«O¦³ Owner »P FirePoint
         void Awake()
         {
             if (!owner) owner = transform;
             if (!firePoint) firePoint = owner;
         }
 
-        // ============================================================
-        //  ¤½¶}¤¶­±¡GSkillCaster ©I¥s³o­Ó¤èªk
-        // ============================================================
         public void ExecuteSkill(SkillData data, SkillComputed comp, Vector3 origin, Vector2 aimDir)
         {
             if (!data) return;
 
-            // ¡¹ ·s¼W¡G¦pªG¬O¹ï¦Û¤v (Self)¡Aª½±µ§@¥Î¡A¤£¨«ª«²z§ë®g
             if (data.Target == TargetType.Self)
             {
                 ApplyToSelf(data, comp);
                 return;
             }
 
-            // ½T«O¤è¦V¥¿½T (¨¾§b)
             if (aimDir.sqrMagnitude < 0.0001f) aimDir = Vector2.right;
             aimDir.Normalize();
 
-            // ¡¹ ÃöÁä¡G®Ú¾Ú Target Ãş«¬¨M©w­n¥´­ş¤@¼h
             LayerMask targetMask = (data.Target == TargetType.Ally) ? allyMask : enemyMask;
 
-            // ®Ú¾ÚÃş«¬¤À¬£¤u§@
-            switch (data.HitType)
-            {
-                case HitType.Area:
-                    DoArea2D(data, comp, origin, aimDir, targetMask); // ¶Ç¤J mask
-                    break;
-                case HitType.Cone:
-                    DoCone2D(data, comp, origin, aimDir, targetMask); // ¶Ç¤J mask
-                    break;
-                case HitType.Single:
-                default:
-                    DoSingle2D(data, comp, origin, aimDir, targetMask); // ¶Ç¤J mask
-                    break;
-            }
+            Vector3 spawnPos = CalculateSpawnPosition(data, origin, aimDir);
+            SpawnProjectile(data, comp, spawnPos, aimDir, targetMask);
         }
 
-        // --- ·s¼W¡G¦Û§Ú¬IªkÅŞ¿è ---
-        void ApplyToSelf(SkillData data, SkillComputed comp)
+        Vector3 CalculateSpawnPosition(SkillData data, Vector3 origin, Vector2 dir)
         {
-            // ¹Á¸Õ±q owner ¨­¤W§ä EffectApplier
-            // ³o¸Ì°²³] owner ¥»¨­´N¬O¨üÀ»¥DÅé¡A©ÎªÌ§A¥i¥H¥Î GetComponentInChildren §ä Body
-            var target = owner.GetComponent<EffectApplier>();
-            if (!target) target = owner.GetComponentInChildren<EffectApplier>();
-
-            if (target)
+            if (data.HitType == HitType.Area)
             {
-                // ª½±µ©I¥s ImpactResolver ©Î EffectApplier
-                // ª`·N¡G³o¸Ì°²³] ApplyIncomingRaw ¥]§tªvÀøÅŞ¿è (¦pªG¬O­t¶Ë®`) 
-                // ©ÎªÌ§A»İ­nÂX¥R EffectApplier ¨Ó¤ä´© Heal
-                target.ApplyIncomingRaw(comp.Damage);
-            }
-        }
-        // ============================================================
-        //  ¤º³¡ª«²zÅŞ¿è (±q­ì SkillCaster ·h¹L¨Óªº)
-        // ============================================================
-
-        // --- ­×§ï DoSingle2D ±µ¦¬ targetMask ---
-        void DoSingle2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
-        {
-            if (data.ProjectilePrefab != null)
-            {
-                // ¥Í¦¨§ë®gª«
-                var spawnPos = origin + (Vector3)(dir * spawnInset);
-                GameObject obj;
-
-                // ¤ä´© ObjectPool
-                if (ObjectPool.Instance != null)
-                    obj = ObjectPool.Instance.Spawn(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
-                else
-                    obj = Instantiate(data.ProjectilePrefab.gameObject, spawnPos, Quaternion.identity);
-
-                var proj = obj.GetComponent<Projectile2D>();
-                // ¡¹ ¶Ç¤J targetMask §@¬° enemyMask
-                if (proj) proj.Init(owner, dir, data, comp, targetMask, obstacleMask);
+                float visualDist = PerspectiveUtils.PhysicalToVisualDistance(data.BaseRange, dir);
+                RaycastHit2D hit = Physics2D.Raycast(origin, dir, visualDist, obstacleMask);
+                float dist = (hit.collider != null) ? hit.distance : visualDist;
+                return origin + (Vector3)(dir * Mathf.Max(0f, dist));
             }
             else
             {
-                // ¥ß§Y®g½u (Hitscan)
-                DoSingle2D_LegacyRay(data, comp, origin, dir, targetMask);
+                return origin + (Vector3)(dir * spawnInset);
             }
         }
 
-        // --- ­×§ï Raycast ±µ¦¬ targetMask ---
+        void SpawnProjectile(SkillData data, SkillComputed comp, Vector3 pos, Vector2 dir, LayerMask targetMask)
+        {
+            if (data.ProjectilePrefab == null)
+            {
+                // ä¿ç•™é€™å”¯ä¸€çš„ Legacy ç”¨æ³•çµ¦æ²’æœ‰ Prefab çš„æŠ€èƒ½ (Hitscan)
+                if (data.HitType == HitType.Single) DoSingle2D_LegacyRay(data, comp, pos, dir, targetMask);
+                return;
+            }
+
+            GameObject obj;
+            if (ObjectPool.Instance != null)
+                obj = ObjectPool.Instance.Spawn(data.ProjectilePrefab.gameObject, pos, Quaternion.identity);
+            else
+                obj = Instantiate(data.ProjectilePrefab.gameObject, pos, Quaternion.identity);
+
+            var proj = obj.GetComponent<ProjectileBase>();
+            if (proj)
+            {
+                proj.Init(owner, dir, data, comp, targetMask, obstacleMask);
+            }
+        }
+
+        void ApplyToSelf(SkillData data, SkillComputed comp)
+        {
+            var target = owner.GetComponent<EffectApplier>();
+            if (!target) target = owner.GetComponentInChildren<EffectApplier>();
+            if (target) target.ApplyIncomingRaw(comp.Damage);
+        }
+
+        // é€™æ˜¯å”¯ä¸€ä¿ç•™çš„èˆŠé‚è¼¯ (çµ¦æ²’ Prefab çš„ç¬ç™¼æŠ€èƒ½ç”¨)
         void DoSingle2D_LegacyRay(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
         {
             float dist = Mathf.Max(0.1f, data.BaseRange);
-            // ¡¹ ¨Ï¥Î targetMask
             RaycastHit2D hit = Physics2D.Raycast(origin, dir, dist, targetMask | obstacleMask);
-
-            Vector3 endPos = origin + (Vector3)(dir * dist);
-
             if (hit.collider != null)
             {
-                endPos = hit.point;
-                // ¹Á¸Õ¨ú±o¨üÀ»ªÌ¨Ã¦©¦å
                 if (EffectApplier.TryResolveOwner(hit.collider, out var target, out var layer))
                 {
-                    if (data.TargetLayer == layer)
-                        target.ApplyIncomingRaw(comp.Damage);
+                    if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
                 }
             }
-        }
-
-        // --- ­×§ï DoArea2D ±µ¦¬ targetMask ---
-        void DoArea2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
-        {
-            // 1. ­pºâ¤¤¤ßÂI (µøÄ±¤Wªº²×ÂI)
-            // ¦]¬°²¾°Ê¦³³zµø¡A©Ò¥H®gµ{¤]­n¸g¹L³zµø´«ºâ
-            float visualDist = PerspectiveUtils.PhysicalToVisualDistance(data.BaseRange, dir);
-            Vector2 center = (Vector2)origin + dir * Mathf.Max(0.1f, visualDist);
-
-            // 2. ª«²z½d³ò¥b®|
-            float r = Mathf.Max(0.05f, comp.AreaRadius);
-
-            // 3. ²Ä¤@¶¥¬q¡GUnity ª«²zÀË´ú (§ì¤@­Ó¨¬°÷¤jªº¥¿¶ê¡A¥]§t«ó¶ê§Î)
-            // ¦]¬°«ó¶ê§Îªº¼e«×¬O 1.0 (¥¼ÁY©ñ)¡A©Ò¥H¥Î­ì©l¥b®|¥h§ì¤@©w§ì±o¨ì
-            // ¡¹ ¨Ï¥Î targetMask
-            Collider2D[] hits = Physics2D.OverlapCircleAll(center, r, targetMask);
-
-            foreach (var h in hits)
-            {
-                // 4. ²Ä¤G¶¥¬q¡G³zµø¹LÂo (Narrow Phase)
-                if (CheckHitAreaPerspective(center, h.bounds.center, r))
-                {
-                    // ©R¤¤¡I
-                    if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
-                        if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
-                }
-            }
-
-            // (¥i¿ï) ³o¸Ì¥i¥H¥Í¦¨¤@­ÓµøÄ±¯S®Ä¡A°O±o³]©w scale ¬° (1, 0.5, 1)
-            SpawnAreaVFX(center, r);
-        }
-
-        // --- ­×§ï DoCone2D ±µ¦¬ targetMask ---
-        void DoCone2D(SkillData data, SkillComputed comp, Vector3 origin, Vector2 dir, LayerMask targetMask)
-        {
-            float dist = Mathf.Max(0.1f, data.BaseRange);
-            float angle = comp.ConeAngle;
-
-            // ¡¹ ¨Ï¥Î targetMask
-            Collider2D[] hits = Physics2D.OverlapCircleAll(origin, dist, targetMask);
-
-            foreach (var h in hits)
-            {
-                if (h.transform == owner || h.transform.IsChildOf(owner)) continue;
-
-                // 2. ²Ä¤G¶¥¬q¡G³zµø¹LÂo
-                if (CheckHitConePerspective(origin, dir, h.bounds.center, dist, angle))
-                {
-                    if (EffectApplier.TryResolveOwner(h, out var target, out var layer))
-                        if (data.TargetLayer == layer) target.ApplyIncomingRaw(comp.Damage);
-                }
-            }
-        }
-        // ============================================================
-        // ¡¹ ®Ö¤ß¼Æ¾Ç¡G³zµø§P©wºtºâªk
-        // ============================================================
-
-        /// <summary>
-        /// ÀË¬d¥Ø¼Ğ¬O§_¦b¡uÀ£«óªº¶ê§Î (¾ò¶ê)¡v¤º
-        /// </summary>
-        bool CheckHitAreaPerspective(Vector2 center, Vector2 targetPos, float radius)
-        {
-            Vector2 diff = targetPos - center;
-
-            // °f¦V¤uµ{¡G§âµe­±¤Wªº¶ZÂ÷¡uÁÙ­ì¡v¦¨ª«²z¶ZÂ÷
-            // ¨Ò¦p¡GY ¶b®t¤F 0.5 (µe­±)¡A°£¥H Scale.y (0.5) = 1.0 (ª«²z)
-            // ³o¼Ë´Nµ¥©ó§â¾ò¶ê©Ô¦^¦¨¥¿¶ê¨Ó¤ñ¸û
-            float physicalX = diff.x / PerspectiveUtils.GlobalScale.x;
-            float physicalY = diff.y / PerspectiveUtils.GlobalScale.y;
-
-            // ­pºâÁÙ­ì«áªº¶ZÂ÷¥­¤è
-            float sqrDist = (physicalX * physicalX) + (physicalY * physicalY);
-
-            // ¤ñ¸û¥b®|¥­¤è
-            return sqrDist <= (radius * radius);
-        }
-
-        /// <summary>
-        /// ÀË¬d¥Ø¼Ğ¬O§_¦b¡uÀ£«óªº®°§Î¡v¤º
-        /// </summary>
-        bool CheckHitConePerspective(Vector2 origin, Vector2 aimDir, Vector2 targetPos, float range, float angle)
-        {
-            // 1. ÁÙ­ì¥Ø¼Ğ¦V¶q
-            Vector2 diff = targetPos - origin;
-            Vector2 physicalDiff = new Vector2(
-                diff.x / PerspectiveUtils.GlobalScale.x,
-                diff.y / PerspectiveUtils.GlobalScale.y
-            );
-
-            // 2. ÀË¬d¶ZÂ÷ (ª«²z¶ZÂ÷)
-            if (physicalDiff.magnitude > range) return false;
-
-            // 3. ÁÙ­ìºË·Ç¤è¦V (³o«Ü­«­n¡I­ì¥» (1, 0.5) ªº¤è¦V¨ä¹ê¥Nªí 45 «×)
-            Vector2 physicalAim = new Vector2(
-                aimDir.x / PerspectiveUtils.GlobalScale.x,
-                aimDir.y / PerspectiveUtils.GlobalScale.y
-            ).normalized;
-
-            // 4. ÀË¬d¨¤«×
-            float angleToTarget = Vector2.Angle(physicalAim, physicalDiff);
-            return angleToTarget <= angle * 0.5f;
-        }
-
-        // Â²³æªº¯S®Ä¥Í¦¨½d¨Ò
-        void SpawnAreaVFX(Vector3 pos, float radius)
-        {
-            // ¦pªG§A¦³¯S®Ä Prefab¡A¥i¥H¦b³o¸Ì Instantiate
-            // ­«ÂI¡Gobj.transform.localScale = new Vector3(radius, radius * 0.5f, 1f);
         }
     }
 }

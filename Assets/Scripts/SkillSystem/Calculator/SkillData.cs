@@ -16,6 +16,22 @@ namespace RPG
     public class SkillData : ScriptableObject
     {
         // ============================================================
+        // ★ 初始化 (Reset)
+        // ============================================================
+        void Reset()
+        {
+            SkillName = "New Skill";
+
+            //  設定為 0 (特殊號碼)
+            // 代表這個技能是剛新增的，尚未分配正式流水號
+            // 這樣絕對不會跟現有的 (1~999999) 衝突
+            familySerial = 0;
+
+            // 更新 ID 字串 (會變成 "N01000000")
+            OnValidate();
+        }
+
+        // ============================================================
         // 1. 識別 (Identity)
         // ============================================================
         // [HideInInspector] // 這些交給 Editor 顯示
@@ -117,12 +133,19 @@ namespace RPG
         // ============================================================
         // 4. 投射物 (Projectile)
         // ============================================================
-        public bool UseProjectile = false;
-        public  Projectile2D ProjectilePrefab;
-        public float ProjectileSpeed = 15f;
-        public bool IsPiercing = false; 
-        public float ProjectileDuration; // 顯示在 Inspector 給你看
+        [Header("投射物設定")]
+        // ★ 修改：原本是 Projectile2D，請改成 ProjectileBase
+        public ProjectileBase ProjectilePrefab;
 
+        [Tooltip("速度。\nSingle: 米/秒\nCone: 度/秒\nArea: 無效(0)")]
+        public float ProjectileSpeed = 15f;
+
+        public bool IsPiercing = false;
+
+        [Tooltip("存活時間 (秒)。\nSingle/Cone: 自動計算 (唯讀)\nArea: 手動設定")]
+        public float MaxDuration = 5f; // 統一使用這個變數
+
+        public SwingDir SwingDirection = SwingDir.LeftToRight;
         // ============================================================
         // 5. 排程 (Sequence)
         // ============================================================
@@ -138,14 +161,29 @@ namespace RPG
             if (type == SkillType.Passive) typeCode = "P";
             skillID = $"{typeCode}{rank:D2}{familySerial:D6}";
 
-            // ★ 新增：自動計算飛行時間
             if (ProjectileSpeed > 0f)
             {
-                ProjectileDuration = BaseRange / ProjectileSpeed;
+                if (HitType == HitType.Cone)
+                {
+                    // Cone: 時間 = 總角度 / 旋轉速度
+                    MaxDuration = BaseConeAngle / Mathf.Max(1f, ProjectileSpeed);
+                }
+                else if (HitType == HitType.Single)
+                {
+                    // Single: 時間 = 射程 / 飛行速度
+                    MaxDuration = BaseRange / Mathf.Max(0.1f, ProjectileSpeed);
+                }
+                // Area: 不動，保留手動設定的值
             }
             else
             {
-                ProjectileDuration = 0f;
+                // 如果速度是 0 (例如 Area)，且 MaxDuration 過小，給個預設值防呆
+                // 但通常 Area 是手動設，所以這裡可以不強制歸零，或者只在非 Area 時歸零
+                if (HitType != HitType.Area && HitType != HitType.Single)
+                {
+                    // 注意：Single 如果速度設 0 (Hitscan) 可能需要特殊處理，這裡假設 Single 都有速度
+                    // 如果你想做 Hitscan，MaxDuration 就不重要
+                }
             }
         }
 
